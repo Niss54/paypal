@@ -120,3 +120,25 @@ tests/telemetry/test_nasa_scada_opcua.py .....................           [100%]
 | **Code Completeness** | Full FastAPI backend + Next.js 16.2.11 UI (App Router) | **VERIFIED ✅** |
 | **Test Rigor** | **126 core pytest cases / 392 total checks passing** | **VERIFIED ✅** |
 | **Live Demonstration** | [kinetix-rag.vercel.app](https://au-rag.vercel.app) + [YouTube Demo Video](https://youtu.be/FnFD2-CyXWE?si=5BlxmN8R16615zJq) | **VERIFIED ✅** |
+
+
+---
+
+## 💳 4. PayPal AI Hackathon 2026 Evaluation Fast-Track (KinetixPay)
+
+> **Submission Track**: Best Use of Agentic Commerce ($5,000 Special Prize)  
+> **Key Docs**: [`docs/PAYPAL_AI_HACKATHON_PRD.md`](./docs/PAYPAL_AI_HACKATHON_PRD.md) | [`docs/PAYPAL_DEMO_SCRIPT.md`](./docs/PAYPAL_DEMO_SCRIPT.md)
+
+### ⚡ 1-Click PayPal Agentic Commerce Demo:
+1. Open [**`http://localhost:3000/machine-money`**](http://localhost:3000/machine-money).
+2. Locate the top banner: **"PayPal Enterprise Agentic Commerce — KinetixPay"**.
+3. Under **Scenario Presets**, click **"1. Critical Excursion ($450)"** or **"Run Autonomous Swarm Consensus"**.
+4. Observe the **4-Agent Swarm** converge in under 1.5 seconds:
+   - **`SensorProbe-01`**: Confirms thermal excursion (+0.70°C/min runaway).
+   - **`PharmGraph-02`**: Enforces USP <1079> formulation stability window (28.5 min for Trastuzumab, $1.4M cargo value).
+   - **`Auctioneer-03`**: Evaluates 3 depots and awards to Chicago Emergency Bio-Vault (18m SLA, $450 USD).
+   - **`PayPalGovernor-04`**: Executes live **PayPal Payouts REST API** call (`POST /v1/payments/payouts`), returns live Sandbox Batch ID (`5X93...`), and generates **`GL-6410` ERP Net-30 Reconciliation** with 3,111x ROI.
+5. Test other scenarios:
+   - **"2. Policy Escalation (> $1k)"**: Quote ($1,450) exceeds $1,000 policy cap -> safely held in `PENDING_APPROVAL` for human lead sign-off.
+   - **"3. Multi-Party Split ($300 + $150)"**: Disburses split payment to Mobile Mechanic ($300) and Dry Ice Supplier ($150) in a single batch.
+   - **"4. Degradation & Retry"**: Graceful fail-closed recovery with zero unverified debits.

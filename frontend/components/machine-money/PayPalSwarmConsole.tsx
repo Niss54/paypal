@@ -44,6 +44,7 @@ export function PayPalSwarmConsole({ className = "" }: PayPalSwarmConsoleProps) 
   const [swarmResult, setSwarmResult] = useState<ColdChainSwarmAuctionResponse | null>(null);
   const [policyCap, setPolicyCap] = useState<number>(1000.0);
   const [excursionStep, setExcursionStep] = useState<number>(4);
+  const [selectedScenario, setSelectedScenario] = useState<string>("CRITICAL_EXCURSION");
   const [copiedBatch, setCopiedBatch] = useState(false);
   const [copiedProof, setCopiedProof] = useState(false);
   const [selectedVendorTier, setSelectedVendorTier] = useState<string>("tier1");
@@ -54,10 +55,12 @@ export function PayPalSwarmConsole({ className = "" }: PayPalSwarmConsoleProps) 
       .catch((err) => console.warn("Could not fetch PayPal config:", err));
   }, []);
 
-  const handleRunSwarm = async () => {
+  const handleRunSwarm = async (scenarioOverride?: string) => {
+    const sc = scenarioOverride || selectedScenario;
+    if (scenarioOverride) setSelectedScenario(scenarioOverride);
     setLoading(true);
     try {
-      const res = await runColdChainSwarmAuction(excursionStep, policyCap);
+      const res = await runColdChainSwarmAuction(excursionStep, policyCap, undefined, sc);
       setSwarmResult(res);
     } catch (err) {
       console.error("Swarm execution error:", err);
@@ -99,7 +102,7 @@ export function PayPalSwarmConsole({ className = "" }: PayPalSwarmConsoleProps) 
 
           <div className="flex items-center gap-2">
             <Button
-              onClick={handleRunSwarm}
+              onClick={() => handleRunSwarm()}
               disabled={loading}
               className="bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-md shadow-blue-600/20 gap-2 h-9"
             >
@@ -140,6 +143,55 @@ export function PayPalSwarmConsole({ className = "" }: PayPalSwarmConsoleProps) 
               <option value={5}>Step 5: Acute (12.4°C, Rapid Denaturation)</option>
             </select>
           </div>
+        </div>
+
+        {/* 4 Interactive Scenario Presets */}
+        <div className="mt-3 pt-3 border-t border-border/30 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground mr-1">Scenario Presets:</span>
+          
+          <Button
+            size="sm"
+            variant={selectedScenario === "CRITICAL_EXCURSION" ? "default" : "outline"}
+            onClick={() => handleRunSwarm("CRITICAL_EXCURSION")}
+            disabled={loading}
+            className={`h-7 text-xs gap-1.5 ${selectedScenario === "CRITICAL_EXCURSION" ? "bg-blue-600 hover:bg-blue-500 text-white" : ""}`}
+          >
+            <CheckCircle2 className="size-3" />
+            1. Critical Excursion ($450)
+          </Button>
+
+          <Button
+            size="sm"
+            variant={selectedScenario === "POLICY_ESCALATION" ? "default" : "outline"}
+            onClick={() => handleRunSwarm("POLICY_ESCALATION")}
+            disabled={loading}
+            className={`h-7 text-xs gap-1.5 ${selectedScenario === "POLICY_ESCALATION" ? "bg-amber-600 hover:bg-amber-500 text-white" : ""}`}
+          >
+            <AlertTriangle className="size-3" />
+            2. Policy Escalation (&gt; $1k)
+          </Button>
+
+          <Button
+            size="sm"
+            variant={selectedScenario === "MULTI_PARTY_SPLIT" ? "default" : "outline"}
+            onClick={() => handleRunSwarm("MULTI_PARTY_SPLIT")}
+            disabled={loading}
+            className={`h-7 text-xs gap-1.5 ${selectedScenario === "MULTI_PARTY_SPLIT" ? "bg-purple-600 hover:bg-purple-500 text-white" : ""}`}
+          >
+            <Layers className="size-3" />
+            3. Multi-Party Split ($300 + $150)
+          </Button>
+
+          <Button
+            size="sm"
+            variant={selectedScenario === "PROVIDER_DEGRADATION" ? "default" : "outline"}
+            onClick={() => handleRunSwarm("PROVIDER_DEGRADATION")}
+            disabled={loading}
+            className={`h-7 text-xs gap-1.5 ${selectedScenario === "PROVIDER_DEGRADATION" ? "bg-red-600 hover:bg-red-500 text-white" : ""}`}
+          >
+            <ShieldCheck className="size-3" />
+            4. Degradation &amp; Retry
+          </Button>
         </div>
       </CardHeader>
 

@@ -248,6 +248,89 @@ class PayPalProvider(LightningProvider):
         except Exception as exc:
             raise ProviderError(f"Network error executing PayPal Payout: {exc}") from exc
 
+    async def execute_batch_payout(
+        self,
+        items: List[Dict[str, Any]],
+        email_subject: str = "KinetixPay Biopharma Split Emergency Dispatch",
+        sender_batch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Execute a multi-recipient batch payout via PayPal Payouts REST API.
+        
+        Args:
+            items: List of dicts, each with keys: 'recipient', 'amount_usd', 'note', optional 'sender_item_id'
+        """
+        token = await self.get_access_token()
+        batch_id = sender_batch_id or f"kinetix-split-{uuid.uuid4().hex[:12]}"
+
+        formatted_items = []
+        total_usd = 0.0
+        for idx, it in enumerate(items):
+            amt = float(it.get("amount_usd", 0.0))
+            total_usd += amt
+            formatted_items.append({
+                "recipient_type": it.get("recipient_type", "EMAIL"),
+                "amount": {
+                    "value": f"{amt:.2f}",
+                    "currency": it.get("currency", "USD"),
+                },
+                "note": it.get("note", "BioPharma Cold-Chain Emergency Split Reimbursement"),
+                "sender_item_id": it.get("sender_item_id") or f"split-item-{idx}-{uuid.uuid4().hex[:6]}",
+                "receiver": it.get("recipient"),
+            })
+
+        payout_url = f"{self.base_url}/v1/payments/payouts"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "PayPal-Request-Id": batch_id,
+        }
+
+        payload = {
+            "sender_batch_header": {
+                "sender_batch_id": batch_id,
+                "recipient_type": "EMAIL",
+                "email_subject": email_subject,
+                "email_message": f"Autonomous biopharma multi-party emergency intervention payout (Total ${total_usd:.2f})",
+            },
+            "items": formatted_items,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                res = await client.post(payout_url, json=payload, headers=headers)
+                if res.status_code in (201, 200):
+                    data = res.json()
+                    batch_header = data.get("batch_header", {})
+                    payout_batch_id = batch_header.get("payout_batch_id", "")
+                    batch_status = batch_header.get("batch_status", "PENDING")
+
+                    logger.info(
+                        "Created PayPal Multi-Party Batch %s (%d items, status=%s, total=$%.2f)",
+                        payout_batch_id,
+                        len(formatted_items),
+                        batch_status,
+                        total_usd,
+                    )
+                    return {
+                        "success": True,
+                        "payout_batch_id": payout_batch_id,
+                        "sender_batch_id": batch_id,
+                        "batch_status": batch_status,
+                        "total_amount_usd": total_usd,
+                        "item_count": len(formatted_items),
+                        "items": formatted_items,
+                        "links": data.get("links", []),
+                        "raw_response": data,
+                    }
+                else:
+                    raise ProviderError(
+                        f"PayPal Multi-Party Payout creation failed [HTTP {res.status_code}]: {res.text[:400]}"
+                    )
+        except ProviderError:
+            raise
+        except Exception as exc:
+            raise ProviderError(f"Network error executing PayPal Multi-Party Payout: {exc}") from exc
+
     async def get_payout_batch_status(self, payout_batch_id: str) -> Dict[str, Any]:
         """Fetch real-time settlement status of a previously executed PayPal Payout batch."""
         token = await self.get_access_token()

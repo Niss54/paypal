@@ -267,6 +267,27 @@ npm run dev
 
 ---
 
+## 💳 PayPal AI Hackathon 2026: KinetixPay Agentic Commerce Engine
+
+> **Target Track**: Best Use of Agentic Commerce ($5,000 Special Prize) + Grand Prize  
+> **PRD**: [`docs/PAYPAL_AI_HACKATHON_PRD.md`](./docs/PAYPAL_AI_HACKATHON_PRD.md) | **Video Presentation Script**: [`docs/PAYPAL_DEMO_SCRIPT.md`](./docs/PAYPAL_DEMO_SCRIPT.md)
+
+KinetixPay deploys autonomous financial AI agents to safeguard temperature-sensitive biopharmaceuticals (vaccines, oncology biologics, monoclonal antibodies) against the **$35 Billion annual cold-chain spoilage crisis** (IQVIA Institute).
+
+### 🤖 4-Agent Parallel Swarm Architecture
+1. **SensorProbe-01**: Ingests IoT smart reefer telemetry, detecting compressor flutter (6.2 mm/s Zone C) and temperature drift.
+2. **PharmGraph-02**: Evaluates FDA 21 CFR § 211.150 & USP <1079> standards, calculating the critical 28.5-minute protein denaturation window for Trastuzumab ($1.4M cargo valuation).
+3. **Auctioneer-03**: Broadcasts autonomous RFQs to certified regional depots (REDN Tier-1), selecting Chicago Emergency Bio-Vault (18m SLA, Bay 4 pre-chilled, $450 USD).
+4. **PayPalGovernor-04**: Validates corporate spending policy caps ($1,000 USD), executes live **PayPal Payouts REST API** (`/v1/payments/payouts`), and generates post-payment ERP Net-30 reconciliation (`GL-6410`, `BOL-99412`, 3,111x ROI).
+
+### ⚡ 4 Live Evaluation Scenarios
+- **Scenario 1 (Critical Excursion)**: Happy-path $450 autonomous emergency dock payout.
+- **Scenario 2 (Policy Escalation)**: > $1,000 quote escalates to human fleet lead sign-off.
+- **Scenario 3 (Multi-Party Split Payout)**: $300 to Mobile Reefer Mechanic + $150 to Dry Ice Supplier.
+- **Scenario 4 (Provider Degradation & Recovery)**: Fault-tolerant retry with zero unverified debits.
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.  
