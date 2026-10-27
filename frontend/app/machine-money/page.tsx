@@ -67,6 +67,7 @@ import { VendorRFQ } from "@/components/machine-money/VendorRFQ";
 import { IndustrialEconomics } from "@/components/machine-money/IndustrialEconomics";
 import { SystemReadinessModal } from "@/components/machine-money/SystemReadinessModal";
 import { NovelBitcoinProtocol } from "@/components/machine-money/NovelBitcoinProtocol";
+import { PayPalSwarmConsole } from "@/components/machine-money/PayPalSwarmConsole";
 import type { VendorQuoteCandidate } from "@/lib/api";
 
 export default function MachineMoneyPage() {
@@ -365,6 +366,11 @@ export default function MachineMoneyPage() {
           <span>Record: NASA-IMS-T2-REC-042 (147.6h &bull; 5.42 mm/s Zone C)</span>
         </div>
       </div>
+
+      {/* --------------------------------------------------------------------- */}
+      {/* PAYPAL AI HACKATHON 2026: AGENTIC COMMERCE & COLD-CHAIN PRESERVATION   */}
+      {/* --------------------------------------------------------------------- */}
+      <PayPalSwarmConsole />
 
       {/* --------------------------------------------------------------------- */}
       {/* Judge Mode: One-Click Autonomous Settlement Pipeline & Live Timeline   */}

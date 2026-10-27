@@ -26,8 +26,14 @@ from backend.app.services.machine_money.schemas import (
     IndustrialPlantAssumptions,
     HumanApprovalEvidencePackage,
     JudgeScenarioFixture,
+    PayPalPayoutRequest,
+    PayPalPayoutResponse,
+    ColdChainSwarmAuctionResponse,
+    ERPReconciliationRecord,
 )
 from backend.app.services.machine_money.service import MachineMoneyService
+from backend.app.services.machine_money.coldchain_swarm import ColdChainSwarmOrchestrator
+from backend.app.services.machine_money.providers.paypal import PayPalProvider
 
 router = APIRouter(prefix="/machine-money", tags=["machine-money"])
 service = MachineMoneyService()
@@ -498,6 +504,78 @@ def calculate_multi_hop_route(req: RouteCalculationRequest):
         target_vendor_id=req.target_vendor_id,
         current_block_height=req.current_block_height,
     )
+
+
+# =====================================================================
+# PAYPAL ENTERPRISE AGENTIC COMMERCE & COLD-CHAIN SWARM ENDPOINTS
+# =====================================================================
+
+class SwarmAuctionRequest(BaseModel):
+    step: int = Field(default=4, description="Telemetry excursion progression step (0-6)")
+    policy_cap_usd: float = Field(default=1000.00, description="Autonomous spending policy cap in USD")
+    recipient_override: Optional[str] = Field(default=None, description="Optional override PayPal recipient email")
+
+
+@router.post("/paypal/swarm-auction", response_model=ColdChainSwarmAuctionResponse)
+async def run_cold_chain_swarm_auction(req: SwarmAuctionRequest):
+    """Execute 4-Agent Autonomous Swarm Consensus & PayPal Payout for BioPharma Cold-Chain Preservation."""
+    orchestrator = ColdChainSwarmOrchestrator()
+    return await orchestrator.execute_swarm_consensus(
+        step=req.step,
+        autonomous_policy_cap_usd=req.policy_cap_usd,
+        recipient_override=req.recipient_override,
+    )
+
+
+@router.post("/paypal/payout", response_model=PayPalPayoutResponse)
+async def execute_paypal_payout(req: PayPalPayoutRequest):
+    """Execute direct PayPal Payout to certified depot under USP <1079>."""
+    provider = PayPalProvider()
+    res = await provider.execute_payout(
+        recipient=req.recipient,
+        amount_usd=req.amount_usd,
+        note=req.note,
+        sender_item_id=req.sender_item_id,
+        sender_batch_id=req.sender_batch_id,
+        recipient_type=req.recipient_type,
+    )
+    return PayPalPayoutResponse(
+        success=res.get("success", True),
+        payout_batch_id=res.get("payout_batch_id", ""),
+        sender_batch_id=res.get("sender_batch_id", ""),
+        batch_status=res.get("batch_status", "PENDING"),
+        amount_usd=req.amount_usd,
+        recipient=req.recipient,
+        sender_item_id=req.sender_item_id,
+        links=res.get("links", []),
+        raw_response=res.get("raw_response", {}),
+    )
+
+
+@router.get("/paypal/payout/{batch_id}")
+async def get_paypal_payout_status(batch_id: str):
+    """Query real-time PayPal Payout Batch status directly from PayPal Developer Sandbox."""
+    provider = PayPalProvider()
+    return await provider.get_payout_batch_status(batch_id)
+
+
+@router.get("/paypal/config")
+async def get_paypal_config():
+    """Return active PayPal Enterprise configuration diagnostics."""
+    provider = PayPalProvider()
+    masked_client = ""
+    if provider.client_id:
+        masked_client = provider.client_id[:4] + "..." + provider.client_id[-4:]
+    return {
+        "configured": provider.is_configured,
+        "mode": provider.mode,
+        "base_url": provider.base_url,
+        "client_id_preview": masked_client,
+        "erp_gl_account": os.environ.get("PAYPAL_ERP_GL_ACCOUNT", "GL-6410"),
+        "autonomous_cap_usd": float(os.environ.get("PAYPAL_AUTONOMOUS_CAP_USD", 1000.0)),
+        "default_currency": os.environ.get("PAYPAL_DEFAULT_CURRENCY", "USD"),
+    }
+
 
 
 

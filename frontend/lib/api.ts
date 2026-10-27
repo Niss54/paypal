@@ -2533,3 +2533,97 @@ export async function predictGraphRisk(
 
 
 
+
+
+// =====================================================================
+// PAYPAL AI HACKATHON 2026: AGENTIC COMMERCE & COLD-CHAIN SWARM
+// =====================================================================
+
+export interface PayPalConfigResponse {
+  configured: boolean;
+  mode: string;
+  base_url: string;
+  client_id_preview: string;
+  erp_gl_account: string;
+  autonomous_cap_usd: number;
+  default_currency: string;
+}
+
+export interface SwarmAgentMessage {
+  agent_id: string;
+  agent_name: string;
+  role: string;
+  verdict: string;
+  confidence: number;
+  details: Record<string, any>;
+  timestamp: string;
+}
+
+export interface ERPReconciliationRecord {
+  reconciliation_id: string;
+  gl_account: string;
+  gl_account_name: string;
+  invoice_number: string;
+  bill_of_lading: string;
+  payout_batch_id: string;
+  paypal_transaction_id?: string | null;
+  recipient: string;
+  amount_usd: number;
+  tax_amount_usd: number;
+  total_usd: number;
+  erp_system: string;
+  erp_sync_status: string;
+  proof_hash: string;
+  timestamp: string;
+}
+
+export interface ColdChainSwarmAuctionResponse {
+  scenario_id: string;
+  asset_tag: string;
+  cargo_manifest: string;
+  cargo_valuation_usd: number;
+  regulatory_standard: string;
+  mkt_status: string;
+  swarm_agents: SwarmAgentMessage[];
+  rfq_candidates: VendorQuoteCandidate[];
+  selected_depot: VendorQuoteCandidate;
+  payout_result?: {
+    success: boolean;
+    payout_batch_id: string;
+    sender_batch_id: string;
+    batch_status: string;
+    amount_usd: number;
+    recipient: string;
+    links: { href: string; rel: string; method: string }[];
+  } | null;
+  reconciliation?: ERPReconciliationRecord | null;
+  elapsed_ms: number;
+}
+
+export async function getPayPalConfig(): Promise<PayPalConfigResponse> {
+  const res = await fetch(`${API_URL}/api/machine-money/paypal/config`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load PayPal config.");
+  return res.json();
+}
+
+export async function runColdChainSwarmAuction(
+  step: number = 4,
+  policyCapUsd: number = 1000.0,
+  recipientOverride?: string
+): Promise<ColdChainSwarmAuctionResponse> {
+  const res = await fetch(`${API_URL}/api/machine-money/paypal/swarm-auction`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      step,
+      policy_cap_usd: policyCapUsd,
+      recipient_override: recipientOverride,
+    }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Cold-chain swarm auction failed.");
+  }
+  return res.json();
+}

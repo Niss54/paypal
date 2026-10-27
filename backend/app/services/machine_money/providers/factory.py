@@ -9,14 +9,14 @@ from backend.app.services.machine_money.providers.base import LightningProvider
 from backend.app.services.machine_money.providers.mock import MockLightningProvider
 from backend.app.services.machine_money.providers.lnbits import LNbitsProvider
 from backend.app.services.machine_money.providers.nwc import NWCProvider
+from backend.app.services.machine_money.providers.paypal import PayPalProvider
 
 _cached_provider: Optional[LightningProvider] = None
 
 
 def get_payment_provider(force_refresh: bool = False) -> LightningProvider:
-    """Returns the instance of the configured LightningProvider.
-    Defaults to 'lnbits' for real Lightning settlement in live demos.
-    Respects MACHINE_MONEY_PROVIDER environment variable ('mock' | 'lnbits' | 'nwc').
+    """Returns the instance of the configured payment provider.
+    Respects MACHINE_MONEY_PROVIDER environment variable ('mock' | 'lnbits' | 'nwc' | 'paypal').
     """
     global _cached_provider
     provider_type = os.environ.get("MACHINE_MONEY_PROVIDER", "mock").strip().lower()
@@ -25,7 +25,9 @@ def get_payment_provider(force_refresh: bool = False) -> LightningProvider:
         if getattr(_cached_provider, "name", "") == provider_type:
             return _cached_provider
 
-    if provider_type == "lnbits":
+    if provider_type == "paypal":
+        _cached_provider = PayPalProvider()
+    elif provider_type == "lnbits":
         _cached_provider = LNbitsProvider()
     elif provider_type in ("nwc", "nostr"):
         _cached_provider = NWCProvider()
