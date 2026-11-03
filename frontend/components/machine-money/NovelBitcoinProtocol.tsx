@@ -172,7 +172,7 @@ export function NovelBitcoinProtocol({
               </Badge>
             </div>
             <CardDescription className="text-xs text-muted-foreground">
-              Production-grade Bitcoin innovation built for Hacker House Goa: Zero-custody Nostr Wallet Connect (kind 23194/23195)
+              Production-grade multi-rail payment innovation built for PayPal AI Hackathon 2026: Zero-custody Nostr Wallet Connect (kind 23194/23195)
               and deterministically verified 4-hop HTLC Sphinx onion routing with cryptographic preimage invariants.
             </CardDescription>
           </div>

@@ -3,7 +3,7 @@
 > **Canonical Architectural Blueprint & Architecture Decision Records (ADR)**  
 > **System:** KinetixRAG (Autonomous Industrial Machine Money Protocol & GraphRAG Reasoning Engine)  
 > **Status:** Production-Ready & Formally Verified  
-> **Event:** Hacker House Goa (HHGoa)
+> **Event:** PayPal AI Hackathon 2026
 
 ---
 
@@ -225,6 +225,6 @@ KinetixRAG solves this by defaulting to an **autonomous standalone local engine*
 ---
 
 <div align="center">
-  <b>KinetixRAG Architecture Specification — Hacker House Goa (HHGoa)</b><br/>
+  <b>KinetixPay Architecture Specification — PayPal AI Hackathon 2026</b><br/>
   <i>Engineered for Reliability, Truthfulness, and Sovereign Machine Money</i>
 </div>

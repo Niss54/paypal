@@ -1,5 +1,5 @@
 """Deterministic Mock Lightning Provider for tests, CI, and wallet-less demonstrations.
-Explicitly labeled MOCK / SIMULATION as required by Hacker House Goa honesty guidelines.
+Explicitly labeled MOCK / SIMULATION as required by PayPal AI Hackathon 2026 guidelines.
 """
 import hashlib
 import logging

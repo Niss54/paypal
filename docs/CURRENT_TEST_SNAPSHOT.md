@@ -1,8 +1,8 @@
 # KinetixRAG — Canonical Test Suite & Verification Snapshot
 
 **Document ID:** `DOC-TEST-SNAPSHOT-2026-10-10`\
-**Target Event:** Hacker House Goa (HHGoa) 2026\
-**Evaluation Task:** Wispr Flow Shortlisting Task\
+**Target Event:** PayPal AI Hackathon 2026\
+**Evaluation Task:** PayPal Agentic Commerce Track\
 **Branch:** `main`\
 **Overall Status:** `100% PASSING: 392 Automated Verification Checks (126 Core Pytest Cases in Fast Validation Suite)`
 

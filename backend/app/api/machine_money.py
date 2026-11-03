@@ -313,7 +313,7 @@ def get_payment_approval_evidence(payment_id: str, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail=str(exc))
 @router.get("/judge/fixture", response_model=JudgeScenarioFixture)
 def get_judge_scenario_fixture():
-    """Canonical single source of truth scenario fixture for Hacker House Goa demo."""
+    """Canonical single source of truth scenario fixture for PayPal AI Hackathon 2026 demo."""
     return JudgeScenarioFixture()
 
 

@@ -1,6 +1,6 @@
 """Demo Service Registry and Idempotency key generator for Machine Money (Sections 12 & 14).
 
-Explicitly labeled as 'Demo Service Registry [MOCK / SIMULATION]' per Hacker House Goa guidelines.
+Explicitly labeled as 'Demo Service Registry [MOCK / SIMULATION]' per PayPal AI Hackathon 2026 guidelines.
 """
 import hashlib
 from typing import Any, Dict, List, Optional
@@ -121,7 +121,7 @@ def get_provider_registry_info() -> Dict[str, Any]:
 
     return {
         "registry_title": REGISTRY_LABEL,
-        "disclosure": "Deterministic service registry for autonomous machine-to-machine demonstration under Hacker House Goa guidelines.",
+        "disclosure": "Deterministic service registry for autonomous machine-to-machine demonstration under PayPal AI Hackathon 2026 guidelines.",
         "total_services": len(services),
         "total_providers": len(providers),
         "providers": list(providers.values()),

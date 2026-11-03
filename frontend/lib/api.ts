@@ -741,7 +741,7 @@ export async function updateRemediationStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Hacker House Goa: Machine Money Micro-Settlement Layer (Sections 11-20)
+// PayPal AI Hackathon 2026: Machine Money Micro-Settlement Layer (Sections 11-20)
 // ---------------------------------------------------------------------------
 
 export interface MachineMoneyHealth {
@@ -849,7 +849,7 @@ const DEFAULT_MACHINE_MONEY_HEALTH: MachineMoneyHealth = {
 
 const DEFAULT_PROVIDERS: ProviderRegistryResponse = {
   registry_title: "KinetixRAG Machine Money Provider Registry",
-  disclosure: "Demonstration synthetic registry for Hacker House Goa (HHGoa)",
+  disclosure: "Demonstration registry for PayPal AI Hackathon 2026",
   total_services: 1,
   total_providers: 1,
   providers: [
@@ -1726,7 +1726,7 @@ export function computeLocalVendorRFQ(req?: VendorRFQRequest): VendorRFQResponse
     selection_rationale: rationale,
     scoring_model: scoringModel,
     is_synthetic: true,
-    synthetic_disclosure: "Demo synthetic vendor candidate nodes generated for Hacker House Goa (HHGoa) evaluation.",
+    synthetic_disclosure: "Demo synthetic vendor candidate nodes generated for PayPal AI Hackathon 2026 evaluation.",
   };
 }
 

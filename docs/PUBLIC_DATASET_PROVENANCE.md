@@ -1,6 +1,6 @@
 # Public Dataset Provenance & Replay Documentation
 
-**Standard**: Hacker House Goa Technical Honesty & Verification Guidelines  
+**Standard**: PayPal AI Hackathon 2026 Technical Verification Guidelines  
 **Classification**: `PUBLIC DATASET / REPLAY`  
 **Strict Prohibition**: Never claim public dataset replay is "live SCADA" or "real-time plant data".  
 

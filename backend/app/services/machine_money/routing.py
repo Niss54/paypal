@@ -39,9 +39,9 @@ CANONICAL_NODES: Dict[str, LightningNode] = {
     ),
     "node_lsp": LightningNode(
         pubkey="03b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcde02",
-        alias="HHGoa Regional Lightning LSP",
+        alias="KinetixPay Regional Lightning LSP",
         color="#9333EA",
-        location="South-Asia Hub (Goa)",
+        location="South-Asia Hub (Mumbai)",
         role="REGIONAL_LSP",
     ),
     "node_peering": LightningNode(

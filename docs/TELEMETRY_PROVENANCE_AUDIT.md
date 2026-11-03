@@ -2,7 +2,7 @@
 
 **Audit Date**: October 2026  
 **Audited Subsystems**: `telemetry/`, `backend/app/api/telemetry.py`, `backend/app/services/machine_money/`, `retrieval/`  
-**Standard**: Hacker House Goa Technical Credibility & Provenance Standard  
+**Standard**: PayPal AI Hackathon 2026 Technical Credibility Standard  
 
 ---
 

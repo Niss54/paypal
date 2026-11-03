@@ -274,10 +274,10 @@ export default function MachineMoneyPage() {
               Machine Money Operator Workspace
             </h1>
             <Badge variant="warning" className="uppercase font-semibold tracking-wider text-[10px]">
-              Hacker House Goa
+              PayPal AI Hackathon 2026
             </Badge>
             <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-500">
-              HHGoa
+              Agentic Commerce
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground max-w-3xl">

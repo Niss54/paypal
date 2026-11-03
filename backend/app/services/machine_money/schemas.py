@@ -211,11 +211,11 @@ class VendorRFQResponse(BaseModel):
     selection_rationale: str
     scoring_model: Dict[str, Any]
     is_synthetic: bool = True
-    synthetic_disclosure: str = "Synthetic vendor quote model for Hacker House Goa Machine Money autonomous bidding demonstration"
+    synthetic_disclosure: str = "Synthetic vendor quote model for PayPal AI Hackathon 2026 Machine Money autonomous bidding demonstration"
 
 
 class JudgeScenarioFixture(BaseModel):
-    """Canonical Single-Source-of-Truth Demo Fixture for Hacker House Goa (PRD3 Task 2.1)."""
+    """Canonical Single-Source-of-Truth Demo Fixture for PayPal AI Hackathon 2026."""
     scenario_id: str = "SCENARIO-BEARING-OVERHEAT-P101A"
     site_id: str = "SITE-TX-401"
     equipment_id: str = "P-101A"

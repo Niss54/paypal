@@ -48,7 +48,7 @@ export default function DashboardHeader({
           Demo environment
         </Badge>
         <Badge variant="outline" className="hidden md:inline-flex text-[11px] font-mono border-border/80">
-          HHGoa
+          PayPal AI
         </Badge>
         {readiness === null ? (
           <Badge variant="warning">

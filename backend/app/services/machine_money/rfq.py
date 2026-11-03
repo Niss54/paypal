@@ -1,6 +1,6 @@
 """Multi-Vendor Request-For-Quote (RFQ) Service & Explainable Selection Engine.
 
-Supports Phase 4 (FR-04, BE-03) under Hacker House Goa guidelines.
+Supports Phase 4 (FR-04, BE-03) under PayPal AI Hackathon 2026 guidelines.
 All candidate vendor data is clearly labeled as synthetic for demonstration purposes.
 """
 import hashlib

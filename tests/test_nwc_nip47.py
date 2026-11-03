@@ -31,7 +31,7 @@ def test_nwc_uri_parsing_and_building():
     wallet_pubkey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     secret = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
     relay = "wss://relay.damus.io"
-    lud16 = "kinetix-agent@hhgoa.org"
+    lud16 = "kinetix-agent@kinetixpay.org"
 
     uri = build_nwc_uri(wallet_pubkey, relay, secret, lud16)
     cfg = parse_nwc_uri(uri)

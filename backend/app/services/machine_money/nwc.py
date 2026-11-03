@@ -422,7 +422,7 @@ class NWCClient:
             "relay": self.config.relay_url,
             "wallet_pubkey": self.config.wallet_pubkey,
             "client_pubkey": self.config.client_pubkey,
-            "lud16": self.config.lud16 or "kinetix-agent@hhgoa.org",
+            "lud16": self.config.lud16 or "kinetix-agent@kinetixpay.org",
             "supported_methods": ["pay_invoice", "get_balance", "get_info", "make_invoice"],
             "notifications": ["payment_received", "payment_sent"],
             "status": "CONNECTED",

@@ -168,7 +168,7 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
         </div>
         <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-[10px] text-muted-foreground/80 group-data-[collapsible=icon]:hidden font-mono border-t border-border/40">
           <span>KinetixRAG</span>
-          <span className="text-amber-500 font-semibold">HHGoa 2026</span>
+          <span className="text-amber-500 font-semibold">PayPal AI 2026</span>
         </div>
       </SidebarFooter>
       <SidebarRail />
