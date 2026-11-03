@@ -225,7 +225,7 @@ pytest tests/backend tests/retrieval tests/agents tests/telemetry ml/graph_risk/
 
 ### Step 1: Clone & Configure
 ```bash
-git clone https://github.com/Niss54/KinetixRAG.git
+git clone https://github.com/Niss54/paypal.git
 cd KinetixRAG
 cp .env.example .env
 ```

@@ -5,7 +5,7 @@
 **Target Category**: Best Use of Agentic Commerce ($5,000 Special Prize) + Grand Prize  
 **Video Target Duration**: 3 Minutes (180 Seconds)  
 **Live URL**: [kinetix-rag.vercel.app](https://kinetix-rag.vercel.app)  
-**GitHub Repository**: [github.com/Niss54/KinetixRAG](https://github.com/Niss54/KinetixRAG)
+**GitHub Repository**: [github.com/Niss54/paypal](https://github.com/Niss54/paypal)
 
 ---
 
