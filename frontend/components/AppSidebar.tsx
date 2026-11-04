@@ -3,6 +3,7 @@
 import {
   ChartNoAxesCombinedIcon,
   ClipboardListIcon,
+  CreditCardIcon,
   GitCompareArrowsIcon,
   GaugeIcon,
   LayoutDashboardIcon,
@@ -32,6 +33,7 @@ import type { ReadinessResponse } from "@/lib/api";
 
 const machineMoneyItems = [
   { label: "Command Center", icon: LayoutDashboardIcon, href: "/" },
+  { label: "PayPal Procurement", icon: CreditCardIcon, href: "/procurement", highlight: true },
   { label: "Machine Money", icon: ZapIcon, href: "/machine-money", highlight: true },
   { label: "Predictive Watch", icon: GaugeIcon, href: "/predictive-watch" },
 ];
