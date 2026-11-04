@@ -15,7 +15,10 @@ from backend.app.services.machine_money.providers.paypal import PayPalProvider
 from backend.app.services.machine_money.schemas import (
     ColdChainSwarmAuctionResponse,
     ERPReconciliationRecord,
+    MandateAuthorizationResult,
+    MandateDecision,
     PayPalPayoutResponse,
+    SpendingMandate,
     SwarmAgentMessage,
     VendorQuoteCandidate,
     VendorTier,
@@ -89,6 +92,78 @@ DEPOT_CANDIDATES = [
         "recipient_email": "midamerica-depot@kinetixpay-depot.com",
     },
 ]
+
+
+
+
+class SpendingMandateEngine:
+    """Deterministic Authorization and Trust Layer for Autonomous AI Commerce.
+    Enforces spending budgets, vendor trust tiers, and adversarial prompt-injection defense.
+    """
+    PROMPT_INJECTION_PATTERNS = [
+        "ignore previous",
+        "override budget",
+        "bypass policy",
+        "system override",
+        "set limit",
+        "authorize maximum",
+        "disregard rules",
+        "prompt injection",
+    ]
+
+    @classmethod
+    def evaluate(
+        cls,
+        mandate: SpendingMandate,
+        requested_amount_usd: float,
+        vendor_tier: VendorTier,
+        vendor_memo: str = "",
+    ) -> MandateAuthorizationResult:
+        memo_lower = (vendor_memo or "").lower()
+        for pattern in cls.PROMPT_INJECTION_PATTERNS:
+            if pattern in memo_lower:
+                return MandateAuthorizationResult(
+                    decision=MandateDecision.BLOCKED,
+                    mandate_id=mandate.mandate_id,
+                    requested_amount_usd=requested_amount_usd,
+                    max_permitted_usd=mandate.max_amount_usd,
+                    reason=f"Adversarial prompt injection attempt detected in vendor memo: '{pattern}'",
+                    prompt_injection_detected=True,
+                    details={"matched_pattern": pattern, "memo_snippet": vendor_memo[:80]},
+                )
+
+        if vendor_tier not in mandate.allowed_vendor_tiers:
+            return MandateAuthorizationResult(
+                decision=MandateDecision.BLOCKED,
+                mandate_id=mandate.mandate_id,
+                requested_amount_usd=requested_amount_usd,
+                max_permitted_usd=mandate.max_amount_usd,
+                reason=f"Vendor tier '{vendor_tier.value}' is not within authorized mandate tiers",
+                violates_merchant_trust=True,
+                details={"vendor_tier": vendor_tier.value, "allowed": [t.value for t in mandate.allowed_vendor_tiers]},
+            )
+
+        if requested_amount_usd > mandate.max_amount_usd:
+            diff = requested_amount_usd - mandate.max_amount_usd
+            return MandateAuthorizationResult(
+                decision=MandateDecision.BLOCKED,
+                mandate_id=mandate.mandate_id,
+                requested_amount_usd=requested_amount_usd,
+                max_permitted_usd=mandate.max_amount_usd,
+                reason=f"Purchase exceeds the authorized spending mandate by ${diff:.2f}",
+                violates_budget=True,
+                human_approval_required=True,
+                details={"overflow_amount_usd": round(diff, 2)},
+            )
+
+        return MandateAuthorizationResult(
+            decision=MandateDecision.APPROVED,
+            mandate_id=mandate.mandate_id,
+            requested_amount_usd=requested_amount_usd,
+            max_permitted_usd=mandate.max_amount_usd,
+            reason="Authorized: Transaction within approved spending mandate bounds",
+            details={"approved_vendor_tier": vendor_tier.value},
+        )
 
 
 class ColdChainSwarmOrchestrator:
@@ -228,6 +303,15 @@ class ColdChainSwarmOrchestrator:
         )
 
         # -------------------------------------------------------------
+        # Evaluate Deterministic Spending Mandate
+        mandate = SpendingMandate(max_amount_usd=autonomous_policy_cap_usd)
+        mandate_auth = SpendingMandateEngine.evaluate(
+            mandate=mandate,
+            requested_amount_usd=winning_depot_data["amount_usd"],
+            vendor_tier=winning_depot_data["vendor_tier"],
+            vendor_memo=winning_candidate.service_name,
+        )
+
         # AGENT 4: PayPal Financial Governor (PayPalGovernor-04)
         # -------------------------------------------------------------
         paypal_prov = self.provider if isinstance(self.provider, PayPalProvider) else PayPalProvider()
@@ -440,4 +524,6 @@ class ColdChainSwarmOrchestrator:
             payout_result=payout_response,
             reconciliation=erp_record,
             elapsed_ms=elapsed_ms,
+            mandate=mandate,
+            mandate_auth=mandate_auth,
         )

@@ -419,9 +419,47 @@ class ColdChainSwarmAuctionResponse(BaseModel):
     payout_result: Optional[PayPalPayoutResponse] = None
     reconciliation: Optional[ERPReconciliationRecord] = None
     elapsed_ms: int = 1420
+    mandate: Optional["SpendingMandate"] = None
+    mandate_auth: Optional["MandateAuthorizationResult"] = None
 
 
 
 
 
 
+
+
+class MandateDecision(str, Enum):
+    APPROVED = "APPROVED"
+    BLOCKED = "BLOCKED"
+    ESCALATE_HUMAN = "ESCALATE_HUMAN"
+
+
+class SpendingMandate(BaseModel):
+    mandate_id: str = "smd-fleet-bio-01"
+    asset_id: str = "REEFER-TRK-9042"
+    authorized_by: str = "Enterprise Treasury Fleet Governance"
+    max_amount_usd: float = 1000.00
+    currency: str = "USD"
+    allowed_vendor_tiers: List[VendorTier] = Field(
+        default_factory=lambda: [VendorTier.TIER_1_REDN, VendorTier.TIER_2_HYPERWALLET]
+    )
+    require_human_approval_over_usd: float = 1000.00
+    require_completed_capture_webhook: bool = True
+    anti_prompt_injection_guard: bool = True
+    valid_until: datetime = Field(default_factory=utcnow)
+    status: str = "ACTIVE"
+
+
+class MandateAuthorizationResult(BaseModel):
+    decision: MandateDecision
+    mandate_id: str
+    requested_amount_usd: float
+    max_permitted_usd: float
+    reason: str
+    violates_budget: bool = False
+    violates_merchant_trust: bool = False
+    prompt_injection_detected: bool = False
+    human_approval_required: bool = False
+    details: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=utcnow)
