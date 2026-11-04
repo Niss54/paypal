@@ -46,38 +46,38 @@ describe("GraphRiskWidget (Phase 7: Predictive Watch UI Integration)", () => {
       "dom_freq",
     ],
     feature_dim: 7,
-    checkpoint_path: "artifacts/checkpoints/best_graphsage.pt",
-    device: "cpu",
   };
 
   const mockPredictResponse: api.GraphRiskPredictResponse = {
     schema_version: "1.0.0",
     sample_id: "SAMPLE-9999",
     equipment_id: "P-101A",
+    timestamp: "2026-10-27T12:00:00Z",
+    status: "available",
     advisory_risk_score: 0.742,
-    predicted_class: 1,
     calibrated: false,
     is_advisory: true,
-    deterministic_risk: 0.42,
-    latency_ms: 12.5,
+    deterministic_risk_score: 0.42,
     explanation: {
-      subgraph_node_count: 5,
-      subgraph_edge_count: 8,
       hops_analyzed: 2,
       influential_nodes: [
         {
           node_id: "OBS-003",
+          entity_type: "OBSERVATION",
           influence_score: 0.62,
+          timestamp: "2026-10-27T12:00:00Z",
           dominant_feature: "vibration_rms",
         },
         {
           node_id: "OBS-002",
+          entity_type: "OBSERVATION",
           influence_score: 0.28,
+          timestamp: "2026-10-27T12:00:00Z",
           dominant_feature: "kurtosis",
         },
       ],
       caveat: "Attribution is bounded by causal 2-hop backward horizon and is advisory only.",
-      status: "computed",
+      status: "available",
     },
   };
 

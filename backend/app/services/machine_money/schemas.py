@@ -342,6 +342,86 @@ class HumanApprovalEvidencePackage(BaseModel):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+# =====================================================================
+# PAYPAL ENTERPRISE AGENTIC COMMERCE & COLD-CHAIN SWARM SCHEMAS
+# =====================================================================
+
+class VendorTier(str, Enum):
+    TIER_1_REDN = "TIER_1_REDN"  # Registered Emergency Depot Network (Direct PayPal Business API)
+    TIER_2_HYPERWALLET = "TIER_2_HYPERWALLET"  # PayPal Hyperwallet Direct to Local Bank / Card
+    TIER_3_FLEET_ESCROW = "TIER_3_FLEET_ESCROW"  # Fleet Escrow Relay Single-Use Authorization
+
+
+class PayPalPayoutRequest(BaseModel):
+    recipient: str = Field(..., description="PayPal recipient email, phone, or Payer ID")
+    amount_usd: float = Field(..., gt=0.0, description="Settlement amount in USD")
+    note: str = Field(..., description="Payment note / justification")
+    recipient_type: str = Field(default="EMAIL", description="EMAIL, PHONE, or PAYPAL_ID")
+    sender_batch_id: Optional[str] = Field(default=None, description="Optional custom batch tracking ID")
+    sender_item_id: Optional[str] = Field(default=None, description="Optional custom item tracking ID")
+    equipment_id: Optional[str] = Field(default="REEFER-TRK-9042", description="Asset tag")
+    vendor_name: Optional[str] = Field(default=None, description="Receiving vendor or depot name")
+    vendor_tier: VendorTier = Field(default=VendorTier.TIER_1_REDN, description="Small vendor onboarding tier")
+    compliance_rule: str = Field(default="USP <1079> / FDA 21 CFR § 211.150", description="Regulatory standard")
+
+
+class PayPalPayoutResponse(BaseModel):
+    success: bool = True
+    payout_batch_id: str
+    sender_batch_id: str
+    batch_status: str = "PENDING"
+    amount_usd: float
+    recipient: str
+    sender_item_id: Optional[str] = None
+    links: List[Dict[str, Any]] = Field(default_factory=list)
+    raw_response: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class ERPReconciliationRecord(BaseModel):
+    reconciliation_id: str
+    gl_account: str = "GL-6410"
+    gl_account_name: str = "Emergency Biopharma Freight Preservation"
+    invoice_number: str
+    bill_of_lading: str = "BOL-99412"
+    payout_batch_id: str
+    paypal_transaction_id: Optional[str] = None
+    recipient: str
+    amount_usd: float
+    tax_amount_usd: float = 0.0
+    total_usd: float
+    erp_system: str = "SAP S/4HANA / NetSuite ERP"
+    erp_sync_status: str = "SYNCED"
+    proof_hash: str
+    timestamp: datetime = Field(default_factory=utcnow)
+
+
+class SwarmAgentMessage(BaseModel):
+    agent_id: str
+    agent_name: str
+    role: str
+    verdict: str
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    details: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=utcnow)
+
+
+class ColdChainSwarmAuctionResponse(BaseModel):
+    scenario_id: str = "COLDCHAIN-EXCURSION-TRK-9042"
+    asset_tag: str = "REEFER-TRK-9042"
+    cargo_manifest: str = "1,200 Vials Trastuzumab (Herceptin 440mg)"
+    cargo_valuation_usd: float = 1400000.00
+    regulatory_standard: str = "USP <1079> Good Storage & Shipping Practices / FDA 21 CFR § 211.150"
+    mkt_status: str
+    swarm_agents: List[SwarmAgentMessage]
+    rfq_candidates: List[VendorQuoteCandidate]
+    selected_depot: VendorQuoteCandidate
+    payout_result: Optional[PayPalPayoutResponse] = None
+    reconciliation: Optional[ERPReconciliationRecord] = None
+    elapsed_ms: int = 1420
+
+
+
 
 
 
