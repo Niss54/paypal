@@ -195,7 +195,7 @@ class EvidenceGatedCaptureController:
         human_required = mandate_snapshot.get("human_approval_required", False)
 
         if risk_lane == "LANE_B_EXCEPTION" or human_required:
-            if not supervisor_auth or not supervisor_auth.get("reviewer_id"):
+            if not supervisor_auth or not (supervisor_auth.get("reviewer_id") or supervisor_auth.get("supervisor_id")):
                 return False, "Human Dual-Signature Required: Supervisor digital sign-off needed before capture"
 
         return True, "Eligible: Evidence verified and all policy conditions satisfied"
