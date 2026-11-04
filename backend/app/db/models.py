@@ -285,3 +285,173 @@ class PaymentRecord(Base):
             "metadata": metadata,
         }
 
+
+
+class PayPalOrderRecord(Base):
+    """Persistent audit and settlement ledger for PayPal Orders v2 transactions.
+    Tracks two-phase Authorization -> Evidence Verification -> Capture lifecycle.
+    Satisfies Master PRD V2 Section 9.1.
+    """
+    __tablename__ = "paypal_order_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    paypal_order_id = Column(String(64), unique=True, index=True, nullable=False)
+    authorization_id = Column(String(64), unique=True, index=True, nullable=True)
+    capture_id = Column(String(64), unique=True, index=True, nullable=True)
+    merchant_account_label = Column(String(128), default="KinetixRAG Demo Maintenance Vendor")
+    environment = Column(String(32), default="sandbox")
+    amount_value = Column(String(32), nullable=False, default="0.00")
+    currency_code = Column(String(8), nullable=False, default="USD")
+    status = Column(String(32), nullable=False, index=True, default="DRAFT")
+    # Lifecycle: DRAFT -> POLICY_ALLOWED -> ORDER_CREATED -> BUYER_APPROVED -> AUTHORIZED -> EVIDENCE_PENDING -> EVIDENCE_VERIFIED -> CAPTURED -> VOIDED
+
+    work_order_id = Column(String(64), index=True, nullable=False)
+    predictive_event_id = Column(String(64), index=True, nullable=False)
+    equipment_tag = Column(String(64), nullable=False)
+    quote_id = Column(String(64), nullable=False)
+    vendor_id = Column(String(64), nullable=False)
+
+    mandate_id = Column(String(64), nullable=False, default="mnd-routine-01")
+    mandate_version = Column(Integer, default=1)
+    mandate_snapshot_json = Column(Text, default="{}")
+
+    evidence_status = Column(String(32), default="PENDING")
+    evidence_hash = Column(String(64), nullable=True)
+    evidence_record_id = Column(String(64), nullable=True)
+
+    reviewer_user_id = Column(String(128), nullable=True)
+    reviewer_notes = Column(Text, nullable=True)
+
+    create_request_id = Column(String(128), nullable=False)
+    authorize_request_id = Column(String(128), nullable=True)
+    capture_request_id = Column(String(128), nullable=True)
+    void_request_id = Column(String(128), nullable=True)
+    webhook_last_event_id = Column(String(128), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=utcnow, index=True)
+    authorized_at = Column(DateTime(timezone=True), nullable=True)
+    authorization_expires_at = Column(DateTime(timezone=True), nullable=True)
+    captured_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    def to_dict(self) -> dict:
+        try:
+            mandate_snapshot = json.loads(self.mandate_snapshot_json) if self.mandate_snapshot_json else {}
+        except Exception:
+            mandate_snapshot = {"raw": self.mandate_snapshot_json}
+        return {
+            "id": self.id,
+            "paypal_order_id": self.paypal_order_id,
+            "authorization_id": self.authorization_id,
+            "capture_id": self.capture_id,
+            "merchant_account_label": self.merchant_account_label,
+            "environment": self.environment,
+            "amount_value": self.amount_value,
+            "currency_code": self.currency_code,
+            "status": self.status,
+            "work_order_id": self.work_order_id,
+            "predictive_event_id": self.predictive_event_id,
+            "equipment_tag": self.equipment_tag,
+            "quote_id": self.quote_id,
+            "vendor_id": self.vendor_id,
+            "mandate_id": self.mandate_id,
+            "mandate_version": self.mandate_version,
+            "mandate_snapshot": mandate_snapshot,
+            "evidence_status": self.evidence_status,
+            "evidence_hash": self.evidence_hash,
+            "evidence_record_id": self.evidence_record_id,
+            "reviewer_user_id": self.reviewer_user_id,
+            "reviewer_notes": self.reviewer_notes,
+            "create_request_id": self.create_request_id,
+            "authorize_request_id": self.authorize_request_id,
+            "capture_request_id": self.capture_request_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "authorized_at": self.authorized_at.isoformat() if self.authorized_at else None,
+            "captured_at": self.captured_at.isoformat() if self.captured_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PayPalWebhookEvent(Base):
+    """Durable receipt and idempotency ledger for incoming PayPal Webhook deliveries.
+    Satisfies Master PRD V2 Section 9.2.
+    """
+    __tablename__ = "paypal_webhook_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String(128), unique=True, index=True, nullable=False)
+    event_type = Column(String(64), index=True, nullable=False)
+    resource_id = Column(String(128), index=True, nullable=False)
+    signature_verified = Column(Boolean, default=False)
+    status = Column(String(32), default="PROCESSED")
+    payload_summary_json = Column(Text, default="{}")
+    received_at = Column(DateTime(timezone=True), default=utcnow)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+
+    def to_dict(self) -> dict:
+        try:
+            summary = json.loads(self.payload_summary_json) if self.payload_summary_json else {}
+        except Exception:
+            summary = {"raw": self.payload_summary_json}
+        return {
+            "id": self.id,
+            "event_id": self.event_id,
+            "event_type": self.event_type,
+            "resource_id": self.resource_id,
+            "signature_verified": self.signature_verified,
+            "status": self.status,
+            "payload_summary": summary,
+            "received_at": self.received_at.isoformat() if self.received_at else None,
+            "processed_at": self.processed_at.isoformat() if self.processed_at else None,
+        }
+
+
+class CompletionEvidenceRecord(Base):
+    """Structured evidence package validating service completion before capture.
+    Satisfies Master PRD V2 Section 9.3 & Section 10.
+    """
+    __tablename__ = "completion_evidence_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    evidence_record_id = Column(String(64), unique=True, index=True, nullable=False)
+    work_order_id = Column(String(64), index=True, nullable=False)
+    quote_id = Column(String(64), nullable=False)
+    equipment_tag = Column(String(64), nullable=False)
+    evidence_type = Column(String(32), default="DIAGNOSTIC_REPORT")
+    filename = Column(String(256), nullable=False)
+    file_sha256 = Column(String(64), nullable=False)
+    checklist_items_json = Column(Text, default="[]")
+    measurements_json = Column(Text, default="{}")
+    validation_passed = Column(Boolean, default=False)
+    validation_reason_codes_json = Column(Text, default="[]")
+    is_synthetic = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    def to_dict(self) -> dict:
+        try:
+            checklist = json.loads(self.checklist_items_json) if self.checklist_items_json else []
+        except Exception:
+            checklist = [self.checklist_items_json]
+        try:
+            measurements = json.loads(self.measurements_json) if self.measurements_json else {}
+        except Exception:
+            measurements = {"raw": self.measurements_json}
+        try:
+            reason_codes = json.loads(self.validation_reason_codes_json) if self.validation_reason_codes_json else []
+        except Exception:
+            reason_codes = [self.validation_reason_codes_json]
+        return {
+            "evidence_record_id": self.evidence_record_id,
+            "work_order_id": self.work_order_id,
+            "quote_id": self.quote_id,
+            "equipment_tag": self.equipment_tag,
+            "evidence_type": self.evidence_type,
+            "filename": self.filename,
+            "file_sha256": self.file_sha256,
+            "checklist": checklist,
+            "measurements": measurements,
+            "validation_passed": self.validation_passed,
+            "validation_reason_codes": reason_codes,
+            "is_synthetic": self.is_synthetic,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
