@@ -34,6 +34,7 @@
 >
 > 📌 **Direct Judge Quick Links**:
 > - ⚡ **Fast-Track Judge Guide**: **[JUDGE_README.md](./JUDGE_README.md)** (3-Minute Read)
+> - 🏆 **Winning Strategy & Historical BattleHack Analysis**: **[`docs/PAYPAL_HACKATHON_WINNING_STRATEGY.md`](./docs/PAYPAL_HACKATHON_WINNING_STRATEGY.md)**
 > - 🌐 **Live Interactive Console**: [**kinetix-pay.vercel.app/machine-money**](https://au-rag.vercel.app/machine-money)
 > - 📜 **Comprehensive PRD**: [**`docs/PAYPAL_AI_HACKATHON_PRD.md`**](./docs/PAYPAL_AI_HACKATHON_PRD.md)
 > - 🧪 **17 PayPal Integration Tests**: `pytest tests/test_paypal_provider.py tests/test_coldchain_swarm.py tests/test_paypal_scenarios.py`
