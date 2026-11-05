@@ -66,7 +66,7 @@ OPTIONS {indexConfig: {
   `vector.similarity_function`: 'cosine'
 }};
 
-// Hacker House Goa: Machine Money Bitcoin/Lightning Payment Schema
+// PayPal AI Hackathon 2026: Agentic Commerce Multi-Rail Payment Schema
 CREATE CONSTRAINT payment_id IF NOT EXISTS
 FOR (p:Payment) REQUIRE p.id IS UNIQUE;
 

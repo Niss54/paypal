@@ -1,5 +1,5 @@
 # KinetixRAG — Claim-to-Evidence Verification Matrix
-**Authoritative Claims Audit for Hacker House Goa (HHGoa)**
+**Authoritative Claims Audit for PayPal AI Hackathon 2026**
 
 - **Document ID:** `DOC-CLAIM-MATRIX-2026-10-02`
 - **Audit Date:** 2026-10-02

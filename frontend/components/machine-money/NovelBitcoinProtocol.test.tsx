@@ -42,7 +42,7 @@ describe("NovelBitcoinProtocol Component", () => {
       final_amount_sats: 251,
       path_nodes: [
         { pubkey: "node-plant", alias: "Kinetix Plant Edge Gateway", role: "SOURCE", location: "Mumbai, IN" },
-        { pubkey: "node-lsp", alias: "HHGoa Regional LSP", role: "REGIONAL_LSP", location: "New Delhi, IN" },
+        { pubkey: "node-lsp", alias: "KinetixPay Regional LSP", role: "REGIONAL_LSP", location: "New Delhi, IN" },
         { pubkey: "node-hub", alias: "Industrial Peering Hub", role: "PEERING_HUB", location: "BOM-IX, Mumbai" },
         { pubkey: "node-vendor-1", alias: "Apex Diagnostics Node", role: "DESTINATION", location: "Bangalore, IN" },
       ],
@@ -52,7 +52,7 @@ describe("NovelBitcoinProtocol Component", () => {
           from_node: "node-plant",
           from_alias: "Kinetix Plant Edge Gateway",
           to_node: "node-lsp",
-          to_alias: "HHGoa Regional LSP",
+          to_alias: "KinetixPay Regional LSP",
           channel_id: "chan_source_lsp",
           fee_sats: 1,
           cltv_delta: 40,
@@ -67,7 +67,7 @@ describe("NovelBitcoinProtocol Component", () => {
         layers: [
           {
             layer_index: 1,
-            hop_alias: "HHGoa Regional LSP",
+            hop_alias: "KinetixPay Regional LSP",
             ephemeral_key_slice: "02abcd1234...",
             payload_digest: "9876543210...",
             payload_summary: {
@@ -87,7 +87,7 @@ describe("NovelBitcoinProtocol Component", () => {
             step: 1,
             phase: "FORWARD_HTLC",
             from: "Kinetix Plant Edge Gateway",
-            to: "HHGoa Regional LSP",
+            to: "KinetixPay Regional LSP",
             action: "ADD_HTLC",
             cltv_expiry: 890144,
             amount_sats: 251,
@@ -97,7 +97,7 @@ describe("NovelBitcoinProtocol Component", () => {
             step: 2,
             phase: "BACKWARD_SETTLE",
             from: "Apex Diagnostics Node",
-            to: "HHGoa Regional LSP",
+            to: "KinetixPay Regional LSP",
             action: "FULFILL_HTLC",
             cltv_expiry: 890024,
             amount_sats: 250,

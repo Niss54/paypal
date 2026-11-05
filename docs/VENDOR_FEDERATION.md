@@ -1,6 +1,6 @@
 # Vendor Federation & Independent HTTP Webhooks Architecture
 
-**Standard**: Hacker House Goa Technical Credibility & Vendor Honesty Guidelines  
+**Standard**: PayPal AI Hackathon 2026 Technical Credibility & Vendor Honesty Guidelines  
 **Classification**: `DEMO VENDOR NODE` / `PRE-APPROVED DEMO VENDOR`  
 **Prohibition**: Never claim mock/demo vendor services are "real contractors", "live industrial suppliers", or an "external marketplace".  
 

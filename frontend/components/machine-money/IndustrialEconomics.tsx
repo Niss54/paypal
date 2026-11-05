@@ -674,7 +674,7 @@ export function IndustrialEconomics({
                   Evaluation Disclosure
                 </AlertTitle>
                 <AlertDescription className="text-[11px] text-amber-200/90 leading-relaxed mt-0.5">
-                  Values reflect modelled synthetic industrial process assumptions calibrated for Hacker House Goa (HHGoa) autonomous machine operations. No actual petrochemical plant financial losses occurred.
+                  Values reflect modelled industrial process assumptions calibrated for PayPal AI Hackathon 2026 autonomous machine commerce operations.
                 </AlertDescription>
               </Alert>
             </div>

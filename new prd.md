@@ -406,7 +406,7 @@ Acceptance gate:
 ### Phase 10: Final review and documentation
 
 Tasks:
-1. Update the relevant README/architecture docs only where necessary; avoid rewriting unrelated judge/Wispr evidence.
+1. Update the relevant README/architecture docs only where necessary; avoid rewriting unrelated judge evidence.
 2. Document installation of optional ML dependencies, data preparation/training commands, evaluation output, feature flag, model status, API schema, and rollback/disable procedure.
 3. Add/update the model card and third-party notice.
 4. Report the actual baseline-versus-GNN results, not expected results or reference-repository metrics.

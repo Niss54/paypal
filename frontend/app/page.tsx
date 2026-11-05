@@ -105,7 +105,7 @@ export default function CommandCenterPage() {
                 Bitcoin Lightning & Nostr NWC
               </Badge>
               <Badge variant="outline" className="text-xs font-mono border-border/80">
-                HHGoa 2026
+                PayPal AI 2026
               </Badge>
             </div>
 

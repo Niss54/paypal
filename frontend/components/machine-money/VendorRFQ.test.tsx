@@ -86,7 +86,7 @@ const mockRFQResponse: api.VendorRFQResponse = {
     strategy: "FASTEST_SLA",
   },
   is_synthetic: true,
-  synthetic_disclosure: "Synthetic vendor quote model for Hacker House Goa Machine Money autonomous bidding demonstration",
+  synthetic_disclosure: "Synthetic vendor quote model for PayPal AI Hackathon 2026 Machine Money autonomous bidding demonstration",
 };
 
 describe("Machine Money Phase 4: Multi-Vendor RFQ Component", () => {

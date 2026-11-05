@@ -1,6 +1,6 @@
 # KinetixRAG — Machine Money Judge Demo Script (3–5 Minutes)
 
-**Event:** Hacker House Goa (HHGoa) 2026  
+**Event:** PayPal AI Hackathon 2026  
 **Track:** Autonomous Machine Money & Industrial Intelligence  
 **Speaker:** KinetixRAG Team  
 **Live Demo URL:** [https://kinetix-rag.vercel.app/machine-money](https://au-rag.vercel.app/machine-money)  
@@ -87,7 +87,7 @@
   > 1. **Zero Credential Leaks:** Our pre-submission scanners scanned 350+ files — zero API keys or secrets in source.
   > 2. **Complete Test Coverage:** 126 verified tests in the core validation suite (392 total automated verification checks) executing in 12.56s.
   > 3. **Production Deployed:** Next.js 16.2.11 live on Vercel, FastAPI Docker container live on Railway.
-  > 4. **Authentic Provenance:** All code custom developed for Hacker House Goa with full architectural verification.
+  > 4. **Authentic Provenance:** All code custom developed for PayPal AI Hackathon with full architectural verification.
   > KinetixRAG proves that when machines have money, industrial operations transform from slow, reactive maintenance into autonomous, self-healing cyber-physical infrastructure designed for zero unplanned downtime.
   > Thank you, and we welcome your questions!"
 
