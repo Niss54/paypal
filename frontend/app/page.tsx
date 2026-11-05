@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRightIcon,
+  CreditCardIcon,
   BotIcon,
   BrainCircuitIcon,
   DatabaseZapIcon,
@@ -123,6 +124,15 @@ export default function CommandCenterPage() {
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Button
+                size="lg"
+                className="bg-[#003087] hover:bg-[#00256c] text-white font-bold shadow-lg shadow-blue-500/25 border-0"
+                nativeButton={false}
+                render={<Link href="/procurement" />}
+              >
+                <CreditCardIcon data-icon="inline-start" className="size-4 text-[#0079C1]" />
+                PayPal Evidence-Gated Procurement
+              </Button>
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-slate-950 font-bold shadow-lg shadow-amber-500/25 border-0"
