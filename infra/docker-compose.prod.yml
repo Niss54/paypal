@@ -83,7 +83,7 @@ services:
       LLM_PROVIDER: bedrock
       AWS_DEFAULT_REGION: ap-south-1
       SITE_ID: plant-mumbai-01
-      AUTH_ENABLED: "false"
+      AUTH_ENABLED: "${AUTH_ENABLED:-true}"
     ports:
       - "8000:8000"
 

@@ -133,13 +133,19 @@ class EvidenceValidator:
                 measurements_valid = False
                 reasons.append("EVD-MEASUREMENT-INVALID: Post-service vibration measurement is malformed")
 
-        # 8. File integrity check
+        # 8. File integrity check & Server-Side Hash Computation
         file_integrity_valid = True
         if evidence.file_bytes:
             calculated_hash = cls.compute_sha256(evidence.file_bytes)
             if evidence.file_sha256 and calculated_hash != evidence.file_sha256:
                 file_integrity_valid = False
                 reasons.append("EVD-HASH-MISMATCH: Computed SHA256 does not match submitted digest")
+            else:
+                evidence.file_sha256 = calculated_hash
+        elif not evidence.is_synthetic:
+            # Operational evidence strictly requires uploaded payload bytes
+            file_integrity_valid = False
+            reasons.append("EVD-FILE-REQUIRED: Physical completion artifact file or signed sensor record is mandatory for operational evidence")
         elif evidence.file_sha256:
             if evidence.file_sha256.lower() == cls.EMPTY_SHA256 and not evidence.is_synthetic:
                 file_integrity_valid = False

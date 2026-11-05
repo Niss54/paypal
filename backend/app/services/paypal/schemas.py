@@ -42,6 +42,7 @@ class CaptureStatus(str, Enum):
     PENDING = "PENDING"
     REFUNDED = "REFUNDED"
     FAILED = "FAILED"
+    UNKNOWN = "UNKNOWN"
 
 
 class Money(BaseModel):
