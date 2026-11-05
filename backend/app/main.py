@@ -35,6 +35,7 @@ from backend.app.api import (
     machine_money,
     vendors,
     graph_risk,
+    paypal,
 )
 from backend.app.db.database import init_db
 
@@ -141,6 +142,7 @@ app.include_router(machine_money.router, prefix="/api/v1")
 app.include_router(vendors.router, prefix="/api")
 app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(graph_risk.router, prefix="/api")
+app.include_router(paypal.router, prefix="/api")
 
 
 

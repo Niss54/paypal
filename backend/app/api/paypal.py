@@ -1,0 +1,276 @@
+"""PayPal Orders v2 & Evidence-Gated Procurement REST API.
+Implements endpoints according to Master PRD V2 Sections 9.4, 9.5, and 12.1.
+"""
+import json
+import logging
+from typing import Any, Dict, List, Optional
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from backend.app.db.database import get_db
+from backend.app.db.models import PayPalOrderRecord, PayPalWebhookEvent
+from backend.app.services.paypal.reconciliation import PayPalReconciliationService
+from backend.app.services.paypal.webhooks import PayPalWebhookService
+from backend.app.services.procurement.evidence import EvidenceSubmission
+from backend.app.services.procurement.orchestrator import ProcurementOrchestrator
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["paypal-procurement"])
+orchestrator = ProcurementOrchestrator()
+webhook_service = PayPalWebhookService()
+reconciliation_service = PayPalReconciliationService()
+
+
+# --- Request/Response Schemas ---
+
+class CreateOrderRequest(BaseModel):
+    quote_id: str = Field(..., description="Approved quote ID from RFQ step. Amount/currency are server-derived.")
+    actor: str = Field(default="kinetix-procurement-agent", description="Requesting agent or operator identity.")
+
+
+class SupervisorSignOffRequest(BaseModel):
+    supervisor_id: str = Field(..., description="Identifier of the supervising engineer.")
+    notes: str = Field(default="Authorized Lane B critical asset maintenance after review.", description="Supervisor sign-off notes.")
+
+
+class CaptureOrderRequest(BaseModel):
+    idempotency_key: Optional[str] = Field(default=None, description="Optional caller idempotency key.")
+
+
+class VoidOrderRequest(BaseModel):
+    reason: str = Field(default="Procurement cancelled or evidence expired", description="Cancellation reason.")
+
+
+class EvaluateQuoteRequest(BaseModel):
+    quote_id: str = Field(..., description="Quote identifier to evaluate against deterministic mandate.")
+
+
+# --- Procurement & RFQ Endpoints ---
+
+@router.get("/procurement/incident")
+def get_incident():
+    """Returns canonical bearing anomaly incident grounded in NASA IMS dataset."""
+    return orchestrator.get_incident()
+
+
+@router.get("/procurement/quotes")
+def get_quotes():
+    """Returns candidate comparison quotes with explicit [SYNTHETIC DEMO QUOTE] disclosures."""
+    return orchestrator.get_quotes()
+
+
+@router.get("/procurement/mandate")
+def get_mandate():
+    """Returns active deterministic spending mandate parameters."""
+    return orchestrator.get_mandate()
+
+
+@router.post("/procurement/evaluate-quote")
+def evaluate_quote(req: EvaluateQuoteRequest):
+    """Evaluates a candidate quote against the deterministic spending mandate."""
+    try:
+        return orchestrator.evaluate_quote(req.quote_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.get("/procurement/{work_order_id}")
+def get_procurement_by_work_order(work_order_id: str, db: Session = Depends(get_db)):
+    """Looks up procurement orders associated with a work order."""
+    orders = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.work_order_id == work_order_id).all()
+    return {
+        "work_order_id": work_order_id,
+        "orders": [o.to_dict() for o in orders],
+    }
+
+
+# --- PayPal Orders v2 Lifecycle Endpoints ---
+
+@router.post("/paypal/orders", status_code=status.HTTP_201_CREATED)
+async def create_paypal_order(req: CreateOrderRequest, db: Session = Depends(get_db)):
+    """Creates a PayPal order with intent=AUTHORIZE based on server-verified quote."""
+    try:
+        order = await orchestrator.create_paypal_order(
+            db=db,
+            quote_id=req.quote_id,
+            actor=req.actor,
+        )
+        return order.to_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to create PayPal order")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Order creation failed: {e}")
+
+
+@router.get("/paypal/orders/{order_id}")
+def get_paypal_order(order_id: str, db: Session = Depends(get_db)):
+    """Retrieves order record by PayPal order ID."""
+    order = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order '{order_id}' not found")
+    return order.to_dict()
+
+
+@router.post("/paypal/orders/{order_id}/authorize")
+async def authorize_paypal_order(order_id: str, db: Session = Depends(get_db)):
+    """Authorizes an approved PayPal order, moving status to AUTHORIZED."""
+    try:
+        order = await orchestrator.authorize_paypal_order(db=db, order_id=order_id)
+        return order.to_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Failed to authorize PayPal order {order_id}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Authorization failed: {e}")
+
+
+@router.post("/paypal/orders/{order_id}/sign-off")
+def supervisor_sign_off(order_id: str, req: SupervisorSignOffRequest, db: Session = Depends(get_db)):
+    """Submits dual-control supervisor sign-off required for Lane B / critical assets."""
+    try:
+        order = orchestrator.sign_off_supervisor(
+            db=db,
+            order_id=order_id,
+            supervisor_id=req.supervisor_id,
+            notes=req.notes,
+        )
+        return {
+            "order_id": order.paypal_order_id,
+            "status": order.status,
+            "supervisor_id": order.reviewer_user_id,
+            "message": "Dual-control supervisor sign-off successfully recorded.",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/paypal/orders/{order_id}/evidence")
+def submit_completion_evidence(order_id: str, submission: EvidenceSubmission, db: Session = Depends(get_db)):
+    """Submits physical service completion evidence. Validates against deterministic criteria."""
+    try:
+        evidence_rec, val_res = orchestrator.submit_evidence(
+            db=db,
+            order_id=order_id,
+            submission=submission,
+        )
+        return {
+            "evidence_record_id": evidence_rec.evidence_record_id,
+            "validation_decision": val_res.decision.value,
+            "validation_passed": evidence_rec.validation_passed,
+            "checks": {
+                "work_order_match": val_res.work_order_match,
+                "equipment_match": val_res.equipment_match,
+                "vendor_match": val_res.vendor_match,
+                "service_scope_match": val_res.service_scope_match,
+                "measurements_valid": val_res.measurements_valid,
+                "file_integrity_valid": val_res.file_integrity_valid,
+            },
+            "reason_codes": val_res.reason_codes,
+            "evidence_provenance": val_res.evidence_provenance,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/paypal/orders/{order_id}/capture")
+async def capture_paypal_order(
+    order_id: str,
+    req: Optional[CaptureOrderRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """Enforces 'No Evidence, No Capture' policy.
+    Releases funds from PayPal Authorization IF AND ONLY IF all evidence and dual-signature gates pass.
+    """
+    idempotency_key = req.idempotency_key if req else None
+    success, reason, capture_details = await orchestrator.execute_gated_capture(
+        db=db,
+        order_id=order_id,
+        idempotency_key=idempotency_key,
+    )
+    if not success:
+        logger.warning(f"Capture denied for order {order_id}: {reason}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "EvidenceGateBlocked",
+                "message": reason,
+                "policy": "No Evidence, No Capture",
+            },
+        )
+    return {
+        "success": True,
+        "message": reason,
+        "capture": capture_details,
+    }
+
+
+@router.post("/paypal/orders/{order_id}/void")
+async def void_paypal_order(order_id: str, req: VoidOrderRequest, db: Session = Depends(get_db)):
+    """Voids an uncaptured authorization."""
+    try:
+        order = await orchestrator.void_order(db=db, order_id=order_id, reason=req.reason)
+        return order.to_dict()
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+@router.post("/paypal/orders/{order_id}/reconcile")
+async def reconcile_paypal_order(order_id: str, db: Session = Depends(get_db)):
+    """Reconciles local order record with PayPal Sandbox ground truth."""
+    order = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order '{order_id}' not found")
+    res = await reconciliation_service.reconcile_order(order, db)
+    return res
+
+
+@router.get("/paypal/orders/{order_id}/audit")
+def get_order_audit_lineage(order_id: str, db: Session = Depends(get_db)):
+    """Returns the end-to-end immutable causal lineage from telemetry anomaly to settlement."""
+    try:
+        return orchestrator.get_audit_lineage(db=db, order_id=order_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
+# --- PayPal Webhook Receiver ---
+
+@router.post("/paypal/webhook")
+async def handle_paypal_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+    paypal_auth_algo: Optional[str] = Header(None, alias="PAYPAL-AUTH-ALGO"),
+    paypal_cert_url: Optional[str] = Header(None, alias="PAYPAL-CERT-URL"),
+    paypal_transmission_id: Optional[str] = Header(None, alias="PAYPAL-TRANSMISSION-ID"),
+    paypal_transmission_sig: Optional[str] = Header(None, alias="PAYPAL-TRANSMISSION-SIG"),
+    paypal_transmission_time: Optional[str] = Header(None, alias="PAYPAL-TRANSMISSION-TIME"),
+):
+    """Cryptographically verifies PayPal webhook headers and idempotently processes event."""
+    body_bytes = await request.body()
+    try:
+        payload = json.loads(body_bytes.decode("utf-8"))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON body")
+
+    headers = {
+        "PAYPAL-AUTH-ALGO": paypal_auth_algo or "",
+        "PAYPAL-CERT-URL": paypal_cert_url or "",
+        "PAYPAL-TRANSMISSION-ID": paypal_transmission_id or "",
+        "PAYPAL-TRANSMISSION-SIG": paypal_transmission_sig or "",
+        "PAYPAL-TRANSMISSION-TIME": paypal_transmission_time or "",
+    }
+
+    # Verify signature
+    is_valid = await webhook_service.verify_signature(
+        headers=headers,
+        raw_body=body_bytes.decode("utf-8"),
+    )
+    if not is_valid:
+        logger.warning(f"Webhook signature rejected for transmission ID {paypal_transmission_id}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
+
+    result = await webhook_service.process_event(payload, db)
+    return result
