@@ -6,7 +6,7 @@ SQLite for zero-friction development and automated testing.
 import os
 from pathlib import Path
 from typing import Generator
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -67,8 +67,22 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db(target_engine=None):
-    """Creates all registered database tables."""
+    """Creates all registered database tables and applies non-destructive SQLite column migrations."""
     import backend.app.db.models  # noqa: F401 - ensure models are registered on Base
     eng = target_engine or engine
     Base.metadata.create_all(bind=eng)
 
+    try:
+        with eng.connect() as conn:
+            res = conn.execute(text("PRAGMA table_info(paypal_order_records)")).fetchall()
+            existing_cols = {row[1] for row in res}
+            if existing_cols:
+                if "requester_user_id" not in existing_cols:
+                    conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN requester_user_id VARCHAR(128) DEFAULT 'kinetix-procurement-agent'"))
+                if "approve_url" not in existing_cols:
+                    conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN approve_url VARCHAR(512)"))
+                if "is_simulated" not in existing_cols:
+                    conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN is_simulated BOOLEAN DEFAULT 0"))
+                conn.commit()
+    except Exception:
+        pass
