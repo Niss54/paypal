@@ -514,6 +514,7 @@ class SwarmAuctionRequest(BaseModel):
     step: int = Field(default=4, description="Telemetry excursion progression step (0-6)")
     policy_cap_usd: float = Field(default=1000.00, description="Autonomous spending policy cap in USD")
     recipient_override: Optional[str] = Field(default=None, description="Optional override PayPal recipient email")
+    scenario: str = Field(default="CRITICAL_EXCURSION", description="CRITICAL_EXCURSION, POLICY_ESCALATION, MULTI_PARTY_SPLIT, or PROVIDER_DEGRADATION")
 
 
 @router.post("/paypal/swarm-auction", response_model=ColdChainSwarmAuctionResponse)
@@ -524,6 +525,7 @@ async def run_cold_chain_swarm_auction(req: SwarmAuctionRequest):
         step=req.step,
         autonomous_policy_cap_usd=req.policy_cap_usd,
         recipient_override=req.recipient_override,
+        scenario=req.scenario,
     )
 
 

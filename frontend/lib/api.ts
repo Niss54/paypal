@@ -2609,7 +2609,8 @@ export async function getPayPalConfig(): Promise<PayPalConfigResponse> {
 export async function runColdChainSwarmAuction(
   step: number = 4,
   policyCapUsd: number = 1000.0,
-  recipientOverride?: string
+  recipientOverride?: string,
+  scenario: string = "CRITICAL_EXCURSION"
 ): Promise<ColdChainSwarmAuctionResponse> {
   const res = await fetch(`${API_URL}/api/machine-money/paypal/swarm-auction`, {
     method: "POST",
@@ -2618,6 +2619,7 @@ export async function runColdChainSwarmAuction(
       step,
       policy_cap_usd: policyCapUsd,
       recipient_override: recipientOverride,
+      scenario,
     }),
     cache: "no-store",
   });

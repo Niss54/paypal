@@ -147,6 +147,13 @@ def get_payment_graph_trail(session, payment_id: str) -> Dict[str, Any]:
                 "name": eq.get("name", "Crude Charge Pump A"),
             },
             "graph_story": [
+                "1. Smart Reefer TRK-9042 IoT sensor detected thermal anomaly (8.6°C, +0.70°C/min runaway)",
+                "2. Neo4j Graph matched USP <1079> Good Storage & Shipping Practices and FDA 21 CFR § 211.150",
+                "3. Formulation stability curve for Trastuzumab (Herceptin) calculated critical 28.5 min window",
+                "4. Multi-depot RFQ selected Chicago Emergency Bio-Vault (18m SLA, Bay 4 pre-chilled, AAA certified)",
+                f"5. PayPal Enterprise REST Payout settled ${float(p.get('amount_usd', 450.0)):.2f} USD (Batch {p.get('payout_batch_id', '5X93-PP-SANDBOX')})",
+                "6. Reconciled in SAP/NetSuite ERP under GL-6410 Freight Preservation and BOL-99412 (3,111x ROI)",
+            ] if (p.get("provider") == "paypal" or str(payment_id).startswith("PAY-PP") or "paypal" in str(p.get("payment_hash", "")).lower()) else [
                 f"1. Sensor anomaly detected on {eq.get('name', 'P-101A')}",
                 f"2. Matched historical failure signature ({fe.get('id', 'FE-001')})",
                 f"3. Work Order {wo.get('id', 'WO-2026-P101')} staged for corrective maintenance",
@@ -161,3 +168,91 @@ def get_payment_graph_trail(session, payment_id: str) -> Dict[str, Any]:
             "found": False,
             "error": str(exc),
         }
+
+
+def record_coldchain_payout_in_graph(
+    session,
+    payment_id: str,
+    payout_batch_id: str,
+    amount_usd: float = 450.0,
+    recipient_email: str = "chicago-redn@kinetixpay-depot.com",
+    cargo_id: str = "CARGO-TR-9902",
+    cargo_drug: str = "Trastuzumab (Herceptin 440mg)",
+    cargo_valuation_usd: float = 1400000.0,
+    regulatory_code: str = "USP-1079",
+    depot_id: str = "chicago-emergency-dock",
+    depot_name: str = "Chicago Emergency Bio-Vault (REDN-01)",
+    gl_account: str = "GL-6410",
+    bill_of_lading: str = "BOL-99412",
+    status: str = "SETTLED",
+    **kwargs: Any,
+) -> bool:
+    """Record PayPal Cold-Chain BioPharma Payout and attach semantic relationships:
+    (p:Payment:PayPalPayout)-[:PRESERVES]->(c:CargoBatch)
+    (c)-[:CONTAINS]->(d:BiologicDrug)
+    (d)-[:GOVERNED_BY]->(r:RegulatoryStandard)
+    (p)-[:RESERVES_BAY]->(v:ColdDepotVendor)
+    (p)-[:RECONCILED_IN]->(j:ERPJournal)
+    """
+    cypher = """
+    MERGE (p:Payment:PayPalPayout {id: $payment_id})
+    SET p.payout_batch_id = $payout_batch_id,
+        p.amount_usd = $amount_usd,
+        p.provider = "paypal",
+        p.status = $status,
+        p.recipient_email = $recipient_email,
+        p.updated_at = datetime()
+
+    WITH p
+    MERGE (c:CargoBatch {id: $cargo_id})
+    SET c.valuation_usd = $cargo_valuation_usd,
+        c.bill_of_lading = $bill_of_lading
+    MERGE (p)-[:PRESERVES]->(c)
+
+    WITH p, c
+    MERGE (d:BiologicDrug {name: $cargo_drug})
+    SET d.target_temp_c = "2°C - 8°C",
+        d.stability_window_min = 28.5
+    MERGE (c)-[:CONTAINS]->(d)
+
+    WITH p, d
+    MERGE (r:RegulatoryStandard {code: $regulatory_code})
+    SET r.title = "Good Storage & Shipping Practices",
+        r.authority = "FDA 21 CFR § 211.150 / USP <1079>"
+    MERGE (d)-[:GOVERNED_BY]->(r)
+
+    WITH p
+    MERGE (v:ColdDepotVendor {id: $depot_id})
+    SET v.name = $depot_name,
+        v.tier = "TIER_1_REDN"
+    MERGE (p)-[:RESERVES_BAY]->(v)
+
+    WITH p
+    MERGE (j:ERPJournal {account: $gl_account})
+    SET j.title = "Emergency Biopharma Freight Preservation",
+        j.status = "SYNCED"
+    MERGE (p)-[:RECONCILED_IN]->(j)
+
+    RETURN p.id AS payout_id
+    """
+    try:
+        session.run(
+            cypher,
+            payment_id=payment_id,
+            payout_batch_id=payout_batch_id,
+            amount_usd=amount_usd,
+            recipient_email=recipient_email,
+            cargo_id=cargo_id,
+            cargo_drug=cargo_drug,
+            cargo_valuation_usd=cargo_valuation_usd,
+            regulatory_code=regulatory_code,
+            depot_id=depot_id,
+            depot_name=depot_name,
+            gl_account=gl_account,
+            bill_of_lading=bill_of_lading,
+            status=status,
+        )
+        return True
+    except Exception as exc:
+        logger.warning(f"Failed to record PayPal coldchain payout in graph: {exc}")
+        return False

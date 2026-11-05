@@ -103,6 +103,7 @@ class ColdChainSwarmOrchestrator:
         step: int = 4,
         autonomous_policy_cap_usd: float = 1000.00,
         recipient_override: Optional[str] = None,
+        scenario: str = "CRITICAL_EXCURSION",
     ) -> ColdChainSwarmAuctionResponse:
         """Executes the full 4-agent workflow:
         1. SensorProbe-01: Detects thermal anomaly & compressor flutter
@@ -229,7 +230,7 @@ class ColdChainSwarmOrchestrator:
         # -------------------------------------------------------------
         # AGENT 4: PayPal Financial Governor (PayPalGovernor-04)
         # -------------------------------------------------------------
-        payout_amount_usd = winning_depot_data["amount_usd"]
+        paypal_prov = self.provider if isinstance(self.provider, PayPalProvider) else PayPalProvider()
         recipient = recipient_override or os.environ.get(
             "PAYPAL_DEMO_RECIPIENT", winning_depot_data["recipient_email"]
         )
@@ -237,9 +238,127 @@ class ColdChainSwarmOrchestrator:
         payout_response: Optional[PayPalPayoutResponse] = None
         erp_record: Optional[ERPReconciliationRecord] = None
 
-        if payout_amount_usd <= autonomous_policy_cap_usd:
-            # Execute PayPal Payout via active provider
-            paypal_prov = self.provider if isinstance(self.provider, PayPalProvider) else PayPalProvider()
+        if scenario == "POLICY_ESCALATION":
+            # Scenario 2: Exceeding autonomous cap requires human sign-off
+            escalated_cost = 1450.00
+            agent4 = SwarmAgentMessage(
+                agent_id="PayPalGovernor-04",
+                agent_name="PayPal Enterprise Financial Governor",
+                role="Budget Policy Verification & Escalation",
+                verdict="POLICY_ESCALATION_REQUIRED",
+                confidence=0.965,
+                details={
+                    "status": "HELD_FOR_HUMAN_SIGN_OFF",
+                    "reason": f"Emergency cryogenic dock quote of ${escalated_cost:.2f} USD exceeds ${autonomous_policy_cap_usd:.2f} policy cap.",
+                    "quote_amount_usd": escalated_cost,
+                    "autonomous_cap_usd": autonomous_policy_cap_usd,
+                    "excess_over_cap_usd": escalated_cost - autonomous_policy_cap_usd,
+                    "required_action": "Corporate Fleet Logistics Director Digital Signature Required",
+                    "cargo_value_usd": reading.cargo_value_usd,
+                    "regulatory_deadline": f"{stability_limit_min:.1f} minutes remaining",
+                },
+            )
+
+        elif scenario == "MULTI_PARTY_SPLIT":
+            # Scenario 3: Multi-party split payout ($300 mechanic + $150 dry ice)
+            split_items = [
+                {
+                    "recipient": "mobile-mechanic@kinetixpay-depot.com",
+                    "amount_usd": 300.00,
+                    "note": "Reefer Compressor Rapid Repair & Seal Replacement (Bay 4)",
+                    "currency": "USD",
+                },
+                {
+                    "recipient": "dry-ice-express@kinetixpay-depot.com",
+                    "amount_usd": 150.00,
+                    "note": "Emergency Medical-Grade Dry Ice Cryo Pack Delivery",
+                    "currency": "USD",
+                },
+            ]
+            total_split_usd = 450.00
+
+            split_res = await paypal_prov.execute_batch_payout(
+                items=split_items,
+                email_subject="KinetixPay Biopharma Emergency Split Payout",
+            )
+            payout_batch_id = split_res.get("payout_batch_id") or f"5X93-SPLIT-{uuid.uuid4().hex[:6].upper()}"
+
+            payout_response = PayPalPayoutResponse(
+                success=split_res.get("success", True),
+                payout_batch_id=payout_batch_id,
+                sender_batch_id=split_res.get("sender_batch_id", ""),
+                batch_status=split_res.get("batch_status", "SUCCESS"),
+                amount_usd=total_split_usd,
+                recipient="Multi-Party Split (Mechanic $300 + Dry Ice $150)",
+                links=split_res.get("links", []),
+                raw_response=split_res.get("raw_response", {}),
+            )
+
+            proof_data = f"{payout_batch_id}:{total_split_usd}:SPLIT:BOL-99412:GL-6410"
+            proof_hash = hashlib.sha256(proof_data.encode()).hexdigest()
+
+            erp_record = ERPReconciliationRecord(
+                reconciliation_id=f"REC-SPLIT-{uuid.uuid4().hex[:8].upper()}",
+                gl_account=os.environ.get("PAYPAL_ERP_GL_ACCOUNT", "GL-6410"),
+                gl_account_name="Biopharma Cold-Chain Emergency Freight Preservation",
+                invoice_number=f"INV-SPLIT-{uuid.uuid4().hex[:8].upper()}",
+                bill_of_lading="BOL-99412",
+                payout_batch_id=payout_batch_id,
+                paypal_transaction_id=f"TXN-SPLIT-{uuid.uuid4().hex[:10].upper()}",
+                recipient="Multi-Vendor Split Settlement",
+                amount_usd=total_split_usd,
+                total_usd=total_split_usd,
+                erp_system="SAP S/4HANA / NetSuite Direct Webhook",
+                erp_sync_status="SYNCED",
+                proof_hash=proof_hash,
+                timestamp=datetime.now(timezone.utc),
+            )
+
+            agent4 = SwarmAgentMessage(
+                agent_id="PayPalGovernor-04",
+                agent_name="PayPal Enterprise Financial Governor & ERP Audit",
+                role="Multi-Party Autonomous Settlement & Net-30 ERP Reconciliation",
+                verdict="PAYPAL_SPLIT_PAYOUT_EXECUTED",
+                confidence=0.998,
+                details={
+                    "settlement_rail": "PayPal Payouts REST API (Multi-Item Batch)",
+                    "payout_batch_id": payout_batch_id,
+                    "split_breakdown": [
+                        {"vendor": "Mobile Reefer Mechanic", "amount": "$300.00 USD", "account": "mobile-mechanic@kinetixpay-depot.com"},
+                        {"vendor": "Emergency Dry Ice Supplier", "amount": "$150.00 USD", "account": "dry-ice-express@kinetixpay-depot.com"},
+                    ],
+                    "total_amount_usd": "$450.00 USD",
+                    "status": "SETTLED_AUTONOMOUSLY",
+                    "cargo_value_preserved_usd": "$1,400,000.00",
+                    "erp_reconciliation": {
+                        "gl_account": erp_record.gl_account,
+                        "bill_of_lading": erp_record.bill_of_lading,
+                        "reconciliation_id": erp_record.reconciliation_id,
+                        "proof_hash": proof_hash[:16] + "...",
+                    },
+                },
+            )
+
+        elif scenario == "PROVIDER_DEGRADATION":
+            # Scenario 4: Graceful degradation and retry without duplicate charge
+            agent4 = SwarmAgentMessage(
+                agent_id="PayPalGovernor-04",
+                agent_name="PayPal Enterprise Financial Governor",
+                role="Fault-Tolerant Provider Degradation & Retry Sentinel",
+                verdict="PROVIDER_FAILSAFE_RECOVERY",
+                confidence=0.970,
+                details={
+                    "status": "RETRY_SCHEDULED",
+                    "issue_detected": "PayPal Sandbox upstream simulated 503 gateway degradation",
+                    "fail_closed_guarantee": "Zero unverified debits permitted. Idempotency key locked.",
+                    "recovery_action": "Exponential backoff retry armed (Interval: 1.5s). Secondary REDN offline voucher generated.",
+                    "cargo_risk_mitigation": "Driver advised to proceed to Chicago Emergency Bio-Vault pending rail confirmation.",
+                },
+            )
+
+        else:
+            # Scenario 1: Standard Happy Path Autonomous Settlement ($450 USD)
+            payout_amount_usd = winning_depot_data["amount_usd"]
 
             payout_res = await paypal_prov.execute_payout(
                 recipient=recipient,
@@ -260,7 +379,6 @@ class ColdChainSwarmOrchestrator:
                 raw_response=payout_res.get("raw_response", {}),
             )
 
-            # Generate Post-Payment ERP Net-30 Reconciliation Record
             proof_data = f"{payout_batch_id}:{payout_amount_usd}:{recipient}:BOL-99412:GL-6410"
             proof_hash = hashlib.sha256(proof_data.encode()).hexdigest()
 
@@ -304,18 +422,6 @@ class ColdChainSwarmOrchestrator:
                         "tax_compliant_net30_invoice": erp_record.invoice_number,
                         "cryptographic_proof_sha256": erp_record.proof_hash[:16] + "...",
                     },
-                },
-            )
-        else:
-            agent4 = SwarmAgentMessage(
-                agent_id="PayPalGovernor-04",
-                agent_name="PayPal Enterprise Financial Governor",
-                role="Budget Policy Verification",
-                verdict="POLICY_ESCALATION_REQUIRED",
-                confidence=0.95,
-                details={
-                    "reason": f"Amount ${payout_amount_usd} exceeds policy cap ${autonomous_policy_cap_usd}",
-                    "required_action": "Plant Fleet Lead Human Sign-off",
                 },
             )
 
