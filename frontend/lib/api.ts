@@ -2629,3 +2629,268 @@ export async function runColdChainSwarmAuction(
   }
   return res.json();
 }
+
+
+// =============================================================================
+// PayPal Orders v2 & Evidence-Gated Industrial Procurement API Client
+// Complies with Master PRD V2 Sections 0.2, 0.3, 7, 9.4, and 9.5
+// =============================================================================
+
+export interface ProcurementIncident {
+  scenario_id: string;
+  equipment_id: string;
+  equipment_tag: string;
+  equipment_name: string;
+  component: string;
+  anomaly_source: string;
+  trigger_timestamp: string;
+  metric_name: string;
+  measured_value_mm_s: number;
+  normal_baseline_mm_s: number;
+  alarm_threshold_mm_s: number;
+  status: string;
+  diagnosis: string;
+  recommended_action: string;
+  work_order_id: string;
+  is_critical_asset: boolean;
+  requires_supervisor_signoff: boolean;
+}
+
+export interface ProcurementQuote {
+  quote_id: string;
+  vendor_id: string;
+  vendor_name: string;
+  service_id: string;
+  amount: string;
+  currency: string;
+  sla_hours: number;
+  is_allowlisted: boolean;
+  is_synthetic: boolean;
+  synthetic_label: string;
+  scope_description: string;
+  is_direct_paypal_sandbox_merchant: boolean;
+  scoring: {
+    cost_score: number;
+    sla_score: number;
+    reliability_score: number;
+    composite_rank: number;
+    hard_gates_passed: boolean;
+    gate_failure_reason?: string;
+  };
+}
+
+export interface ProcurementMandate {
+  mandate_id: string;
+  version: number;
+  equipment_scope: string[];
+  allowed_service_ids: string[];
+  currency_code: string;
+  max_amount: string;
+  allowed_vendor_ids: string[];
+  require_human_for_critical_assets: boolean;
+  critical_asset_tags: string[];
+}
+
+export interface MandateEvalResult {
+  decision: "ALLOWED" | "BLOCKED" | "REQUIRES_REVIEW";
+  risk_lane: "LANE_A_ROUTINE" | "LANE_B_EXCEPTION";
+  requires_supervisor_signoff: boolean;
+  reason_codes: string[];
+  audit_hash: string;
+  quote: ProcurementQuote;
+}
+
+export interface PayPalOrderState {
+  id?: number;
+  paypal_order_id: string;
+  authorization_id?: string | null;
+  capture_id?: string | null;
+  status: string;
+  amount_value: string;
+  currency_code: string;
+  work_order_id: string;
+  equipment_tag: string;
+  quote_id: string;
+  vendor_id: string;
+  mandate_id: string;
+  risk_lane?: string;
+  evidence_status: string;
+  reviewer_user_id?: string | null;
+  reviewer_notes?: string | null;
+  created_at?: string;
+  authorized_at?: string | null;
+  captured_at?: string | null;
+}
+
+export interface AuditLineageStage {
+  step: number;
+  title: string;
+  source?: string;
+  equipment_id?: string;
+  detail?: string;
+  status?: string;
+  timestamp?: string;
+  diagnosis?: string;
+  recommended_action?: string;
+  work_order_id?: string;
+  quotes_evaluated?: number;
+  selected_vendor_id?: string;
+  disclosure?: string;
+  mandate_id?: string;
+  budget_cap?: string;
+  risk_lane?: string;
+  requires_supervisor_signoff?: boolean;
+  supervisor_signed_off?: boolean;
+  supervisor_id?: string | null;
+  order_id?: string;
+  intent?: string;
+  amount?: string;
+  authorization_id?: string | null;
+  authorized_at?: string | null;
+  policy?: string;
+  evidence_submitted?: boolean;
+  evidence_id?: string | null;
+  validation_passed?: boolean;
+  file_sha256?: string | null;
+  capture_id?: string | null;
+  captured_at?: string | null;
+}
+
+export interface OrderAuditLineage {
+  order_id: string;
+  work_order_id: string;
+  status: string;
+  amount: string;
+  currency: string;
+  lineage_stages: AuditLineageStage[];
+}
+
+export async function getProcurementIncident(): Promise<ProcurementIncident> {
+  const res = await fetch(`${API_URL}/api/procurement/incident`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load procurement incident");
+  return res.json();
+}
+
+export async function getProcurementQuotes(): Promise<ProcurementQuote[]> {
+  const res = await fetch(`${API_URL}/api/procurement/quotes`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load procurement quotes");
+  return res.json();
+}
+
+export async function getProcurementMandate(): Promise<ProcurementMandate> {
+  const res = await fetch(`${API_URL}/api/procurement/mandate`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load procurement mandate");
+  return res.json();
+}
+
+export async function evaluateProcurementQuote(quoteId: string): Promise<MandateEvalResult> {
+  const res = await fetch(`${API_URL}/api/procurement/evaluate-quote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quote_id: quoteId }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to evaluate quote");
+  }
+  return res.json();
+}
+
+export async function createPayPalOrder(quoteId: string, actor: string = "kinetix-procurement-agent"): Promise<PayPalOrderState> {
+  const res = await fetch(`${API_URL}/api/paypal/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quote_id: quoteId, actor }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to create PayPal order");
+  }
+  return res.json();
+}
+
+export async function getPayPalOrder(orderId: string): Promise<PayPalOrderState> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load PayPal order ${orderId}`);
+  return res.json();
+}
+
+export async function authorizePayPalOrder(orderId: string): Promise<PayPalOrderState> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/authorize`, {
+    method: "POST",
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to authorize PayPal order");
+  }
+  return res.json();
+}
+
+export async function submitCompletionEvidence(orderId: string, payload: any): Promise<any> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/evidence`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to submit completion evidence");
+  }
+  return res.json();
+}
+
+export async function supervisorSignOff(orderId: string, supervisorId: string, notes: string = "Approved"): Promise<any> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/sign-off`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ supervisor_id: supervisorId, notes }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to record supervisor sign-off");
+  }
+  return res.json();
+}
+
+export async function capturePayPalOrder(orderId: string, idempotencyKey?: string): Promise<any> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/capture`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idempotency_key: idempotencyKey }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = err.detail?.message || err.detail || "Capture failed or rejected by Evidence Gate";
+    const errorObj = new Error(typeof message === "string" ? message : JSON.stringify(message));
+    (errorObj as any).status = res.status;
+    (errorObj as any).detail = err.detail;
+    throw errorObj;
+  }
+  return res.json();
+}
+
+export async function voidPayPalOrder(orderId: string, reason?: string): Promise<PayPalOrderState> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/void`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: reason || "Cancelled" }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to void PayPal order");
+  }
+  return res.json();
+}
+
+export async function getOrderAuditLineage(orderId: string): Promise<OrderAuditLineage> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/audit`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load audit lineage for order ${orderId}`);
+  return res.json();
+}

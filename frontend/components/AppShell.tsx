@@ -14,6 +14,7 @@ const routeTitles: Array<[prefix: string, title: string]> = [
   ["/work-orders", "Work Orders"],
   ["/predictive-watch", "Predictive Watch"],
   ["/operations", "Operations & Governance"],
+  ["/procurement", "Evidence-Gated Industrial Procurement (PayPal)"],
   ["/machine-money", "Machine Money"],
   ["/knowledge-risk", "Knowledge Risk"],
   ["/comparison", "RAG Comparison"],
