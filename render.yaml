@@ -92,6 +92,18 @@ services:
         sync: false
       - key: INGEST_S3_SECRET_ACCESS_KEY
         sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_ENVIRONMENT
+        value: sandbox
+      - key: AUTH_ENABLED
+        sync: false
+      - key: TEST_JWT_SECRET
+        sync: false
 
   - type: worker
     name: kinetix-telemetry

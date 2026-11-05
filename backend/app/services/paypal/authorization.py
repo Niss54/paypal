@@ -42,9 +42,16 @@ class PayPalAuthorizationService:
             if auths:
                 auth_obj = auths[0]
 
-        auth_id = auth_obj.get("id", data.get("id", ""))
-        raw_status = auth_obj.get("status", AuthorizationStatus.CREATED.value)
-        status = AuthorizationStatus(raw_status) if raw_status in AuthorizationStatus._value2member_map_ else AuthorizationStatus.CREATED
+        auth_id = auth_obj.get("id", "")
+        raw_status = auth_obj.get("status")
+        if not auth_id or not raw_status:
+            logger.error("Missing authorization object or status in PayPal authorize response: %s", data)
+            status = AuthorizationStatus.DENIED
+        elif raw_status in AuthorizationStatus._value2member_map_:
+            status = AuthorizationStatus(raw_status)
+        else:
+            logger.warning("Unrecognized PayPal authorization status: %s", raw_status)
+            status = AuthorizationStatus.DENIED
 
         amt_dict = auth_obj.get("amount", {})
         money = Money(

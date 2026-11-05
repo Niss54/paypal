@@ -7,6 +7,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.db.models import PayPalOrderRecord, PayPalWebhookEvent
 from backend.app.services.paypal.client import PayPalClient
@@ -129,13 +130,21 @@ class PayPalWebhookService:
                     auth_id = lk.get("href", "").split("/")[-1]
 
             if auth_id:
-                order_record = db.query(PayPalOrderRecord).filter_by(authorization_id=auth_id).first()
+                order_record = db.query(PayPalOrderRecord).filter_by(authorization_id=auth_id).order_by(PayPalOrderRecord.created_at.desc()).first()
+            elif custom_id and "wo:" in custom_id and "quote:" in custom_id:
+                # Disambiguate by both work_order_id and quote_id
+                parts = dict(p.split(":", 1) for p in custom_id.split("|") if ":" in p)
+                wo = parts.get("wo")
+                q = parts.get("quote")
+                order_record = db.query(PayPalOrderRecord).filter_by(work_order_id=wo, quote_id=q).order_by(PayPalOrderRecord.created_at.desc()).first()
             elif custom_id and "wo:" in custom_id:
                 wo = custom_id.split("|")[0].replace("wo:", "")
-                order_record = db.query(PayPalOrderRecord).filter_by(work_order_id=wo).first()
+                order_record = db.query(PayPalOrderRecord).filter_by(work_order_id=wo).order_by(PayPalOrderRecord.created_at.desc()).first()
+            elif capture_id:
+                order_record = db.query(PayPalOrderRecord).filter_by(capture_id=capture_id).first()
 
             if order_record:
-                # Financial Integrity: Validate amount and currency match exactly
+                # Financial Integrity: Validate amount and currency match if provided
                 res_amount = resource.get("amount", {})
                 res_curr = res_amount.get("currency_code")
                 res_val = res_amount.get("value")
@@ -153,6 +162,24 @@ class PayPalWebhookService:
                             "event_id": event_id,
                             "order_id": order_record.paypal_order_id,
                         }
+                elif res_amount and (not res_curr or not res_val):
+                    logger.error(
+                        "PAYPAL WEBHOOK MALFORMED AMOUNT: Order %s received capture event with partial amount fields",
+                        order_record.paypal_order_id
+                    )
+                    order_record.status = "CAPTURE_AMOUNT_MALFORMED"
+                    order_record.updated_at = now
+                    db.commit()
+                    return {
+                        "status": "AMOUNT_MALFORMED_REJECTED",
+                        "event_id": event_id,
+                        "order_id": order_record.paypal_order_id,
+                    }
+                else:
+                    logger.warning(
+                        "PAYPAL WEBHOOK: Capture event %s for order %s omitted amount object; falling back to order record amount %s %s",
+                        event_id, order_record.paypal_order_id, order_record.amount_value, order_record.currency_code
+                    )
 
                 order_record.status = "CAPTURED"
                 order_record.capture_id = capture_id
@@ -190,8 +217,17 @@ class PayPalWebhookService:
             }),
             processed_at=now,
         )
-        db.add(webhook_record)
-        db.commit()
+        try:
+            db.add(webhook_record)
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            logger.info("Concurrent webhook delivery deduplicated by DB constraint for event %s", event_id)
+            return {
+                "status": "ALREADY_PROCESSED",
+                "event_id": event_id,
+                "event_type": event_type,
+            }
 
         return {
             "status": "PROCESSED",

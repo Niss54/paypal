@@ -324,6 +324,8 @@ class PayPalOrderRecord(Base):
     requester_user_id = Column(String(128), default="kinetix-procurement-agent", nullable=False)
     approve_url = Column(String(512), nullable=True)
     is_simulated = Column(Boolean, default=False, nullable=False)
+    site_id = Column(String(64), default="plant-mumbai-01", nullable=False, index=True)
+    organization_id = Column(String(64), default="kinetix-industrial", nullable=False)
 
     create_request_id = Column(String(128), nullable=False)
     authorize_request_id = Column(String(128), nullable=True)
@@ -368,6 +370,8 @@ class PayPalOrderRecord(Base):
             "requester_user_id": getattr(self, "requester_user_id", "kinetix-procurement-agent"),
             "approve_url": getattr(self, "approve_url", None),
             "is_simulated": getattr(self, "is_simulated", False),
+            "site_id": getattr(self, "site_id", "plant-mumbai-01"),
+            "organization_id": getattr(self, "organization_id", "kinetix-industrial"),
             "create_request_id": self.create_request_id,
             "authorize_request_id": self.authorize_request_id,
             "capture_request_id": self.capture_request_id,
@@ -430,6 +434,11 @@ class CompletionEvidenceRecord(Base):
     measurements_json = Column(Text, default="{}")
     validation_passed = Column(Boolean, default=False)
     validation_reason_codes_json = Column(Text, default="[]")
+    order_id = Column(String(64), index=True, nullable=True)
+    file_content = Column(Text, nullable=True)
+    file_size_bytes = Column(Integer, default=0)
+    submitted_by = Column(String(128), nullable=True)
+    provenance_classification = Column(String(64), default="SYNTHETIC_DEMO_FIXTURE")
     is_synthetic = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
@@ -458,6 +467,10 @@ class CompletionEvidenceRecord(Base):
             "measurements": measurements,
             "validation_passed": self.validation_passed,
             "validation_reason_codes": reason_codes,
+            "order_id": getattr(self, "order_id", None),
+            "provenance_classification": getattr(self, "provenance_classification", "SYNTHETIC_DEMO_FIXTURE"),
+            "file_size_bytes": getattr(self, "file_size_bytes", 0),
+            "submitted_by": getattr(self, "submitted_by", None),
             "is_synthetic": self.is_synthetic,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
