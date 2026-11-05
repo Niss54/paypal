@@ -4,6 +4,7 @@
 > **Evaluation Duration:** 3 Minutes  
 > **Live Production App:** [**kinetix-rag.vercel.app/machine-money**](https://au-rag.vercel.app/machine-money)  
 > **API Docs & OpenAPI:** [**Backend Swagger Docs**](https://au-rag.vercel.app/docs)  
+> **Master Winning Strategy Dossier:** [**`docs/PAYPAL_HACKATHON_WINNING_STRATEGY.md`**](./docs/PAYPAL_HACKATHON_WINNING_STRATEGY.md)  
 
 ---
 
