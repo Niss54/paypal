@@ -36,7 +36,7 @@ const paypalHackathonItems = [
     label: "PayPal Procurement",
     icon: CreditCardIcon,
     href: "/procurement",
-    badge: "PayPal v2",
+    badge: "v2",
     badgeClass: "bg-[#003087] text-white border-blue-400/40 font-bold",
     highlight: true,
   },
@@ -67,10 +67,10 @@ const evidenceRagItems = [
 
 const modularRailItems = [
   {
-    label: "Machine Money (Modular)",
+    label: "Machine Money",
     icon: ZapIcon,
     href: "/machine-money",
-    badge: "Multi-Rail",
+    badge: "Modular",
     badgeClass: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   },
 ];
@@ -109,7 +109,7 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
         {/* PayPal AI Hackathon Flagship Group */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[11px] font-semibold text-[#0079C1] dark:text-cyan-400 uppercase tracking-wider font-mono">
-            🏆 PayPal AI Hackathon 2026
+            PayPal AI Hackathon 2026
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -126,10 +126,10 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                       className={item.highlight ? "font-semibold text-foreground bg-[#003087]/15 border border-[#003087]/30" : ""}
                       render={<Link href={item.href} onClick={closeMobileSidebar} />}
                     >
-                      <Icon className={item.highlight ? "text-[#0079C1] dark:text-cyan-400" : undefined} />
-                      <span className="flex-1">{item.label}</span>
+                      <Icon className={item.highlight ? "text-[#0079C1] dark:text-cyan-400 shrink-0" : "shrink-0"} />
+                      <span className="flex-1 whitespace-nowrap truncate">{item.label}</span>
                       {item.badge && (
-                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border group-data-[collapsible=icon]:hidden ${item.badgeClass}`}>
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 group-data-[collapsible=icon]:hidden ${item.badgeClass}`}>
                           {item.badge}
                         </span>
                       )}
@@ -160,8 +160,8 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                       tooltip={item.label}
                       render={<Link href={item.href} onClick={closeMobileSidebar} />}
                     >
-                      <Icon />
-                      <span>{item.label}</span>
+                      <Icon className="shrink-0" />
+                      <span className="whitespace-nowrap truncate">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -189,10 +189,10 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                       tooltip={item.label}
                       render={<Link href={item.href} onClick={closeMobileSidebar} />}
                     >
-                      <Icon className="text-amber-500/80" />
-                      <span className="flex-1">{item.label}</span>
+                      <Icon className="text-amber-500/80 shrink-0" />
+                      <span className="flex-1 whitespace-nowrap truncate">{item.label}</span>
                       {item.badge && (
-                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border group-data-[collapsible=icon]:hidden ${item.badgeClass}`}>
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 group-data-[collapsible=icon]:hidden ${item.badgeClass}`}>
                           {item.badge}
                         </span>
                       )}
