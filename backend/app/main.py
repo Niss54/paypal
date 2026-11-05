@@ -82,34 +82,43 @@ def root():
     return {"status": "ok", "service": "KinetixRAG Operator Console API"}
 
 
+import logging
+logger = logging.getLogger(__name__)
+
 @app.exception_handler(HTTPException)
 def flat_http_exception_handler(request: Request, exc: HTTPException):
     if isinstance(exc.detail, dict):
         content = exc.detail
     else:
         content = {"error": str(exc.detail), "detail": str(exc.detail)}
-    # Prevent Render / Cloudflare reverse proxy from converting 5xx into HTML 502 with dropped CORS
     headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "*",
         "Access-Control-Allow-Headers": "*",
     }
     if exc.status_code >= 500:
-        return JSONResponse(status_code=200, content={"error": "service_degraded", **content}, headers=headers)
+        logger.error(f"HTTPException {exc.status_code} at {request.url.path}: {exc.detail}")
     return JSONResponse(status_code=exc.status_code, content=content, headers=headers)
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback
+    import uuid
+    error_id = f"err-{uuid.uuid4().hex[:8]}"
+    logger.exception(f"Unhandled server exception [{error_id}] at {request.url.path}: {exc}")
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
     return JSONResponse(
-        status_code=200,
-        content={"error": "internal_error", "detail": str(exc), "traceback": traceback.format_exc()},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "*",
-            "Access-Control-Allow-Headers": "*",
+        status_code=500,
+        content={
+            "error": "internal_error",
+            "detail": "An internal server error occurred.",
+            "error_id": error_id,
         },
+        headers=headers,
     )
 
 
