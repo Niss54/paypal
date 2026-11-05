@@ -2606,29 +2606,7 @@ export async function getPayPalConfig(): Promise<PayPalConfigResponse> {
   return res.json();
 }
 
-export async function runColdChainSwarmAuction(
-  step: number = 4,
-  policyCapUsd: number = 1000.0,
-  recipientOverride?: string,
-  scenario: string = "CRITICAL_EXCURSION"
-): Promise<ColdChainSwarmAuctionResponse> {
-  const res = await fetch(`${API_URL}/api/machine-money/paypal/swarm-auction`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      step,
-      policy_cap_usd: policyCapUsd,
-      recipient_override: recipientOverride,
-      scenario,
-    }),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Cold-chain swarm auction failed.");
-  }
-  return res.json();
-}
+// runColdChainSwarmAuction removed - use Evidence-Gated Procurement client
 
 
 // =============================================================================

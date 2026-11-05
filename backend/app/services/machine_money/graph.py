@@ -147,12 +147,13 @@ def get_payment_graph_trail(session, payment_id: str) -> Dict[str, Any]:
                 "name": eq.get("name", "Crude Charge Pump A"),
             },
             "graph_story": [
-                "1. Smart Reefer TRK-9042 IoT sensor detected thermal anomaly (8.6°C, +0.70°C/min runaway)",
-                "2. Neo4j Graph matched USP <1079> Good Storage & Shipping Practices and FDA 21 CFR § 211.150",
-                "3. Formulation stability curve for Trastuzumab (Herceptin) calculated critical 28.5 min window",
-                "4. Multi-depot RFQ selected Chicago Emergency Bio-Vault (18m SLA, Bay 4 pre-chilled, AAA certified)",
-                f"5. PayPal Enterprise REST Payout settled ${float(p.get('amount_usd', 450.0)):.2f} USD (Batch {p.get('payout_batch_id', '5X93-PP-SANDBOX')})",
-                "6. Reconciled in SAP/NetSuite ERP under GL-6410 Freight Preservation and BOL-99412 (3,111x ROI)",
+                f"1. Sensor anomaly detected on {eq.get('name', 'Primary Slurry Pump P-101A')} (NASA IMS Accelerometry 4.82 mm/s RMS)",
+                "2. GraphRAG verified ISO 10816 Zone C/D threshold and staged Work Order WO-2026-IMS-001",
+                "3. Deterministic Spending Mandate evaluated RFQ bids under strict $500 cap (Lane B Critical Asset)",
+                f"4. PayPal Orders v2 established 29-day authorized hold with intent: AUTHORIZE",
+                "5. 'No Evidence, No Capture' policy gate blocked early capture until physical repair telemetry was verified",
+                "6. Post-repair vibration (1.25 mm/s RMS) validated with SHA-256 report checksum and supervisor sign-off",
+                f"7. Authorized funds captured via PayPal API with cryptographic causal audit lineage",
             ] if (p.get("provider") == "paypal" or str(payment_id).startswith("PAY-PP") or "paypal" in str(p.get("payment_hash", "")).lower()) else [
                 f"1. Sensor anomaly detected on {eq.get('name', 'P-101A')}",
                 f"2. Matched historical failure signature ({fe.get('id', 'FE-001')})",
@@ -170,89 +171,67 @@ def get_payment_graph_trail(session, payment_id: str) -> Dict[str, Any]:
         }
 
 
-def record_coldchain_payout_in_graph(
+def record_procurement_order_in_graph(
     session,
     payment_id: str,
-    payout_batch_id: str,
+    paypal_order_id: str,
+    authorization_id: Optional[str] = None,
+    capture_id: Optional[str] = None,
     amount_usd: float = 450.0,
-    recipient_email: str = "chicago-redn@kinetixpay-depot.com",
-    cargo_id: str = "CARGO-TR-9902",
-    cargo_drug: str = "Trastuzumab (Herceptin 440mg)",
-    cargo_valuation_usd: float = 1400000.0,
-    regulatory_code: str = "USP-1079",
-    depot_id: str = "chicago-emergency-dock",
-    depot_name: str = "Chicago Emergency Bio-Vault (REDN-01)",
-    gl_account: str = "GL-6410",
-    bill_of_lading: str = "BOL-99412",
-    status: str = "SETTLED",
+    equipment_tag: str = "P-101A",
+    work_order_id: str = "WO-2026-IMS-001",
+    vendor_id: str = "VEND-APEX-ROTATING",
+    vendor_name: str = "Apex Rotating Equipment",
+    status: str = "AUTHORIZED",
+    evidence_id: Optional[str] = None,
+    supervisor_id: Optional[str] = None,
     **kwargs: Any,
 ) -> bool:
-    """Record PayPal Cold-Chain BioPharma Payout and attach semantic relationships:
-    (p:Payment:PayPalPayout)-[:PRESERVES]->(c:CargoBatch)
-    (c)-[:CONTAINS]->(d:BiologicDrug)
-    (d)-[:GOVERNED_BY]->(r:RegulatoryStandard)
-    (p)-[:RESERVES_BAY]->(v:ColdDepotVendor)
-    (p)-[:RECONCILED_IN]->(j:ERPJournal)
+    """Record PayPal Orders v2 Evidence-Gated Procurement and attach semantic relationships:
+    (p:Payment:PayPalOrder)-[:FUNDS]->(wo:WorkOrder)
+    (p)-[:COVERS_EQUIPMENT]->(eq:Equipment)
+    (p)-[:AWARDED_TO]->(v:Vendor)
     """
     cypher = """
-    MERGE (p:Payment:PayPalPayout {id: $payment_id})
-    SET p.payout_batch_id = $payout_batch_id,
+    MERGE (p:Payment:PayPalOrder {id: $payment_id})
+    SET p.paypal_order_id = $paypal_order_id,
+        p.authorization_id = $authorization_id,
+        p.capture_id = $capture_id,
         p.amount_usd = $amount_usd,
         p.provider = "paypal",
         p.status = $status,
-        p.recipient_email = $recipient_email,
         p.updated_at = datetime()
 
     WITH p
-    MERGE (c:CargoBatch {id: $cargo_id})
-    SET c.valuation_usd = $cargo_valuation_usd,
-        c.bill_of_lading = $bill_of_lading
-    MERGE (p)-[:PRESERVES]->(c)
+    MERGE (wo:WorkOrder {id: $work_order_id})
+    MERGE (p)-[:FUNDS]->(wo)
 
-    WITH p, c
-    MERGE (d:BiologicDrug {name: $cargo_drug})
-    SET d.target_temp_c = "2°C - 8°C",
-        d.stability_window_min = 28.5
-    MERGE (c)-[:CONTAINS]->(d)
-
-    WITH p, d
-    MERGE (r:RegulatoryStandard {code: $regulatory_code})
-    SET r.title = "Good Storage & Shipping Practices",
-        r.authority = "FDA 21 CFR § 211.150 / USP <1079>"
-    MERGE (d)-[:GOVERNED_BY]->(r)
+    WITH p, wo
+    MERGE (eq:Equipment {tag: $equipment_tag})
+    MERGE (p)-[:COVERS_EQUIPMENT]->(eq)
 
     WITH p
-    MERGE (v:ColdDepotVendor {id: $depot_id})
-    SET v.name = $depot_name,
-        v.tier = "TIER_1_REDN"
-    MERGE (p)-[:RESERVES_BAY]->(v)
+    MERGE (v:Vendor {id: $vendor_id})
+    SET v.name = $vendor_name
+    MERGE (p)-[:AWARDED_TO]->(v)
 
-    WITH p
-    MERGE (j:ERPJournal {account: $gl_account})
-    SET j.title = "Emergency Biopharma Freight Preservation",
-        j.status = "SYNCED"
-    MERGE (p)-[:RECONCILED_IN]->(j)
-
-    RETURN p.id AS payout_id
+    RETURN p.id AS order_payment_id
     """
     try:
         session.run(
             cypher,
             payment_id=payment_id,
-            payout_batch_id=payout_batch_id,
+            paypal_order_id=paypal_order_id,
+            authorization_id=authorization_id or "",
+            capture_id=capture_id or "",
             amount_usd=amount_usd,
-            recipient_email=recipient_email,
-            cargo_id=cargo_id,
-            cargo_drug=cargo_drug,
-            cargo_valuation_usd=cargo_valuation_usd,
-            regulatory_code=regulatory_code,
-            depot_id=depot_id,
-            depot_name=depot_name,
-            gl_account=gl_account,
-            bill_of_lading=bill_of_lading,
+            equipment_tag=equipment_tag,
+            work_order_id=work_order_id,
+            vendor_id=vendor_id,
+            vendor_name=vendor_name,
             status=status,
         )
         return True
     except Exception as exc:
-        logger.warning(f"Failed to record PayPal coldchain payout in graph: {exc}")
+        logger.warning(f"Failed to record PayPal procurement order in graph: {exc}")
         return False

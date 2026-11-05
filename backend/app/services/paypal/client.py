@@ -48,8 +48,8 @@ class PayPalClient:
         base_url: Optional[str] = None,
         timeout_seconds: float = 15.0,
     ):
-        self.client_id = (client_id or os.environ.get("PAYPAL_CLIENT_ID", "")).strip()
-        self.client_secret = (client_secret or os.environ.get("PAYPAL_CLIENT_SECRET", "")).strip()
+        self.client_id = (client_id if client_id is not None else os.environ.get("PAYPAL_CLIENT_ID", "")).strip()
+        self.client_secret = (client_secret if client_secret is not None else os.environ.get("PAYPAL_CLIENT_SECRET", "")).strip()
         self.base_url = (
             base_url or os.environ.get("PAYPAL_API_BASE_URL", "https://api-m.sandbox.paypal.com")
         ).rstrip("/")

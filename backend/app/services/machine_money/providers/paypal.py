@@ -37,8 +37,8 @@ class PayPalProvider(LightningProvider):
         mode: Optional[str] = None,
         timeout_seconds: float = 15.0,
     ):
-        self.client_id = client_id or os.environ.get("PAYPAL_CLIENT_ID", "").strip()
-        self.client_secret = client_secret or os.environ.get("PAYPAL_CLIENT_SECRET", "").strip()
+        self.client_id = (client_id if client_id is not None else os.environ.get("PAYPAL_CLIENT_ID", "")).strip()
+        self.client_secret = (client_secret if client_secret is not None else os.environ.get("PAYPAL_CLIENT_SECRET", "")).strip()
         self.base_url = (
             base_url or os.environ.get("PAYPAL_API_BASE_URL", "https://api-m.sandbox.paypal.com")
         ).rstrip("/")
@@ -168,7 +168,7 @@ class PayPalProvider(LightningProvider):
         sender_item_id: Optional[str] = None,
         sender_batch_id: Optional[str] = None,
         recipient_type: str = "EMAIL",
-        email_subject: str = "KinetixPay Biopharma Cold-Chain Dispatch",
+        email_subject: str = "KinetixRAG Industrial Equipment Dispatch",
     ) -> Dict[str, Any]:
         """Execute autonomous settlement to a vendor depot via PayPal Payouts REST API.
         
@@ -197,7 +197,7 @@ class PayPalProvider(LightningProvider):
                 "sender_batch_id": batch_id,
                 "recipient_type": recipient_type,
                 "email_subject": email_subject,
-                "email_message": f"Autonomous biopharma cold-chain emergency dock settlement: {note}",
+                "email_message": f"Autonomous industrial equipment emergency maintenance settlement: {note}",
             },
             "items": [
                 {
@@ -290,7 +290,7 @@ class PayPalProvider(LightningProvider):
                 "sender_batch_id": batch_id,
                 "recipient_type": "EMAIL",
                 "email_subject": email_subject,
-                "email_message": f"Autonomous biopharma multi-party emergency intervention payout (Total ${total_usd:.2f})",
+                "email_message": f"Autonomous industrial multi-party emergency maintenance payout (Total ${total_usd:.2f})",
             },
             "items": formatted_items,
         }
@@ -408,40 +408,44 @@ class PayPalProvider(LightningProvider):
         )
 
     async def pay_invoice(self, bolt11: str, max_fee_sats: int = 20) -> PaymentReceipt:
-        """Execute settlement. If PayPal credentials are live, invokes real Payout."""
+        """Execute settlement. If PayPal credentials are live, invokes real Payout.
+        Fixes SEC-P0-01 (no fake SETTLED fallback) and SEC-P0-02 (respects PENDING state).
+        """
         now = utcnow()
-        # Check if live PayPal credentials are available
-        if self.is_configured:
-            # Perform live payout to configured sandbox recipient
-            recipient = os.environ.get("PAYPAL_DEMO_RECIPIENT", "depot-pilot@kinetixpay-sandbox.com")
-            result = await self.execute_payout(
-                recipient=recipient,
-                amount_usd=450.00,
-                note=f"Autonomous BioPharma Emergency Dock Settlement ({bolt11[:30]}...)",
+        if not self.is_configured:
+            # SEC-P0-01: Never report fake SETTLED when unconfigured
+            raise ProviderError(
+                "PayPal credentials not configured: PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are required. "
+                "Unconfigured providers cannot settle payments."
             )
-            payout_id = result.get("payout_batch_id", uuid.uuid4().hex[:12])
-            return PaymentReceipt(
-                receipt_id=f"rec-paypal-{uuid.uuid4().hex[:12]}",
-                payment_hash=f"paypal-payout-{payout_id}",
-                preimage=uuid.uuid4().hex,
-                amount_sats=250,
-                fee_sats=0,
-                provider="paypal",
-                status=PaymentStatus.SETTLED,
-                settled_at=now,
-            )
+
+        recipient = os.environ.get("PAYPAL_DEMO_RECIPIENT", "depot-pilot@kinetixpay-sandbox.com")
+        result = await self.execute_payout(
+            recipient=recipient,
+            amount_usd=450.00,
+            note=f"Autonomous Industrial Maintenance Settlement ({bolt11[:30]}...)",
+        )
+        payout_id = result.get("payout_batch_id", uuid.uuid4().hex[:12])
+        batch_status = result.get("batch_status", "PENDING").upper()
+
+        # SEC-P0-02: Only mark SETTLED if PayPal actually confirms SUCCESS; PENDING stays PENDING
+        if batch_status in ("SUCCESS", "SUCCESSFUL"):
+            status = PaymentStatus.SETTLED
+            settled_at = now
         else:
-            # Diagnostic fallback when no keys are configured
-            return PaymentReceipt(
-                receipt_id=f"rec-paypal-mock-{uuid.uuid4().hex[:12]}",
-                payment_hash=f"paypal-sim-{uuid.uuid4().hex}",
-                preimage=uuid.uuid4().hex,
-                amount_sats=250,
-                fee_sats=0,
-                provider="paypal",
-                status=PaymentStatus.SETTLED,
-                settled_at=now,
-            )
+            status = PaymentStatus.PENDING
+            settled_at = None
+
+        return PaymentReceipt(
+            receipt_id=f"rec-paypal-{uuid.uuid4().hex[:12]}",
+            payment_hash=f"paypal-payout-{payout_id}",
+            preimage=uuid.uuid4().hex,
+            amount_sats=250,
+            fee_sats=0,
+            provider="paypal",
+            status=status,
+            settled_at=now,
+        )
 
     async def check_payment(self, payment_hash: str) -> PaymentReceipt:
         """Query settlement status of a previously created or paid invoice."""

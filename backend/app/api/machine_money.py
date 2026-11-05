@@ -28,11 +28,9 @@ from backend.app.services.machine_money.schemas import (
     JudgeScenarioFixture,
     PayPalPayoutRequest,
     PayPalPayoutResponse,
-    ColdChainSwarmAuctionResponse,
     ERPReconciliationRecord,
 )
 from backend.app.services.machine_money.service import MachineMoneyService
-from backend.app.services.machine_money.coldchain_swarm import ColdChainSwarmOrchestrator
 from backend.app.services.machine_money.providers.paypal import PayPalProvider
 
 router = APIRouter(prefix="/machine-money", tags=["machine-money"])
@@ -510,23 +508,7 @@ def calculate_multi_hop_route(req: RouteCalculationRequest):
 # PAYPAL ENTERPRISE AGENTIC COMMERCE & COLD-CHAIN SWARM ENDPOINTS
 # =====================================================================
 
-class SwarmAuctionRequest(BaseModel):
-    step: int = Field(default=4, description="Telemetry excursion progression step (0-6)")
-    policy_cap_usd: float = Field(default=1000.00, description="Autonomous spending policy cap in USD")
-    recipient_override: Optional[str] = Field(default=None, description="Optional override PayPal recipient email")
-    scenario: str = Field(default="CRITICAL_EXCURSION", description="CRITICAL_EXCURSION, POLICY_ESCALATION, MULTI_PARTY_SPLIT, or PROVIDER_DEGRADATION")
-
-
-@router.post("/paypal/swarm-auction", response_model=ColdChainSwarmAuctionResponse)
-async def run_cold_chain_swarm_auction(req: SwarmAuctionRequest):
-    """Execute 4-Agent Autonomous Swarm Consensus & PayPal Payout for BioPharma Cold-Chain Preservation."""
-    orchestrator = ColdChainSwarmOrchestrator()
-    return await orchestrator.execute_swarm_consensus(
-        step=req.step,
-        autonomous_policy_cap_usd=req.policy_cap_usd,
-        recipient_override=req.recipient_override,
-        scenario=req.scenario,
-    )
+# Legacy cold-chain swarm auction removed in favor of Evidence-Gated Procurement
 
 
 @router.post("/paypal/payout", response_model=PayPalPayoutResponse)
