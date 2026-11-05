@@ -307,7 +307,29 @@ export default function ProcurementPage() {
     setActiveStep(1);
   };
 
-  const selectedQuote = quotes.find((q) => q.quote_id === selectedQuoteId) || quotes[0];
+  const fallbackQuote: ProcurementQuote = {
+    quote_id: "Q-2026-001",
+    vendor_id: "VEND-APEX-ROTATING",
+    vendor_name: "Apex Rotating Equipment",
+    service_id: "SRV-BRG-REPLACE",
+    amount: "450.00",
+    currency: "USD",
+    sla_hours: 12,
+    is_allowlisted: true,
+    is_synthetic: true,
+    synthetic_label: "[SYNTHETIC DEMO QUOTE]",
+    scope_description: "Emergency on-site bearing replacement",
+    is_direct_paypal_sandbox_merchant: true,
+    scoring: {
+      cost_score: 95,
+      sla_score: 90,
+      reliability_score: 98,
+      composite_rank: 1,
+      hard_gates_passed: true,
+    },
+  };
+
+  const selectedQuote = quotes.find((q) => q.quote_id === selectedQuoteId) || quotes[0] || fallbackQuote;
 
   return (
     <div className="flex-1 space-y-6 p-4 sm:p-6 max-w-6xl mx-auto">
@@ -566,7 +588,7 @@ export default function ProcurementPage() {
 
               <CardFooter className="pt-2 flex justify-between items-center border-t border-border/40">
                 <span className="text-xs text-muted-foreground font-mono">
-                  Ready: {selectedQuote.vendor_name} (${selectedQuote.amount})
+                  Ready: {selectedQuote?.vendor_name || "Apex Rotating Equipment"} (${selectedQuote?.amount || "450.00"})
                 </span>
                 <Button
                   onClick={handleCreateAndAuthorize}
