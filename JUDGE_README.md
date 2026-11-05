@@ -1,4 +1,10 @@
+<div align="center">
+
+<img src="./frontend/public/kr.png" alt="KinetixRAG Logo" width="130" style="margin-bottom: 10px;" />
+
 # ⚡ KinetixRAG — PayPal AI Hackathon 2026 Judge Evaluation Guide
+
+</div>
 
 > **Project Identity:** KinetixRAG — Evidence-Gated Industrial Procurement  
 > **Target Track:** Best Use of Agentic Commerce ($5,000 Special Prize) & Grand Prize  

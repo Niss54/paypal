@@ -25,6 +25,7 @@ export default function DashboardHeader({
     <header className="sticky top-0 flex h-14 shrink-0 items-center justify-between gap-4 border-b bg-background/92 px-4 backdrop-blur sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger />
+        <img src="/kr.png" alt="KinetixRAG Logo" className="size-6 object-contain hidden sm:block drop-shadow-sm" />
         <Separator orientation="vertical" className="hidden h-4 self-center sm:block" />
         <Breadcrumb className="min-w-0">
           <BreadcrumbList className="flex-nowrap">

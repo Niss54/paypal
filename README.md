@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./frontend/public/kr.png" alt="KinetixRAG Logo" width="140" style="margin-bottom: 12px;" />
+
 <pre align="center">
 ██╗  ██╗██╗███╗   ██╗███████╗████████╗██╗██╗  ██╗██████╗  █████╗  ██████╗ 
 ██║ ██╔╝██║████╗  ██║██╔════╝╚══██╔══╝██║╚██╗██╔╝██╔══██╗██╔══██╗██╔════╝ 
