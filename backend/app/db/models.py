@@ -321,6 +321,9 @@ class PayPalOrderRecord(Base):
 
     reviewer_user_id = Column(String(128), nullable=True)
     reviewer_notes = Column(Text, nullable=True)
+    requester_user_id = Column(String(128), default="kinetix-procurement-agent", nullable=False)
+    approve_url = Column(String(512), nullable=True)
+    is_simulated = Column(Boolean, default=False, nullable=False)
 
     create_request_id = Column(String(128), nullable=False)
     authorize_request_id = Column(String(128), nullable=True)
@@ -362,6 +365,9 @@ class PayPalOrderRecord(Base):
             "evidence_record_id": self.evidence_record_id,
             "reviewer_user_id": self.reviewer_user_id,
             "reviewer_notes": self.reviewer_notes,
+            "requester_user_id": getattr(self, "requester_user_id", "kinetix-procurement-agent"),
+            "approve_url": getattr(self, "approve_url", None),
+            "is_simulated": getattr(self, "is_simulated", False),
             "create_request_id": self.create_request_id,
             "authorize_request_id": self.authorize_request_id,
             "capture_request_id": self.capture_request_id,

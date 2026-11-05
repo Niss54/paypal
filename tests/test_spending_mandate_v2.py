@@ -70,6 +70,37 @@ def test_mandate_budget_exceeded_requires_review():
     assert any("POL-BUDGET-EXCEEDED" in r for r in res.reason_codes)
 
 
+def test_mandate_nonpositive_amount_blocked():
+    mandate = SpendingMandate(max_amount="1000.00")
+    quote = {
+        "quote_id": "quote-zero-amount",
+        "vendor_id": "apex-diagnostics",
+        "service_id": "bearing-inspection",
+        "amount": "0.00",
+        "currency": "USD",
+    }
+    res = SpendingMandateEngine.evaluate_quote(mandate, quote, equipment_tag="P-101B")
+
+    assert res.decision == MandateDecision.BLOCKED
+    assert any("POL-AMOUNT-NONPOSITIVE" in r for r in res.reason_codes)
+
+
+def test_mandate_sla_exceeded_blocked():
+    mandate = SpendingMandate(max_amount="1000.00", max_sla_hours=48)
+    quote = {
+        "quote_id": "quote-slow-vendor",
+        "vendor_id": "apex-diagnostics",
+        "service_id": "bearing-inspection",
+        "amount": "450.00",
+        "currency": "USD",
+        "sla_hours": 72,  # Exceeds 48h limit
+    }
+    res = SpendingMandateEngine.evaluate_quote(mandate, quote, equipment_tag="P-101B")
+
+    assert res.decision == MandateDecision.BLOCKED
+    assert any("POL-SLA-EXCEEDED" in r for r in res.reason_codes)
+
+
 def test_mandate_unapproved_vendor_blocked():
     mandate = SpendingMandate(allowed_vendor_ids=["apex-diagnostics"])
     quote = {

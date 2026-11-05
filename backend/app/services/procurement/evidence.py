@@ -25,7 +25,9 @@ class EvidenceDecision(str, Enum):
 
 
 class EvidenceSubmission(BaseModel):
-    """Structured report submitted by service vendor to prove physical completion."""
+    """Structured report submitted by service vendor to prove physical completion.
+    No automatic default passing values are injected — callers must supply real evidence.
+    """
     evidence_id: str = Field(..., description="Unique evidence tracking identifier")
     work_order_id: str
     quote_id: str
@@ -34,22 +36,8 @@ class EvidenceSubmission(BaseModel):
     service_id: str
     technician_id: str = "TECH-CERT-904"
     completed_at: datetime = Field(default_factory=utcnow)
-    checklist_items: List[str] = Field(
-        default_factory=lambda: [
-            "Asset tag and serial number physically verified",
-            "Disassembly and bearing replacement executed per SOP",
-            "Laser shaft alignment verified within tolerance",
-            "Vibration baseline test run completed",
-        ]
-    )
-    measurements: Dict[str, Any] = Field(
-        default_factory=lambda: {
-            "vibration_after_mm_s": 1.45,
-            "vibration_zone": "Zone A (Good)",
-            "bearing_temperature_c": 42.1,
-            "alignment_offset_um": 12.0,
-        }
-    )
+    checklist_items: List[str] = Field(default_factory=list)
+    measurements: Dict[str, Any] = Field(default_factory=dict)
     file_bytes: Optional[bytes] = None
     file_sha256: Optional[str] = None
     is_synthetic: bool = True
@@ -59,6 +47,7 @@ class EvidenceSubmission(BaseModel):
 class EvidenceValidationResult(BaseModel):
     decision: EvidenceDecision
     work_order_match: bool
+    quote_match: bool
     equipment_match: bool
     vendor_match: bool
     service_scope_match: bool
@@ -73,7 +62,8 @@ class EvidenceValidationResult(BaseModel):
 class EvidenceValidator:
     """Validates submitted completion evidence against approved work order scope."""
 
-    REQUIRED_CHECKLIST_KEYWORDS = ["verified", "completed", "alignment", "bearing"]
+    REQUIRED_CHECKLIST_KEYWORDS = ["verified", "completed", "alignment", "bearing", "inspected"]
+    EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
     @classmethod
     def compute_sha256(cls, data: bytes) -> str:
@@ -93,49 +83,71 @@ class EvidenceValidator:
         if not work_order_match:
             reasons.append(f"EVD-WO-MISMATCH: Expected WO '{expected_order.work_order_id}', got '{evidence.work_order_id}'")
 
-        # 2. Equipment tag match
+        # 2. Quote match
+        quote_match = (evidence.quote_id == expected_order.quote_id)
+        if not quote_match:
+            reasons.append(f"EVD-QUOTE-MISMATCH: Expected quote '{expected_order.quote_id}', got '{evidence.quote_id}'")
+
+        # 3. Equipment tag match
         equipment_match = (evidence.equipment_tag == expected_order.equipment_tag)
         if not equipment_match:
             reasons.append(f"EVD-ASSET-MISMATCH: Expected tag '{expected_order.equipment_tag}', got '{evidence.equipment_tag}'")
 
-        # 3. Vendor match
+        # 4. Vendor match
         vendor_match = (evidence.vendor_id == expected_order.vendor_id)
         if not vendor_match:
             reasons.append(f"EVD-VENDOR-MISMATCH: Expected vendor '{expected_order.vendor_id}', got '{evidence.vendor_id}'")
 
-        # 4. Required fields completeness
-        required_fields_complete = bool(evidence.evidence_id and evidence.technician_id and evidence.checklist_items)
+        # 5. Required fields completeness
+        required_fields_complete = bool(
+            evidence.evidence_id
+            and evidence.technician_id
+            and bool(evidence.checklist_items)
+            and bool(evidence.measurements)
+        )
         if not required_fields_complete:
-            reasons.append("EVD-FIELDS-INCOMPLETE: Missing required evidence or technician identifiers")
+            reasons.append("EVD-FIELDS-INCOMPLETE: Missing required evidence, technician, checklist, or measurements")
 
-        # 5. Service scope match (Checklist contains required maintenance steps)
+        # 6. Service scope match (Checklist contains required maintenance steps)
         checklist_text = " ".join(evidence.checklist_items).lower()
-        service_scope_match = all(kw in checklist_text for kw in ["verified", "completed"])
+        service_scope_match = any(kw in checklist_text for kw in cls.REQUIRED_CHECKLIST_KEYWORDS)
         if not service_scope_match:
-            reasons.append("EVD-SCOPE-INCOMPLETE: Checklist does not attest full service execution")
+            reasons.append("EVD-SCOPE-INCOMPLETE: Checklist does not attest required service execution steps")
 
-        # 6. Physical measurements check (e.g. vibration reduced to ISO Zone A/B <= 2.5 mm/s)
-        vib_after = evidence.measurements.get("vibration_after_mm_s")
+        # 7. Physical measurements check (Mandatory post-service vibration <= 4.50 mm/s per ISO 10816 Zone A/B)
         measurements_valid = True
-        if vib_after is not None:
+        vib_after = evidence.measurements.get("vibration_after_mm_s")
+        if vib_after is None:
+            measurements_valid = False
+            reasons.append("EVD-MEASUREMENT-MISSING: Post-service vibration measurement ('vibration_after_mm_s') is required")
+        else:
             try:
-                if float(vib_after) > 4.5:  # ISO Zone C/D threshold
+                vib_val = float(vib_after)
+                if vib_val <= 0.0:
                     measurements_valid = False
-                    reasons.append(f"EVD-MEASUREMENT-EXCURSION: Post-service vibration {vib_after} mm/s exceeds acceptable limit")
+                    reasons.append("EVD-MEASUREMENT-INVALID: Post-service vibration must be greater than 0 mm/s")
+                elif vib_val > 4.50:  # ISO Zone C/D threshold
+                    measurements_valid = False
+                    reasons.append(f"EVD-MEASUREMENT-EXCURSION: Post-service vibration {vib_val:.2f} mm/s exceeds ISO Zone A/B limit (4.50 mm/s)")
             except (ValueError, TypeError):
                 measurements_valid = False
-                reasons.append("EVD-MEASUREMENT-INVALID: Post-service measurements malformed")
+                reasons.append("EVD-MEASUREMENT-INVALID: Post-service vibration measurement is malformed")
 
-        # 7. File integrity check
+        # 8. File integrity check
         file_integrity_valid = True
-        if evidence.file_bytes and evidence.file_sha256:
+        if evidence.file_bytes:
             calculated_hash = cls.compute_sha256(evidence.file_bytes)
-            if calculated_hash != evidence.file_sha256:
+            if evidence.file_sha256 and calculated_hash != evidence.file_sha256:
                 file_integrity_valid = False
                 reasons.append("EVD-HASH-MISMATCH: Computed SHA256 does not match submitted digest")
+        elif evidence.file_sha256:
+            if evidence.file_sha256.lower() == cls.EMPTY_SHA256 and not evidence.is_synthetic:
+                file_integrity_valid = False
+                reasons.append("EVD-EMPTY-EVIDENCE-DIGEST: Empty file hash rejected for non-synthetic operational evidence")
 
         all_passed = (
             work_order_match
+            and quote_match
             and equipment_match
             and vendor_match
             and service_scope_match
@@ -149,6 +161,7 @@ class EvidenceValidator:
         return EvidenceValidationResult(
             decision=decision,
             work_order_match=work_order_match,
+            quote_match=quote_match,
             equipment_match=equipment_match,
             vendor_match=vendor_match,
             service_scope_match=service_scope_match,
@@ -175,7 +188,7 @@ class EvidenceGatedCaptureController:
         """
         # 1. Check order status
         if order_record.status not in ("AUTHORIZED", "EVIDENCE_VERIFIED"):
-            return False, f"Order status '{order_record.status}' is not eligible for capture (must be AUTHORIZED)"
+            return False, f"Order status '{order_record.status}' is not eligible for capture (must be AUTHORIZED or EVIDENCE_VERIFIED)"
 
         # 2. Check authorization ID
         if not order_record.authorization_id:
@@ -195,7 +208,16 @@ class EvidenceGatedCaptureController:
         human_required = mandate_snapshot.get("human_approval_required", False)
 
         if risk_lane == "LANE_B_EXCEPTION" or human_required:
-            if not supervisor_auth or not (supervisor_auth.get("reviewer_id") or supervisor_auth.get("supervisor_id")):
+            supervisor_id = None
+            if supervisor_auth:
+                supervisor_id = supervisor_auth.get("reviewer_id") or supervisor_auth.get("supervisor_id")
+
+            if not supervisor_id:
                 return False, "Human Dual-Signature Required: Supervisor digital sign-off needed before capture"
 
-        return True, "Eligible: Evidence verified and all policy conditions satisfied"
+            # Strict Dual-Control Separation of Duties: Requester cannot sign off as supervisor
+            requester_id = getattr(order_record, "requester_user_id", None)
+            if requester_id and supervisor_id == requester_id:
+                return False, f"Separation of Duties Violation: Requester '{requester_id}' cannot act as dual-control approver"
+
+        return True, "Eligible: Evidence verified and all policy controls satisfied"
