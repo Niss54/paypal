@@ -31,20 +31,48 @@ import {
 } from "@/components/ui/sidebar";
 import type { ReadinessResponse } from "@/lib/api";
 
-const machineMoneyItems = [
-  { label: "Command Center", icon: LayoutDashboardIcon, href: "/" },
-  { label: "PayPal Procurement", icon: CreditCardIcon, href: "/procurement", highlight: true },
-  { label: "Machine Money", icon: ZapIcon, href: "/machine-money", highlight: true },
-  { label: "Predictive Watch", icon: GaugeIcon, href: "/predictive-watch" },
+const paypalHackathonItems = [
+  {
+    label: "PayPal Procurement",
+    icon: CreditCardIcon,
+    href: "/procurement",
+    badge: "PayPal v2",
+    badgeClass: "bg-[#003087] text-white border-blue-400/40 font-bold",
+    highlight: true,
+  },
+  {
+    label: "Command Center",
+    icon: LayoutDashboardIcon,
+    href: "/",
+  },
+  {
+    label: "Predictive Watch (NASA)",
+    icon: GaugeIcon,
+    href: "/predictive-watch",
+  },
+  {
+    label: "Spending Mandates",
+    icon: SlidersIcon,
+    href: "/operations",
+  },
 ];
 
 const evidenceRagItems = [
-  { label: "Investigate", icon: SearchIcon, href: "/investigate" },
-  { label: "Work Orders", icon: ClipboardListIcon, href: "/work-orders" },
-  { label: "Operations & Governance", icon: SlidersIcon, href: "/operations" },
+  { label: "Investigate GraphRAG", icon: SearchIcon, href: "/investigate" },
+  { label: "Funded Work Orders", icon: ClipboardListIcon, href: "/work-orders" },
   { label: "Knowledge Risk", icon: UserRoundSearchIcon, href: "/knowledge-risk" },
   { label: "RAG Comparison", icon: GitCompareArrowsIcon, href: "/comparison" },
   { label: "Evaluation", icon: ChartNoAxesCombinedIcon, href: "/evaluation" },
+];
+
+const modularRailItems = [
+  {
+    label: "Machine Money (Modular)",
+    icon: ZapIcon,
+    href: "/machine-money",
+    badge: "Multi-Rail",
+    badgeClass: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  },
 ];
 
 export default function AppSidebar({ readiness }: { readiness: ReadinessResponse | null }) {
@@ -65,12 +93,12 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
               tooltip="KinetixRAG Industrial Platform"
               render={<Link href="/" onClick={closeMobileSidebar} />}
             >
-              <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-500 font-heading font-bold text-slate-950">
-                ⚡
+              <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#003087] font-heading font-bold text-white shadow-sm">
+                <CreditCardIcon className="size-4 text-cyan-400" />
               </div>
               <div className="flex min-w-0 flex-col items-start group-data-[collapsible=icon]:hidden">
                 <span className="font-heading text-base font-semibold tracking-tight">KinetixRAG</span>
-                <span className="truncate text-xs text-muted-foreground">Industrial GraphRAG</span>
+                <span className="truncate text-xs text-[#0079C1] dark:text-cyan-400 font-mono">PayPal AI 2026</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -78,14 +106,14 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Machine Money Flagship Group */}
+        {/* PayPal AI Hackathon Flagship Group */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold text-amber-500/90 uppercase tracking-wider">
-            Autonomous Machine Money
+          <SidebarGroupLabel className="text-[11px] font-semibold text-[#0079C1] dark:text-cyan-400 uppercase tracking-wider font-mono">
+            🏆 PayPal AI Hackathon 2026
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {machineMoneyItems.map((item) => {
+              {paypalHackathonItems.map((item) => {
                 const Icon = item.icon;
                 const isActive =
                   pathname === item.href ||
@@ -95,14 +123,14 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                     <SidebarMenuButton
                       isActive={isActive}
                       tooltip={item.label}
-                      className={item.highlight ? "font-semibold text-amber-500 hover:text-amber-400" : ""}
+                      className={item.highlight ? "font-semibold text-foreground bg-[#003087]/15 border border-[#003087]/30" : ""}
                       render={<Link href={item.href} onClick={closeMobileSidebar} />}
                     >
-                      <Icon className={item.highlight ? "text-amber-500" : undefined} />
+                      <Icon className={item.highlight ? "text-[#0079C1] dark:text-cyan-400" : undefined} />
                       <span className="flex-1">{item.label}</span>
-                      {item.highlight && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 group-data-[collapsible=icon]:hidden">
-                          Lightning
+                      {item.badge && (
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border group-data-[collapsible=icon]:hidden ${item.badgeClass}`}>
+                          {item.badge}
                         </span>
                       )}
                     </SidebarMenuButton>
@@ -116,7 +144,7 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
         {/* Evidence & Justification (GraphRAG) Group */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Evidence & Justification (RAG)
+            Evidence & Governance (RAG)
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -134,6 +162,40 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                     >
                       <Icon />
                       <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Modular Multi-Rail Group */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
+            Modular Multi-Rail
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {modularRailItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+                return (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      tooltip={item.label}
+                      render={<Link href={item.href} onClick={closeMobileSidebar} />}
+                    >
+                      <Icon className="text-amber-500/80" />
+                      <span className="flex-1">{item.label}</span>
+                      {item.badge && (
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border group-data-[collapsible=icon]:hidden ${item.badgeClass}`}>
+                          {item.badge}
+                        </span>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -170,7 +232,7 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
         </div>
         <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-[10px] text-muted-foreground/80 group-data-[collapsible=icon]:hidden font-mono border-t border-border/40">
           <span>KinetixRAG</span>
-          <span className="text-amber-500 font-semibold">PayPal AI 2026</span>
+          <span className="text-[#0079C1] dark:text-cyan-400 font-bold">PayPal AI 2026</span>
         </div>
       </SidebarFooter>
       <SidebarRail />
