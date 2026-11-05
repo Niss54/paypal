@@ -47,21 +47,56 @@ class PayPalReconciliationService:
         # Check authorization if available
         pus = order_data.raw_response.get("purchase_units", [])
         if pus:
+            pu_amt = pus[0].get("amount", {})
             payments = pus[0].get("payments", {})
             auths = payments.get("authorizations", [])
             if auths and not record.authorization_id:
-                record.authorization_id = auths[0].get("id")
-                record.status = "AUTHORIZED"
-                record.authorized_at = now
-                updated = True
+                auth_obj = auths[0]
+                auth_status = auth_obj.get("status")
+                auth_amt = auth_obj.get("amount", {})
+                status_ok = auth_status in ("CREATED", "PENDING") if auth_status else True
+                
+                check_curr = auth_amt.get("currency_code") or pu_amt.get("currency_code")
+                check_val = auth_amt.get("value") or pu_amt.get("value")
+                amt_ok = True
+                if check_curr and check_curr != record.currency_code:
+                    amt_ok = False
+                if check_val and str(check_val) != str(record.amount_value):
+                    amt_ok = False
+                    
+                if status_ok and amt_ok:
+                    record.authorization_id = auth_obj.get("id")
+                    record.status = "AUTHORIZED"
+                    record.authorized_at = now
+                    updated = True
+                else:
+                    logger.warning(
+                        "Reconciliation rejected authorization for %s: status_ok=%s, amt_ok=%s (expected %s %s, got %s %s)",
+                        paypal_order_id, status_ok, amt_ok, record.amount_value, record.currency_code, check_val, check_curr
+                    )
 
             captures = payments.get("captures", [])
             if captures and not record.capture_id:
                 cap = captures[0]
-                record.capture_id = cap.get("id")
-                if cap.get("status") == "COMPLETED":
-                    record.status = "CAPTURED"
-                    record.captured_at = now
+                cap_status = cap.get("status")
+                cap_amt = cap.get("amount", {})
+                status_ok = cap_status == "COMPLETED" if cap_status else True
+                
+                check_curr = cap_amt.get("currency_code") or pu_amt.get("currency_code")
+                check_val = cap_amt.get("value") or pu_amt.get("value")
+                amt_ok = True
+                if check_curr and check_curr != record.currency_code:
+                    amt_ok = False
+                if check_val and str(check_val) != str(record.amount_value):
+                    amt_ok = False
+                    
+                if status_ok and amt_ok:
+                    record.capture_id = cap.get("id")
+                    if record.evidence_status == "VERIFIED":
+                        record.status = "CAPTURED"
+                        record.captured_at = now
+                    else:
+                        record.status = "RECONCILIATION_EXCEPTION_MISSING_EVIDENCE"
                     updated = True
 
         if updated:

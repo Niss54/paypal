@@ -42,14 +42,26 @@ def scan_repository():
 
     print(f"Scanning git-tracked files at: {root_dir}")
 
-    # 1. Get all git-tracked files
+    # 1. Get all git-tracked files (with unzipped archive fallback)
     try:
         git_tracked = subprocess.check_output(
-            ["git", "ls-files"], cwd=root_dir, text=True
+            ["git", "ls-files"], cwd=root_dir, text=True, stderr=subprocess.DEVNULL
         ).splitlines()
-    except Exception as e:
-        print(f"Warning: git ls-files failed: {e}")
+    except Exception:
         git_tracked = []
+
+    is_git_mode = bool(git_tracked)
+    if not git_tracked:
+        has_git_dir = os.path.exists(os.path.join(root_dir, ".git"))
+        print("Note: git ls-files returned 0 files (e.g. unzipped submission archive). Scanning filesystem tree directly...")
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS and not d.startswith(".")]
+            for fn in filenames:
+                # If in a dev repo with .git, do not treat local untracked .env as committed
+                if has_git_dir and fn == ".env":
+                    continue
+                rel = os.path.relpath(os.path.join(dirpath, fn), root_dir).replace("\\", "/")
+                git_tracked.append(rel)
 
     # Verify .env is NOT tracked
     for f in git_tracked:
@@ -105,7 +117,7 @@ def scan_repository():
         except Exception:
             pass
 
-    print(f"Scanned {scanned_files} git-tracked files.")
+    print(f"Scanned {scanned_files} repository files.")
     return findings
 
 if __name__ == "__main__":

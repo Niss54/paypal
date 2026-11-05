@@ -199,7 +199,12 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "S3_DOCUMENT_BUCKET", value = aws_s3_bucket.documents.id },
         { name = "ENTRA_TENANT_ID", value = var.entra_tenant_id },
         { name = "ENTRA_CLIENT_ID", value = var.entra_client_id },
-        { name = "SITE_ID", value = var.site_id }
+        { name = "SITE_ID", value = var.site_id },
+        { name = "PAYPAL_CLIENT_ID", value = var.paypal_client_id },
+        { name = "PAYPAL_CLIENT_SECRET", value = var.paypal_client_secret },
+        { name = "PAYPAL_WEBHOOK_ID", value = var.paypal_webhook_id },
+        { name = "PAYPAL_ENVIRONMENT", value = var.paypal_environment },
+        { name = "AUTH_ENABLED", value = "true" }
       ]
 
       logConfiguration = {
