@@ -11,6 +11,7 @@ import {
   ChevronRightIcon,
   ClockIcon,
   CreditCardIcon,
+  ExternalLinkIcon,
   FileCheck2Icon,
   FileTextIcon,
   LockIcon,
@@ -37,6 +38,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  approvePayPalOrder,
   authorizePayPalOrder,
   capturePayPalOrder,
   createPayPalOrder,
@@ -114,28 +116,59 @@ export default function ProcurementPage() {
     }
   };
 
-  // Step 1 ➔ Step 2: Create & Authorize PayPal Order
-  const handleCreateAndAuthorize = async () => {
+  // Step 1: Create PayPal Order
+  const handleCreateOrder = async () => {
     try {
       setLoading(true);
       setGateBlocked(null);
       setFeedback(null);
 
-      // 1. Create Order via backend Orders v2 with intent: AUTHORIZE
+      // Create Order via backend Orders v2 with intent: AUTHORIZE
       const created = await createPayPalOrder(selectedQuoteId);
       setOrder(created);
-
-      // 2. Authorize the funds hold (29-day honor period)
-      const authorized = await authorizePayPalOrder(created.paypal_order_id);
-      setOrder(authorized);
-
       setActiveStep(2);
       setFeedback({
         type: "success",
-        msg: `PayPal Order created & authorized! Hold ID: ${authorized.authorization_id}. 29-day honor period active.`,
+        msg: `PayPal Order created! ID: ${created.paypal_order_id}. Complete buyer approval in sandbox.`,
       });
     } catch (err: any) {
-      setFeedback({ type: "error", msg: err.message || "PayPal authorization failed" });
+      setFeedback({ type: "error", msg: err.message || "PayPal order creation failed" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2a: Confirm Buyer Approval
+  const handleConfirmBuyerApproval = async (simulated: boolean = false) => {
+    if (!order) return;
+    try {
+      setLoading(true);
+      const updated = await approvePayPalOrder(order.paypal_order_id, simulated);
+      setOrder(updated);
+      setFeedback({
+        type: "success",
+        msg: "Buyer Approval confirmed! Order is now ready for PayPal authorization hold.",
+      });
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: err.message || "Buyer approval verification failed" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2b: Authorize Funds Hold
+  const handleAuthorizeHold = async () => {
+    if (!order) return;
+    try {
+      setLoading(true);
+      const authorized = await authorizePayPalOrder(order.paypal_order_id);
+      setOrder(authorized);
+      setFeedback({
+        type: "success",
+        msg: `Funds authorized! Hold ID: ${authorized.authorization_id}. 29-day authorization window (3-day honor period) active.`,
+      });
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: err.message || "Authorization failed" });
     } finally {
       setLoading(false);
     }
@@ -150,7 +183,6 @@ export default function ProcurementPage() {
       await capturePayPalOrder(order.paypal_order_id);
       setFeedback({ type: "success", msg: "Capture unexpectedly succeeded" });
     } catch (err: any) {
-      // Expected HTTP 403 Forbidden
       setGateBlocked(
         err.message ||
           "HTTP 403 Forbidden: No Evidence, No Capture. Physical repair verification and dual-control sign-off required.",
@@ -160,14 +192,13 @@ export default function ProcurementPage() {
     }
   };
 
-  // Complete Evidence & Supervisor Approval
-  const handleVerifyEvidenceAndSignOff = async () => {
+  // Submit Verified Completion Evidence
+  const handleSubmitEvidence = async () => {
     if (!order) return;
     try {
       setLoading(true);
       setGateBlocked(null);
 
-      // 1. Submit completion evidence (post-repair vibration: 1.25 mm/s, ISO Zone A)
       const payload = {
         evidence_id: `EVD-${order.paypal_order_id}`,
         work_order_id: order.work_order_id,
@@ -193,21 +224,35 @@ export default function ProcurementPage() {
 
       await submitCompletionEvidence(order.paypal_order_id, payload);
       setEvidenceSubmitted(true);
-
-      // 2. Supervisor sign-off
-      await supervisorSignOff(
-        order.paypal_order_id,
-        "SUP-CHIEF-09",
-        "Vibration re-inspection verified: 1.25 mm/s in Zone A. Approved for release.",
-      );
-      setSupervisorSigned(true);
-
       setFeedback({
         type: "success",
-        msg: "Evidence verified (1.25 mm/s RMS) & Supervisor signed off! Gate is now UNLOCKED.",
+        msg: "Completion evidence verified! Post-repair vibration is 1.25 mm/s (ISO Zone A Good).",
       });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Evidence submission failed" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Supervisor Sign-Off (Dual Control)
+  const handleSupervisorSignOff = async (supervisorId: string = "SUP-CHIEF-09") => {
+    if (!order) return;
+    try {
+      setLoading(true);
+      setGateBlocked(null);
+      await supervisorSignOff(
+        order.paypal_order_id,
+        supervisorId,
+        "Vibration re-inspection verified: 1.25 mm/s in Zone A. Approved for release.",
+      );
+      setSupervisorSigned(true);
+      setFeedback({
+        type: "success",
+        msg: `Dual-control supervisor sign-off recorded by ${supervisorId}. Gate is now UNLOCKED.`,
+      });
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: err.message || "Supervisor sign-off failed" });
     } finally {
       setLoading(false);
     }
@@ -229,7 +274,7 @@ export default function ProcurementPage() {
       setActiveStep(3);
       setFeedback({
         type: "success",
-        msg: `PayPal Payment Captured! Capture ID: ${res.capture_id || res.id}. Funds released to vendor.`,
+        msg: `PayPal Payment Captured! Capture ID: ${res.capture?.capture_id || res.capture_id || "COMPLETED"}. Funds released to vendor.`,
       });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Capture execution failed" });
@@ -244,20 +289,28 @@ export default function ProcurementPage() {
       setAutoRunning(true);
       handleReset();
 
-      // Step 1: Wait 1s
-      await new Promise((r) => setTimeout(r, 800));
-      const created = await createPayPalOrder("Q-2026-001");
+      await new Promise((r) => setTimeout(r, 600));
+      // 1. Create order
+      const created = await createPayPalOrder("Q-2026-001", "kinetix-procurement-agent", true);
       setOrder(created);
-      const authorized = await authorizePayPalOrder(created.paypal_order_id);
-      setOrder(authorized);
       setActiveStep(2);
 
-      // Step 2: Show the negative gate test
-      await new Promise((r) => setTimeout(r, 1200));
-      setGateBlocked("HTTP 403 Forbidden: No Evidence, No Capture. Early capture strictly blocked.");
+      // 2. Buyer approve
+      await new Promise((r) => setTimeout(r, 600));
+      const approved = await approvePayPalOrder(created.paypal_order_id, true);
+      setOrder(approved);
 
-      // Step 3: Verify evidence & supervisor sign-off
-      await new Promise((r) => setTimeout(r, 1800));
+      // 3. Authorize
+      await new Promise((r) => setTimeout(r, 600));
+      const authorized = await authorizePayPalOrder(approved.paypal_order_id);
+      setOrder(authorized);
+
+      // 4. Show the negative gate test
+      await new Promise((r) => setTimeout(r, 1000));
+      setGateBlocked("HTTP 403 Forbidden: No Evidence, No Capture. Early capture strictly blocked by server policy.");
+
+      // 5. Submit evidence & sign-off
+      await new Promise((r) => setTimeout(r, 1200));
       setGateBlocked(null);
       await submitCompletionEvidence(authorized.paypal_order_id, {
         evidence_id: `EVD-${authorized.paypal_order_id}`,
@@ -277,8 +330,8 @@ export default function ProcurementPage() {
       await supervisorSignOff(authorized.paypal_order_id, "SUP-CHIEF-09", "Auto-demo sign-off verified.");
       setSupervisorSigned(true);
 
-      // Step 4: Capture payment
-      await new Promise((r) => setTimeout(r, 1400));
+      // 6. Capture payment
+      await new Promise((r) => setTimeout(r, 1200));
       const res = await capturePayPalOrder(authorized.paypal_order_id);
       setCaptureResult(res);
       const lineage = await getOrderAuditLineage(authorized.paypal_order_id);
@@ -287,7 +340,7 @@ export default function ProcurementPage() {
 
       setFeedback({
         type: "success",
-        msg: "1-Click Demo Completed: Sensor Anomaly ➔ PayPal Authorized ➔ Gate Enforced ➔ Verified Capture!",
+        msg: "1-Click Demo Completed: Sensor Anomaly -> PayPal Authorized -> Gate Enforced -> Verified Capture!",
       });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Auto-demo encountered an error" });
@@ -309,21 +362,21 @@ export default function ProcurementPage() {
 
   const fallbackQuote: ProcurementQuote = {
     quote_id: "Q-2026-001",
-    vendor_id: "VEND-APEX-ROTATING",
-    vendor_name: "Apex Rotating Equipment",
+    vendor_id: "VND-001",
+    vendor_name: "Bearing Supply Co",
     service_id: "SRV-BRG-REPLACE",
     amount: "450.00",
     currency: "USD",
-    sla_hours: 12,
+    sla_hours: 24,
     is_allowlisted: true,
     is_synthetic: true,
     synthetic_label: "[SYNTHETIC DEMO QUOTE]",
-    scope_description: "Emergency on-site bearing replacement",
+    scope_description: "Supply SKF 22210 spherical roller bearing and dispatch millwright technician",
     is_direct_paypal_sandbox_merchant: true,
     scoring: {
-      cost_score: 95,
-      sla_score: 90,
-      reliability_score: 98,
+      cost_score: 92,
+      sla_score: 95,
+      reliability_score: 96,
       composite_rank: 1,
       hard_gates_passed: true,
     },
@@ -393,7 +446,7 @@ export default function ProcurementPage() {
         </Alert>
       )}
 
-      {/* Simplified 3-Step Navigation Tabs */}
+      {/* 3-Step Navigation Tabs */}
       <div className="grid grid-cols-3 gap-3">
         {[
           {
@@ -405,13 +458,13 @@ export default function ProcurementPage() {
           {
             step: 2,
             title: "2. PayPal Authorization & Gate",
-            desc: "Hold Funds & Enforce Safety Gate",
+            desc: "Buyer Approval, Escrow Hold & Safety Gate",
             icon: LockIcon,
           },
           {
             step: 3,
             title: "3. Settled Receipt & Lineage",
-            desc: "Verified Capture & Audit Chain",
+            desc: "Verified Capture & Cryptographic Lineage",
             icon: ShieldCheckIcon,
           },
         ].map((s) => {
@@ -442,9 +495,7 @@ export default function ProcurementPage() {
         })}
       </div>
 
-      {/* ========================================================================= */}
       {/* STEP 1: TELEMETRY & VENDOR RFQ QUOTE */}
-      {/* ========================================================================= */}
       {activeStep === 1 && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Anomaly Card */}
@@ -485,8 +536,8 @@ export default function ProcurementPage() {
                 </div>
 
                 <div className="p-2.5 rounded-lg border border-border/40 bg-card/50 text-[11px] text-muted-foreground space-y-1">
-                  <span className="font-medium text-foreground block">GraphRAG Diagnostic Finding:</span>
-                  <p>Inner-race bearing defect detected. Immediate bearing replacement required to prevent catastrophic shaft seizure.</p>
+                  <span className="font-medium text-foreground block">GraphRAG Diagnostic Attribution:</span>
+                  <p>Inner-race bearing defect detected via high-frequency envelope analysis (Confidence: 94.2%). Recommended action per PROC-001: emergency bearing replacement.</p>
                 </div>
               </CardContent>
             </Card>
@@ -571,7 +622,7 @@ export default function ProcurementPage() {
                     <div className="grid grid-cols-3 gap-2 text-[11px] text-muted-foreground pt-1">
                       <div className="flex items-center gap-1">
                         <CheckCircle2Icon className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Budget $\le$ $500</span>
+                        <span>Budget &le; $500</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <CheckCircle2Icon className="w-3.5 h-3.5 text-emerald-400" />
@@ -588,15 +639,15 @@ export default function ProcurementPage() {
 
               <CardFooter className="pt-2 flex justify-between items-center border-t border-border/40">
                 <span className="text-xs text-muted-foreground font-mono">
-                  Ready: {selectedQuote?.vendor_name || "Apex Rotating Equipment"} (${selectedQuote?.amount || "450.00"})
+                  Selected: {selectedQuote?.vendor_name || "Bearing Supply Co"} (${selectedQuote?.amount || "450.00"})
                 </span>
                 <Button
-                  onClick={handleCreateAndAuthorize}
+                  onClick={handleCreateOrder}
                   disabled={loading}
                   className="gap-2 bg-[#003087] hover:bg-[#00256c] text-white"
                 >
                   <CreditCardIcon className="w-4 h-4 text-[#0079C1]" />
-                  Create & Authorize PayPal Order <ArrowRightIcon className="w-4 h-4" />
+                  Create PayPal Order <ArrowRightIcon className="w-4 h-4" />
                 </Button>
               </CardFooter>
             </Card>
@@ -604,9 +655,7 @@ export default function ProcurementPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* STEP 2: PAYPAL AUTHORIZATION & THE EVIDENCE GATE (THE HERO DEMO) */}
-      {/* ========================================================================= */}
+      {/* STEP 2: PAYPAL AUTHORIZATION & THE EVIDENCE GATE */}
       {activeStep === 2 && order && (
         <div className="space-y-6">
           {/* Order Status Banner */}
@@ -621,26 +670,87 @@ export default function ProcurementPage() {
                     <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/40 text-xs">
                       STATUS: {order.status}
                     </Badge>
+                    {order.is_simulated && (
+                      <Badge variant="outline" className="border-amber-400/50 text-amber-300 bg-amber-400/10 text-xs">
+                        SIMULATED MODE
+                      </Badge>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       (intent: <code className="text-blue-400">AUTHORIZE</code>)
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Funds (${parseFloat(order.amount_value).toFixed(2)} USD) are held under a 29-day honor period. No funds are captured yet.
+                    Funds (${parseFloat(order.amount_value).toFixed(2)} USD) are governed by a 29-day authorization window (3-day guaranteed honor period). No funds are captured yet.
                   </p>
                 </div>
 
                 <div className="text-right">
                   <span className="text-xs text-muted-foreground block">Authorization ID</span>
                   <span className="text-xs font-mono font-semibold text-foreground">
-                    {order.authorization_id || "AUTH-SANDBOX-PENDING"}
+                    {order.authorization_id || (order.status === "BUYER_APPROVED" ? "Ready for Authorization" : "Pending Buyer Approval")}
                   </span>
                 </div>
               </div>
+
+              {/* Sub-step: Buyer Approval required if status is ORDER_CREATED */}
+              {order.status !== "AUTHORIZED" && order.status !== "EVIDENCE_VERIFIED" && order.status !== "CAPTURED" && (
+                <div className="mt-4 pt-4 border-t border-blue-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-blue-950/20 p-3 rounded-lg">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-semibold text-blue-300 flex items-center gap-1.5">
+                      <ClockIcon className="w-3.5 h-3.5" /> Buyer Approval Required (PayPal Orders v2)
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      {order.status === "BUYER_APPROVED"
+                        ? "Buyer approval confirmed. Ready to place authorization hold."
+                        : "Buyer must approve the order hold before authorization can execute."}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {order.status !== "BUYER_APPROVED" ? (
+                      <>
+                        {order.approve_url && (
+                          <a href={order.approve_url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline" className="gap-1.5 text-xs border-blue-400/40 text-blue-300 hover:bg-blue-500/10">
+                              <ExternalLinkIcon className="w-3.5 h-3.5" /> Open Sandbox Checkout
+                            </Button>
+                          </a>
+                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => handleConfirmBuyerApproval(false)}
+                          disabled={loading}
+                          className="text-xs bg-[#0079C1] hover:bg-[#00457C] text-white"
+                        >
+                          Verify Sandbox Approval
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleConfirmBuyerApproval(true)}
+                          disabled={loading}
+                          className="text-xs"
+                        >
+                          1-Click Fast Approve
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={handleAuthorizeHold}
+                        disabled={loading}
+                        className="text-xs bg-[#003087] hover:bg-[#00256c] text-white font-semibold gap-1.5"
+                      >
+                        <LockIcon className="w-3.5 h-3.5" /> Authorize Funds Hold
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* The Hero Live Test Bench */}
+          {/* Test Bench (Negative Gate Test + Evidence & Dual-Control Verification) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Box: The Negative Gate Test */}
             <Card className="border-red-500/30 bg-card/40 shadow-xs flex flex-col justify-between">
@@ -652,13 +762,13 @@ export default function ProcurementPage() {
                   </CardTitle>
                 </div>
                 <CardDescription className="text-xs">
-                  Proves that the AI agent or merchant CANNOT capture funds prematurely.
+                  Proves that neither AI agent nor vendor can capture funds prematurely.
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Click below to attempt an early capture before physical repair verification is filed. The deterministic backend must reject this request.
+                  Attempt an early capture before physical repair telemetry is validated. The deterministic backend policy gate strictly rejects this request.
                 </p>
 
                 {gateBlocked && (
@@ -676,7 +786,7 @@ export default function ProcurementPage() {
                     </p>
                     <div className="text-[10px] text-emerald-400 flex items-center gap-1.5">
                       <ShieldCheckIcon className="size-3 shrink-0" />
-                      <span>Buyer funds remain safely authorized in PayPal escrow. Zero capital loss.</span>
+                      <span>Buyer funds remain safely held in PayPal escrow. Zero capital loss.</span>
                     </div>
                   </div>
                 )}
@@ -686,11 +796,11 @@ export default function ProcurementPage() {
                 <Button
                   variant="destructive"
                   onClick={handleAttemptEarlyCapture}
-                  disabled={loading || evidenceSubmitted}
+                  disabled={loading || (evidenceSubmitted && supervisorSigned)}
                   className="w-full gap-2 text-xs font-medium"
                 >
                   <LockIcon className="w-3.5 h-3.5" />
-                  {evidenceSubmitted ? "Early Capture Disabled (Evidence Present)" : "Attempt Early Capture (Should Fail)"}
+                  {evidenceSubmitted && supervisorSigned ? "Gate Unlocked (Ready to Capture)" : "Attempt Early Capture (Should Fail with HTTP 403)"}
                 </Button>
               </CardFooter>
             </Card>
@@ -713,11 +823,11 @@ export default function ProcurementPage() {
                 <div className="p-3 rounded-lg bg-muted/40 border border-border/40 text-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Post-Repair Vibration:</span>
-                    <span className="font-semibold text-emerald-400">1.25 mm/s RMS (Zone A - Good)</span>
+                    <span className="font-semibold text-emerald-400">1.25 mm/s RMS (ISO Zone A Good)</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Scope Checklist:</span>
-                    <span className="font-semibold text-foreground">4/4 Passed</span>
+                    <span className="font-semibold text-foreground">4/4 Criteria Verified</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Document SHA-256:</span>
@@ -726,24 +836,45 @@ export default function ProcurementPage() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Supervisor Sign-Off:</span>
+                    <span className="text-muted-foreground">Dual-Control Sign-Off:</span>
                     <span className="font-semibold text-foreground">
-                      {supervisorSigned ? "Approved (SUP-CHIEF-09) ✅" : "Pending Signature ⏳"}
+                      {supervisorSigned ? "Approved by SUP-CHIEF-09 ✅" : "Pending Supervisor Signature ⏳"}
                     </span>
                   </div>
                 </div>
 
-                {!evidenceSubmitted && (
-                  <Button
-                    onClick={handleVerifyEvidenceAndSignOff}
-                    disabled={loading}
-                    variant="outline"
-                    className="w-full gap-2 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 text-xs"
-                  >
-                    <UserCheckIcon className="w-3.5 h-3.5 text-emerald-400" />
-                    Submit Verified Evidence & Sign-Off
-                  </Button>
-                )}
+                <div className="space-y-2">
+                  {!evidenceSubmitted ? (
+                    <Button
+                      onClick={handleSubmitEvidence}
+                      disabled={loading || order.status !== "AUTHORIZED"}
+                      variant="outline"
+                      className="w-full gap-2 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 text-xs"
+                    >
+                      <FileCheck2Icon className="w-3.5 h-3.5 text-emerald-400" />
+                      Submit Verified Evidence (1.25 mm/s)
+                    </Button>
+                  ) : !supervisorSigned ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        onClick={() => handleSupervisorSignOff("SUP-CHIEF-09")}
+                        disabled={loading}
+                        variant="outline"
+                        className="gap-1.5 border-blue-500/40 text-blue-300 hover:bg-blue-500/10 text-xs"
+                      >
+                        <UserCheckIcon className="w-3.5 h-3.5 text-blue-400" /> Sign-off as Supervisor
+                      </Button>
+                      <Button
+                        onClick={() => handleSupervisorSignOff(order.requester_user_id || "kinetix-procurement-agent")}
+                        disabled={loading}
+                        variant="outline"
+                        className="gap-1.5 border-red-500/40 text-red-300 hover:bg-red-500/10 text-xs"
+                      >
+                        Test Self-Approval (Fails)
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
               </CardContent>
 
               <CardFooter className="pt-2">
@@ -761,9 +892,7 @@ export default function ProcurementPage() {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* STEP 3: SETTLED RECEIPT & CRYPTOGRAPHIC LINEAGE */}
-      {/* ========================================================================= */}
       {activeStep === 3 && (
         <div className="space-y-6">
           {/* Payment Receipt Banner */}
@@ -792,13 +921,13 @@ export default function ProcurementPage() {
                 <div>
                   <span className="text-muted-foreground block text-[11px]">PayPal Order ID</span>
                   <span className="font-mono font-semibold text-foreground">
-                    {order?.paypal_order_id || "ORD-SANDBOX-VERIFIED"}
+                    {order?.paypal_order_id}
                   </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">PayPal Capture ID</span>
                   <span className="font-mono font-bold text-emerald-400">
-                    {captureResult?.capture_id || "CAP-SANDBOX-SUCCESS-01"}
+                    {captureResult?.capture?.capture_id || captureResult?.capture_id || "COMPLETED"}
                   </span>
                 </div>
                 <div>
@@ -809,20 +938,32 @@ export default function ProcurementPage() {
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Recipient</span>
-                  <span className="font-semibold text-foreground">{order?.vendor_id || "Apex Rotating Equipment"}</span>
+                  <span className="font-semibold text-foreground">{order?.vendor_id || "VND-001"}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* 7-Stage Causal Audit Trail */}
+          {/* 7-Stage Causal Audit Trail with Cryptographic Lineage */}
           <Card className="border-border/60 shadow-xs">
             <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheckIcon className="w-5 h-5 text-blue-400" />
-                <CardTitle className="text-base font-semibold">
-                  7-Stage Cryptographic & Operational Causal Lineage
-                </CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheckIcon className="w-5 h-5 text-blue-400" />
+                  <CardTitle className="text-base font-semibold">
+                    7-Stage Cryptographic & Operational Causal Lineage
+                  </CardTitle>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]">
+                    SHA-256 Chain: VERIFIED
+                  </Badge>
+                  {auditLineage?.merkle_root && (
+                    <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+                      Merkle: {auditLineage.merkle_root.slice(0, 12)}...
+                    </Badge>
+                  )}
+                </div>
               </div>
               <CardDescription className="text-xs">
                 Unbroken audit chain proving why every cent was authorized and captured.
@@ -831,57 +972,28 @@ export default function ProcurementPage() {
 
             <CardContent>
               <div className="space-y-3">
-                {[
-                  {
-                    stage: "1. Sensor Anomaly",
-                    detail: "NASA IMS Bearing 1: 4.82 mm/s RMS (ISO 10816 Zone C/D excursion)",
-                    status: "PASS",
-                  },
-                  {
-                    stage: "2. GraphRAG Diagnostic",
-                    detail: "Inner race spalling identified. Work order WO-2026-IMS-001 drafted.",
-                    status: "PASS",
-                  },
-                  {
-                    stage: "3. RFQ Selection",
-                    detail: "Apex Rotating Equipment selected ($450.00 USD, 12h SLA).",
-                    status: "PASS",
-                  },
-                  {
-                    stage: "4. Spending Mandate",
-                    detail: "Deterministic rules verified: $450 <= $500 cap, USD, Lane B critical asset.",
-                    status: "PASS",
-                  },
-                  {
-                    stage: "5. PayPal Authorization",
-                    detail: `Hold created with intent: AUTHORIZE (${order?.authorization_id || "AUTH-SANDBOX"}).`,
-                    status: "PASS",
-                  },
-                  {
-                    stage: "6. Evidence & Dual-Control",
-                    detail: "Post-repair vibration: 1.25 mm/s. Supervisor SUP-CHIEF-09 sign-off recorded.",
-                    status: "PASS",
-                  },
-                  {
-                    stage: "7. PayPal Capture",
-                    detail: `Captured via /v2/payments/authorizations/capture (${captureResult?.capture_id || "CAP-SANDBOX"}).`,
-                    status: "PASS",
-                  },
-                ].map((s, idx) => (
+                {(auditLineage?.lineage_stages || []).map((s: AuditLineageStage, idx: number) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-lg border border-border/40 bg-card/40 flex items-center justify-between text-xs"
+                    className="p-3.5 rounded-lg border border-border/40 bg-card/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold text-[11px]">
-                        {idx + 1}
+                    <div className="flex items-start gap-3">
+                      <span className="w-6 h-6 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
+                        {s.step || idx + 1}
                       </span>
-                      <div>
-                        <span className="font-semibold text-foreground block">{s.stage}</span>
-                        <span className="text-[11px] text-muted-foreground">{s.detail}</span>
+                      <div className="space-y-0.5">
+                        <span className="font-semibold text-foreground block">{s.title}</span>
+                        <span className="text-[11px] text-muted-foreground block">
+                          {s.detail || s.diagnosis || s.policy || JSON.stringify((s as any).mandate_snapshot || s.status || "")}
+                        </span>
+                        {s.stage_hash && (
+                          <span className="text-[10px] font-mono text-muted-foreground/80 block pt-0.5">
+                            Hash: <span className="text-blue-400/80">{s.stage_hash.slice(0, 16)}...</span> • Prev: <span className="text-muted-foreground/60">{s.previous_stage_hash?.slice(0, 12)}...</span>
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+                    <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] shrink-0 self-start sm:self-center">
                       VERIFIED ✅
                     </Badge>
                   </div>
@@ -891,7 +1003,7 @@ export default function ProcurementPage() {
 
             <CardFooter className="pt-2 flex justify-between">
               <span className="text-xs text-muted-foreground font-mono">
-                Cryptographic Integrity: SHA-256 Validated
+                Cryptographic Integrity: Continuous SHA-256 Chained
               </span>
               <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5 text-xs">
                 <RotateCcwIcon className="w-3.5 h-3.5" /> Start New Procurement
