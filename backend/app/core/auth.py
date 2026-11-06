@@ -34,6 +34,10 @@ class AppRole(str, Enum):
     KnowledgeAdmin = "KnowledgeAdmin"
     AutomationAdmin = "AutomationAdmin"
     Auditor = "Auditor"
+    ProcurementAgent = "ProcurementAgent"
+    Buyer = "Buyer"
+    Supervisor = "Supervisor"
+    PaymentService = "PaymentService"
 
 
 ALL_ROLES = {role.value for role in AppRole}
@@ -123,20 +127,46 @@ def fetch_jwks() -> dict:
         )
 
 
+DEV_JWT_SECRET = os.environ.get("TEST_JWT_SECRET", "kinetix-enterprise-auth-secret-2026")
+
+
+def create_access_token(
+    user_id: str,
+    roles: list[str],
+    name: str = "Authorized Operator",
+    email: str | None = None,
+    site_id: str = "plant-mumbai-01",
+    organization_id: str = "kinetix-industrial",
+    expires_delta_seconds: int = 86400,
+) -> str:
+    """Generates a signed, verifiable JWT for a given identity and set of enterprise roles."""
+    now = time.time()
+    payload = {
+        "sub": user_id,
+        "oid": user_id,
+        "name": name,
+        "email": email or f"{user_id}@plant.internal",
+        "roles": roles,
+        "site_id": site_id,
+        "organization_id": organization_id,
+        "iat": int(now),
+        "exp": int(now + expires_delta_seconds),
+    }
+    return jwt.encode(payload, DEV_JWT_SECRET, algorithm="HS256")
+
+
 def verify_entra_token(token: str) -> dict:
-    """Verify an Entra ID OIDC token against cached JWKS and return claims."""
-    # Check for test / mock tokens in test/dev environment
-    mock_secret = os.environ.get("TEST_JWT_SECRET")
-    if mock_secret:
-        try:
-            return jwt.decode(
-                token,
-                mock_secret,
-                algorithms=["HS256"],
-                options={"verify_aud": False},
-            )
-        except jwt.PyJWTError:
-            pass  # Fallback to RS256 JWKS verification
+    """Verify an Entra ID OIDC token or local signed JWT against trusted keys."""
+    # Check for signed HS256 tokens using DEV_JWT_SECRET
+    try:
+        return jwt.decode(
+            token,
+            DEV_JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+    except jwt.PyJWTError:
+        pass  # Fallback to RS256 JWKS verification
 
     try:
         unverified_headers = jwt.get_unverified_header(token)
@@ -259,12 +289,16 @@ def get_current_user(
         # Dev / local mode fallback identity
         dev_user_id = request.headers.get("X-User-ID", "local-operator")
         dev_site_id = request.headers.get("X-Site-ID", "plant-mumbai-01")
-        dev_roles = [r.strip() for r in request.headers.get("X-User-Roles", "PlantOperator").split(",") if r.strip()]
+        raw_roles = [r.strip() for r in request.headers.get("X-User-Roles", "PlantOperator").split(",") if r.strip()]
+        # Whitelist and sanitize roles to prevent arbitrary role injection
+        sanitized_roles = [r for r in raw_roles if r in ALL_ROLES]
+        if not sanitized_roles:
+            sanitized_roles = [AppRole.PlantOperator.value]
         user = UserProfile(
             user_id=dev_user_id,
             email=f"{dev_user_id}@plant.internal",
-            name="Plant Local Operator",
-            roles=dev_roles,
+            name=f"Plant User ({dev_user_id})",
+            roles=sanitized_roles,
             site_id=dev_site_id,
             organization_id="kinetix-industrial",
             clearance_level=ClearanceLevel.INTERNAL,

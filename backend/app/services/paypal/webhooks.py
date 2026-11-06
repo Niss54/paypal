@@ -135,6 +135,25 @@ class PayPalWebhookService:
                 order_record = db.query(PayPalOrderRecord).filter_by(work_order_id=wo).first()
 
             if order_record:
+                # Financial Integrity: Validate amount and currency match exactly
+                res_amount = resource.get("amount", {})
+                res_curr = res_amount.get("currency_code")
+                res_val = res_amount.get("value")
+                if res_curr and res_val:
+                    if res_curr != order_record.currency_code or res_val != str(order_record.amount_value):
+                        logger.error(
+                            "PAYPAL WEBHOOK MISMATCH: Order %s expected %s %s, received %s %s",
+                            order_record.paypal_order_id, order_record.amount_value, order_record.currency_code, res_val, res_curr
+                        )
+                        order_record.status = "CAPTURE_AMOUNT_MISMATCH"
+                        order_record.updated_at = now
+                        db.commit()
+                        return {
+                            "status": "AMOUNT_MISMATCH_REJECTED",
+                            "event_id": event_id,
+                            "order_id": order_record.paypal_order_id,
+                        }
+
                 order_record.status = "CAPTURED"
                 order_record.capture_id = capture_id
                 order_record.captured_at = now

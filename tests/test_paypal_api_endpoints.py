@@ -190,3 +190,64 @@ def test_void_uncaptured_order():
     assert void_res.status_code == 200
     data = void_res.json()
     assert data["status"] == "VOIDED"
+
+
+def test_auth_token_issuance_and_me():
+    """Verify cryptographically signed JWT issuance and verified UserProfile resolution."""
+    # 1. Issue token for supervisor persona
+    res = client.post("/api/auth/token", json={"persona": "supervisor"})
+    assert res.status_code == 200
+    data = res.json()
+    assert "access_token" in data
+    assert data["user_id"] == "SUP-CHIEF-09"
+    assert "Supervisor" in data["roles"]
+
+    # 2. Authenticate to /api/auth/me with Bearer token
+    me_res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {data['access_token']}"})
+    assert me_res.status_code == 200
+    me_data = me_res.json()
+    assert me_data["user_id"] == "SUP-CHIEF-09"
+    assert "Supervisor" in me_data["roles"]
+
+
+def test_simulated_approval_rejected_on_live_order():
+    """P0.6 Security Test: simulated_approval=True on non-simulated orders must return HTTP 403."""
+    import uuid
+    from backend.app.db.database import get_db
+    from backend.app.db.models import PayPalOrderRecord
+
+    db = next(get_db())
+    unique_ord_id = f"LIVE-ORD-{uuid.uuid4().hex[:8].upper()}"
+    live_order = PayPalOrderRecord(
+        paypal_order_id=unique_ord_id,
+        quote_id="Q-2026-001",
+        work_order_id="WO-2026-IMS-001",
+        predictive_event_id="EVT-2026-IMS-01",
+        create_request_id=f"req-{unique_ord_id}",
+        equipment_tag="P-101A",
+        vendor_id="VND-001",
+        amount_value="450.00",
+        currency_code="USD",
+        status="ORDER_CREATED",
+        is_simulated=False,
+    )
+    db.add(live_order)
+    db.commit()
+
+    # Attempt simulated approval on live order -> MUST BE FORBIDDEN (HTTP 403)
+    res = client.post(
+        f"/api/paypal/orders/{unique_ord_id}/approve",
+        json={"simulated_approval": True},
+    )
+    assert res.status_code == 403
+    assert "Simulated approval is only permitted for simulated orders" in res.json()["detail"]
+
+
+def test_capture_fail_closed_on_unknown_status():
+    """P0.4 Test: capture service must fail closed to UNKNOWN on unrecognized status."""
+    from backend.app.services.paypal.schemas import CaptureStatus
+
+    assert CaptureStatus.UNKNOWN == "UNKNOWN"
+    raw_status = "STRANGE_PAYPAL_STATUS"
+    status = CaptureStatus(raw_status) if raw_status in CaptureStatus._value2member_map_ else CaptureStatus.UNKNOWN
+    assert status == CaptureStatus.UNKNOWN

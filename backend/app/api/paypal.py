@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from backend.app.core.auth import UserProfile, get_current_user
+from backend.app.core.auth import UserProfile, get_current_user, is_auth_enabled, require_roles
 from backend.app.db.database import get_db
 from backend.app.db.models import PayPalOrderRecord, PayPalWebhookEvent
 from backend.app.services.paypal.reconciliation import PayPalReconciliationService
@@ -57,25 +57,25 @@ class EvaluateQuoteRequest(BaseModel):
 # --- Procurement & RFQ Endpoints ---
 
 @router.get("/procurement/incident")
-def get_incident():
+def get_incident(current_user: UserProfile = Depends(get_current_user)):
     """Returns canonical bearing anomaly incident grounded in NASA IMS dataset and GraphRAG attribution."""
     return orchestrator.get_incident()
 
 
 @router.get("/procurement/quotes")
-def get_quotes():
+def get_quotes(current_user: UserProfile = Depends(get_current_user)):
     """Returns candidate comparison quotes with explicit [SYNTHETIC DEMO QUOTE] disclosures."""
     return orchestrator.get_quotes()
 
 
 @router.get("/procurement/mandate")
-def get_mandate():
+def get_mandate(current_user: UserProfile = Depends(get_current_user)):
     """Returns active deterministic spending mandate parameters."""
     return orchestrator.get_mandate()
 
 
 @router.post("/procurement/evaluate-quote")
-def evaluate_quote(req: EvaluateQuoteRequest):
+def evaluate_quote(req: EvaluateQuoteRequest, current_user: UserProfile = Depends(get_current_user)):
     """Evaluates a candidate quote against the deterministic spending mandate."""
     try:
         return orchestrator.evaluate_quote(req.quote_id)
@@ -84,7 +84,7 @@ def evaluate_quote(req: EvaluateQuoteRequest):
 
 
 @router.get("/procurement/{work_order_id}")
-def get_procurement_by_work_order(work_order_id: str, db: Session = Depends(get_db)):
+def get_procurement_by_work_order(work_order_id: str, db: Session = Depends(get_db), current_user: UserProfile = Depends(get_current_user)):
     """Looks up procurement orders associated with a work order."""
     orders = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.work_order_id == work_order_id).all()
     return {
@@ -111,6 +111,8 @@ async def create_paypal_order(
             is_simulation=req.is_simulation,
         )
         return order.to_dict()
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
     except Exception as e:
@@ -119,7 +121,7 @@ async def create_paypal_order(
 
 
 @router.get("/paypal/orders/{order_id}")
-def get_paypal_order(order_id: str, db: Session = Depends(get_db)):
+def get_paypal_order(order_id: str, db: Session = Depends(get_db), current_user: UserProfile = Depends(get_current_user)):
     """Retrieves order record by PayPal order ID."""
     order = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
     if not order:
@@ -137,12 +139,21 @@ async def approve_paypal_order(
     """Verifies or records Buyer Approval for PayPal Order before authorization."""
     try:
         simulated = req.simulated_approval if req else False
+        if simulated:
+            order_rec = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
+            if order_rec and not order_rec.is_simulated:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Simulated approval is only permitted for simulated orders. Live orders must be approved via PayPal Sandbox checkout."
+                )
         order = await orchestrator.approve_paypal_order(
             db=db,
             order_id=order_id,
             simulated_approval=simulated,
         )
         return order.to_dict()
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -177,7 +188,12 @@ def supervisor_sign_off(
     """Submits dual-control supervisor sign-off required for Lane B / critical assets.
     Enforces strict separation of duties: requester cannot act as supervisor.
     """
-    supervisor_id = req.supervisor_id or current_user.user_id
+    if is_auth_enabled() and not current_user.has_any_role("Supervisor", "ReliabilityEngineer", "ComplianceOfficer", "PlantOperator"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: User '{current_user.user_id}' lacks required Supervisor role for dual-control sign-off",
+        )
+    supervisor_id = req.supervisor_id if (not is_auth_enabled() and req.supervisor_id) else current_user.user_id
     try:
         order = orchestrator.sign_off_supervisor(
             db=db,
@@ -293,7 +309,7 @@ async def reconcile_paypal_order(order_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/paypal/orders/{order_id}/audit")
-def get_order_audit_lineage(order_id: str, db: Session = Depends(get_db)):
+def get_order_audit_lineage(order_id: str, db: Session = Depends(get_db), current_user: UserProfile = Depends(get_current_user)):
     """Returns the end-to-end immutable causal lineage from telemetry anomaly to settlement with SHA-256 hash chaining."""
     try:
         return orchestrator.get_audit_lineage(db=db, order_id=order_id)

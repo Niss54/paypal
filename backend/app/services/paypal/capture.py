@@ -48,14 +48,29 @@ class PayPalCaptureService:
         )
 
         capture_id = data.get("id", "")
-        raw_status = data.get("status", CaptureStatus.COMPLETED.value)
-        status = CaptureStatus(raw_status) if raw_status in CaptureStatus._value2member_map_ else CaptureStatus.COMPLETED
+        raw_status = data.get("status")
+        # Fail closed: never default an unknown or missing status to COMPLETED!
+        if not raw_status:
+            status = CaptureStatus.UNKNOWN
+        elif raw_status in CaptureStatus._value2member_map_:
+            status = CaptureStatus(raw_status)
+        else:
+            status = CaptureStatus.UNKNOWN
+
+        # If capture_id is missing, it cannot be considered COMPLETED
+        if not capture_id and status == CaptureStatus.COMPLETED:
+            status = CaptureStatus.UNKNOWN
 
         amt_dict = data.get("amount", {})
         money = Money(
             currency_code=amt_dict.get("currency_code", currency_code),
             value=amt_dict.get("value", amount_value),
         )
+
+        # Verify returned amount & currency match expectations
+        if money.currency_code != currency_code or money.value != amount_value:
+            logger.warning("Capture amount mismatch: expected %s %s, PayPal returned %s %s",
+                           amount_value, currency_code, money.value, money.currency_code)
 
         links = [
             LinkDescription(
@@ -87,8 +102,13 @@ class PayPalCaptureService:
             path=f"/v2/payments/captures/{capture_id}",
         )
 
-        raw_status = data.get("status", CaptureStatus.COMPLETED.value)
-        status = CaptureStatus(raw_status) if raw_status in CaptureStatus._value2member_map_ else CaptureStatus.COMPLETED
+        raw_status = data.get("status")
+        if not raw_status:
+            status = CaptureStatus.UNKNOWN
+        elif raw_status in CaptureStatus._value2member_map_:
+            status = CaptureStatus(raw_status)
+        else:
+            status = CaptureStatus.UNKNOWN
 
         amt_dict = data.get("amount", {})
         money = Money(
