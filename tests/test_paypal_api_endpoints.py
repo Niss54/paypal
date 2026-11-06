@@ -251,3 +251,87 @@ def test_capture_fail_closed_on_unknown_status():
     raw_status = "STRANGE_PAYPAL_STATUS"
     status = CaptureStatus(raw_status) if raw_status in CaptureStatus._value2member_map_ else CaptureStatus.UNKNOWN
     assert status == CaptureStatus.UNKNOWN
+
+
+def test_lane_a_autonomous_agentic_settlement_lifecycle():
+    """Lane A Hero Autonomous Flow: Routine Spares (< $500).
+    Evaluates quote in Lane A -> requires_supervisor_signoff is False.
+    Creates order with Lane A policy.
+    Buyer approve -> Authorize.
+    Attempt capture before evidence -> 403 Forbidden (No Evidence, No Capture).
+    Submit verified sensor telemetry (1.25 mm/s, Zone A).
+    Capture directly executed by Agent WITHOUT supervisor sign-off -> 200 SUCCESS!
+    """
+    # 1. Evaluate in Lane A
+    res_eval = client.post(
+        "/api/procurement/evaluate-quote",
+        json={"quote_id": "Q-2026-001", "policy_lane": "LANE_A"},
+    )
+    assert res_eval.status_code == 200
+    eval_data = res_eval.json()
+    assert eval_data["decision"] == "ALLOWED"
+    assert eval_data["risk_lane"] == "LANE_A_ROUTINE"
+    assert eval_data["requires_supervisor_signoff"] is False
+
+    # 2. Create Order in Lane A
+    res_order = client.post(
+        "/api/paypal/orders",
+        json={
+            "quote_id": "Q-2026-001",
+            "is_simulation": True,
+            "policy_lane": "LANE_A",
+        },
+    )
+    assert res_order.status_code == 201
+    order_id = res_order.json()["paypal_order_id"]
+
+    # 3. Simulated Buyer Approve
+    res_app = client.post(f"/api/paypal/orders/{order_id}/approve", json={"simulated_approval": True})
+    assert res_app.status_code == 200
+    assert res_app.json()["status"] == "BUYER_APPROVED"
+
+    # 4. Authorize
+    res_auth = client.post(f"/api/paypal/orders/{order_id}/authorize")
+    assert res_auth.status_code == 200
+    assert res_auth.json()["status"] == "AUTHORIZED"
+
+    # 5. Negative Gate: Attempt capture before evidence -> MUST BE 403 Forbidden
+    res_cap_early = client.post(f"/api/paypal/orders/{order_id}/capture")
+    assert res_cap_early.status_code == 403
+    err_data = res_cap_early.json()
+    assert "EvidenceGateBlocked" in str(err_data)
+    assert "No Evidence, No Capture" in str(err_data)
+
+    # 6. Submit verified vibration evidence (1.25 mm/s RMS)
+    ev_payload = {
+        "evidence_id": f"EVD-{order_id}",
+        "work_order_id": "WO-2026-IMS-001",
+        "quote_id": "Q-2026-001",
+        "equipment_tag": "P-101A",
+        "vendor_id": "VND-001",
+        "service_id": "SRV-BRG-REPLACE",
+        "technician_id": "TECH-CERT-441",
+        "checklist_items": [
+            "Asset physically verified",
+            "Bearing replaced per SOP",
+            "Laser alignment completed",
+            "Vibration baseline verified",
+        ],
+        "measurements": {
+            "vibration_after_mm_s": 1.25,
+            "vibration_zone": "Zone A (Good)",
+            "bearing_temperature_c": 41.2,
+        },
+        "file_sha256": "a" * 64,
+        "is_synthetic": True,
+    }
+    res_ev = client.post(f"/api/paypal/orders/{order_id}/evidence", json=ev_payload)
+    assert res_ev.status_code == 200
+    assert res_ev.json()["validation_passed"] is True
+
+    # 7. Hero Autonomous Settlement: Agent captures order directly WITHOUT supervisor sign-off!
+    res_cap = client.post(f"/api/paypal/orders/{order_id}/capture")
+    assert res_cap.status_code == 200
+    cap_data = res_cap.json()
+    assert cap_data["success"] is True
+    assert cap_data["capture"]["status"] == "COMPLETED"

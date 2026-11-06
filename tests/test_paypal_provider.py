@@ -192,7 +192,7 @@ def test_paypal_provider_factory_resolution(monkeypatch):
 async def test_paypal_provider_lightning_compatibility_layer(mock_paypal_provider):
     """Verifies create_invoice, pay_invoice, and check_payment drop-in compatibility."""
     inv = await mock_paypal_provider.create_invoice(
-        InvoiceRequest(amount_sats=250, memo="Biopharma refrigeration power hookup")
+        InvoiceRequest(amount_sats=250, memo="Industrial bearing spindle emergency replacement")
     )
     assert inv.invoice_id.startswith("inv-paypal-")
     assert inv.status == PaymentStatus.PENDING

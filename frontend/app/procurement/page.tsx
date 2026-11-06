@@ -72,6 +72,9 @@ import {
 export default function ProcurementPage() {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
+  // Workflow Policy Lane: Lane A (100% Autonomous Routine Spares < $500) vs Lane B (Regulated Critical Dual-Control)
+  const [policyLane, setPolicyLane] = useState<"LANE_A" | "LANE_B">("LANE_A");
+
   // Authenticated Persona & RBAC State
   const [persona, setPersona] = useState<"procurement-agent" | "supervisor">("procurement-agent");
   const [authToken, setAuthToken] = useState<string>("");
@@ -124,7 +127,7 @@ export default function ProcurementPage() {
         setQuotes(qts);
         setMandate(mnd);
 
-        const ev = await evaluateProcurementQuote("Q-2026-001", tokenRes.access_token);
+        const ev = await evaluateProcurementQuote("Q-2026-001", tokenRes.access_token, policyLane);
         setMandateEval(ev);
       } catch (err: any) {
         setFeedback({ type: "error", msg: err.message || "Failed to load procurement baseline" });
@@ -155,11 +158,22 @@ export default function ProcurementPage() {
     }
   };
 
+  // Toggle Policy Lane
+  const handleTogglePolicyLane = async (lane: "LANE_A" | "LANE_B") => {
+    setPolicyLane(lane);
+    if (selectedQuoteId) {
+      try {
+        const ev = await evaluateProcurementQuote(selectedQuoteId, authToken, lane);
+        setMandateEval(ev);
+      } catch {}
+    }
+  };
+
   // Handle Quote Selection
   const handleSelectQuote = async (qid: string) => {
     setSelectedQuoteId(qid);
     try {
-      const ev = await evaluateProcurementQuote(qid, authToken);
+      const ev = await evaluateProcurementQuote(qid, authToken, policyLane);
       setMandateEval(ev);
     } catch (err: any) {
       setFeedback({ type: "error", msg: "Failed to evaluate quote policy" });
@@ -175,7 +189,7 @@ export default function ProcurementPage() {
 
       // Create Order via backend Orders v2 with intent: AUTHORIZE
       const requester = currentUser?.user_id || "usr-procurement-agent";
-      const created = await createPayPalOrder(selectedQuoteId, requester, isSimulationMode, authToken);
+      const created = await createPayPalOrder(selectedQuoteId, requester, isSimulationMode, authToken, policyLane);
       setOrder(created);
       setActiveStep(2);
       setFeedback({
@@ -444,32 +458,44 @@ export default function ProcurementPage() {
       }
       setEvidenceSubmitted(true);
 
-      // 6. Switch to Supervisor for dual control
-      await new Promise((r) => setTimeout(r, 900));
-      const tokenResSup = await getAuthToken("supervisor");
-      setPersona("supervisor");
-      setAuthToken(tokenResSup.access_token);
-      setCurrentUser(tokenResSup);
+      // 6. Execute Capture (Lane A: 100% Autonomous Agent Capture vs Lane B: Dual-Control Supervisor)
+      if (policyLane === "LANE_A") {
+        await new Promise((r) => setTimeout(r, 1000));
+        const res = await capturePayPalOrder(authorized.paypal_order_id, undefined, tokenResAgent.access_token);
+        setCaptureResult(res);
+        const lineage = await getOrderAuditLineage(authorized.paypal_order_id, tokenResAgent.access_token);
+        setAuditLineage(lineage);
+        setActiveStep(3);
 
-      await supervisorSignOff(authorized.paypal_order_id, "SUP-CHIEF-09", "Auto-demo dual-control sign-off verified.", tokenResSup.access_token);
-      setSupervisorSigned(true);
+        const capId = res.capture_id || res.capture?.capture_id || "SIM-CAP-2026";
+        setFeedback({
+          type: "success",
+          msg: `🤖 Autonomous Lane A Complete: AI Agent autonomously settled order (ID: ${capId}) upon verified vibration telemetry (1.25 mm/s). Zero human sign-off needed.`,
+        });
+      } else {
+        await new Promise((r) => setTimeout(r, 900));
+        const tokenResSup = await getAuthToken("supervisor");
+        setPersona("supervisor");
+        setAuthToken(tokenResSup.access_token);
+        setCurrentUser(tokenResSup);
 
-      // 7. Capture payment
-      await new Promise((r) => setTimeout(r, 1200));
-      const res = await capturePayPalOrder(authorized.paypal_order_id, undefined, tokenResSup.access_token);
-      setCaptureResult(res);
-      const lineage = await getOrderAuditLineage(authorized.paypal_order_id, tokenResSup.access_token);
-      setAuditLineage(lineage);
-      setActiveStep(3);
+        await supervisorSignOff(authorized.paypal_order_id, "SUP-CHIEF-09", "Auto-demo dual-control sign-off verified.", tokenResSup.access_token);
+        setSupervisorSigned(true);
 
-      const isSim = authorized.is_simulated || res.is_simulated || res.simulation;
-      const capId = res.capture_id || res.capture?.capture_id || "SIM-CAP-2026";
-      setFeedback({
-        type: "success",
-        msg: isSim
-          ? `Auto Demo Complete: Simulated capture completed (ID: ${capId}). No PayPal transaction occurred.`
-          : `Auto Demo Complete: PayPal Sandbox capture completed! Capture ID: ${capId}. Status: COMPLETED.`,
-      });
+        // 7. Capture payment
+        await new Promise((r) => setTimeout(r, 1200));
+        const res = await capturePayPalOrder(authorized.paypal_order_id, undefined, tokenResSup.access_token);
+        setCaptureResult(res);
+        const lineage = await getOrderAuditLineage(authorized.paypal_order_id, tokenResSup.access_token);
+        setAuditLineage(lineage);
+        setActiveStep(3);
+
+        const capId = res.capture_id || res.capture?.capture_id || "SIM-CAP-2026";
+        setFeedback({
+          type: "success",
+          msg: `Auto Demo Complete: Regulated Lane B dual-control capture verified (ID: ${capId}).`,
+        });
+      }
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Auto-demo encountered an error" });
     } finally {
@@ -631,6 +657,48 @@ export default function ProcurementPage() {
               <RotateCcwIcon className="w-3.5 h-3.5" /> Reset
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* Execution Policy Lane Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-card/60 border border-border/80 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <CpuIcon className="w-4 h-4 text-cyan-400 shrink-0" />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-foreground">Procurement Execution Policy:</span>
+              <Badge variant="outline" className={policyLane === "LANE_A" ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]" : "border-blue-500/40 text-blue-400 bg-blue-500/10 text-[10px]"}>
+                {policyLane === "LANE_A" ? "AUTONOMOUS AGENT MODE" : "SAFETY DUAL-CONTROL"}
+              </Badge>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {policyLane === "LANE_A"
+                ? "🤖 100% Autonomous Agentic Settlement: Routine spares (< $500) settle autonomously upon sensor telemetry validation without human supervisor login."
+                : "🛡️ Regulated Safety Governance: Critical assets (P-101A) require dual-control human supervisor sign-off before funds release."}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-background/80 border border-border/60 shrink-0">
+          <Button
+            size="sm"
+            variant={policyLane === "LANE_A" ? "default" : "ghost"}
+            onClick={() => handleTogglePolicyLane("LANE_A")}
+            disabled={loading || autoRunning}
+            className={`h-7 px-3 text-xs ${policyLane === "LANE_A" ? "bg-emerald-600 text-white font-semibold shadow-xs" : "text-muted-foreground"}`}
+          >
+            <span className="size-1.5 rounded-full bg-emerald-300 mr-1.5 animate-pulse" />
+            Lane A: Autonomous (&lt; $500)
+          </Button>
+          <Button
+            size="sm"
+            variant={policyLane === "LANE_B" ? "default" : "ghost"}
+            onClick={() => handleTogglePolicyLane("LANE_B")}
+            disabled={loading || autoRunning}
+            className={`h-7 px-3 text-xs ${policyLane === "LANE_B" ? "bg-blue-600 text-white font-semibold shadow-xs" : "text-muted-foreground"}`}
+          >
+            <LockIcon className="w-3 h-3 mr-1" />
+            Lane B: Dual-Control (P-101A)
+          </Button>
         </div>
       </div>
 
@@ -1043,11 +1111,11 @@ export default function ProcurementPage() {
                 <Button
                   variant="destructive"
                   onClick={handleAttemptEarlyCapture}
-                  disabled={loading || (evidenceSubmitted && supervisorSigned)}
+                  disabled={loading || (evidenceSubmitted && (policyLane === "LANE_A" || supervisorSigned))}
                   className="w-full gap-2 text-xs font-medium"
                 >
                   <LockIcon className="w-3.5 h-3.5" />
-                  {evidenceSubmitted && supervisorSigned ? "Gate Unlocked (Ready to Capture)" : "Attempt Early Capture (Should Fail with HTTP 403)"}
+                  {evidenceSubmitted && (policyLane === "LANE_A" || supervisorSigned) ? "Gate Unlocked (Ready to Capture)" : "Attempt Early Capture (Should Fail with HTTP 403)"}
                 </Button>
               </CardFooter>
             </Card>
@@ -1101,6 +1169,19 @@ export default function ProcurementPage() {
                       <FileCheck2Icon className="w-3.5 h-3.5 text-emerald-400" />
                       Submit Verified Evidence (1.25 mm/s)
                     </Button>
+                  ) : policyLane === "LANE_A" ? (
+                    <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-200 space-y-1">
+                      <div className="flex items-center justify-between font-semibold">
+                        <span className="flex items-center gap-1.5 text-emerald-400">
+                          <CheckCircleIcon className="size-3.5" />
+                          Autonomous Agent Settlement Authorized
+                        </span>
+                        <Badge className="bg-emerald-500/20 text-emerald-300 border-0 text-[10px]">LANE A</Badge>
+                      </div>
+                      <p className="text-muted-foreground text-[10px] leading-relaxed">
+                        Physical telemetry verified (1.25 mm/s &le; 4.5 mm/s limit, SHA-256 match). Under Lane A policy, human supervisor sign-off is bypassed for routine spares under $500.
+                      </p>
+                    </div>
                   ) : !supervisorSigned ? (
                     <div className="space-y-2">
                       <div className="p-2 rounded bg-muted/40 border border-border/40 text-[11px] text-muted-foreground flex items-center justify-between">
@@ -1134,11 +1215,13 @@ export default function ProcurementPage() {
               <CardFooter className="pt-2">
                 <Button
                   onClick={handleExecuteGatedCapture}
-                  disabled={loading || !evidenceSubmitted || !supervisorSigned}
+                  disabled={loading || !evidenceSubmitted || (policyLane === "LANE_B" && !supervisorSigned)}
                   className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
                 >
                   <CheckCircle2Icon className="w-4 h-4" />
-                  Execute Gated PayPal Capture (${parseFloat(order.amount_value).toFixed(2)})
+                  {policyLane === "LANE_A"
+                    ? `🤖 Execute Autonomous Agent Capture ($${parseFloat(order.amount_value).toFixed(2)})`
+                    : `Execute Gated PayPal Capture ($${parseFloat(order.amount_value).toFixed(2)})`}
                 </Button>
               </CardFooter>
             </Card>

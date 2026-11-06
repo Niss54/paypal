@@ -10,7 +10,6 @@ import {
   SearchIcon,
   SlidersIcon,
   UserRoundSearchIcon,
-  ZapIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -63,16 +62,6 @@ const evidenceRagItems = [
   { label: "Knowledge Risk", icon: UserRoundSearchIcon, href: "/knowledge-risk" },
   { label: "RAG Comparison", icon: GitCompareArrowsIcon, href: "/comparison" },
   { label: "Evaluation", icon: ChartNoAxesCombinedIcon, href: "/evaluation" },
-];
-
-const modularRailItems = [
-  {
-    label: "Machine Money",
-    icon: ZapIcon,
-    href: "/machine-money",
-    badge: "Modular",
-    badgeClass: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-  },
 ];
 
 export default function AppSidebar({ readiness }: { readiness: ReadinessResponse | null }) {
@@ -162,40 +151,6 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                     >
                       <Icon className="shrink-0" />
                       <span className="whitespace-nowrap truncate">{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Modular Multi-Rail Group */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider">
-            Modular Multi-Rail
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {modularRailItems.map((item) => {
-                const Icon = item.icon;
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/" && pathname.startsWith(`${item.href}/`));
-                return (
-                  <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      tooltip={item.label}
-                      render={<Link href={item.href} onClick={closeMobileSidebar} />}
-                    >
-                      <Icon className="text-amber-500/80 shrink-0" />
-                      <span className="flex-1 whitespace-nowrap truncate">{item.label}</span>
-                      {item.badge && (
-                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 group-data-[collapsible=icon]:hidden ${item.badgeClass}`}>
-                          {item.badge}
-                        </span>
-                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
