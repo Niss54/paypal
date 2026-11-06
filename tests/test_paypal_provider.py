@@ -87,7 +87,7 @@ async def test_paypal_provider_execute_payout_success(mock_paypal_provider):
     fake_payout_response.json.return_value = {
         "batch_header": {
             "payout_batch_id": "BATCH-SANDBOX-778899",
-            "batch_status": "PENDING",
+            "batch_status": "SUCCESS",
             "sender_batch_header": {
                 "sender_batch_id": "custom-batch-001",
             },
@@ -107,14 +107,14 @@ async def test_paypal_provider_execute_payout_success(mock_paypal_provider):
         res = await mock_paypal_provider.execute_payout(
             recipient="chicago-redn-depot@kinetixpay-depot.com",
             amount_usd=450.00,
-            note="Emergency BioPharma Cold-Dock Reservation - Trastuzumab Monoclonal Antibody Cargo",
+            note="Emergency Industrial Slurry Pump Bearing Replacement",
             sender_batch_id="custom-batch-001",
             sender_item_id="item-001",
         )
 
         assert res["success"] is True
         assert res["payout_batch_id"] == "BATCH-SANDBOX-778899"
-        assert res["batch_status"] == "PENDING"
+        assert res["batch_status"] == "SUCCESS"
         assert res["amount_usd"] == 450.00
 
         # Verify posted payload
@@ -201,7 +201,7 @@ async def test_paypal_provider_lightning_compatibility_layer(mock_paypal_provide
         mock_payout.return_value = {
             "success": True,
             "payout_batch_id": "BATCH-DROPIN-99",
-            "batch_status": "PENDING",
+            "batch_status": "SUCCESS",
             "amount_usd": 450.00,
         }
         receipt = await mock_paypal_provider.pay_invoice(inv.payment_request)

@@ -67,7 +67,6 @@ import { VendorRFQ } from "@/components/machine-money/VendorRFQ";
 import { IndustrialEconomics } from "@/components/machine-money/IndustrialEconomics";
 import { SystemReadinessModal } from "@/components/machine-money/SystemReadinessModal";
 import { NovelBitcoinProtocol } from "@/components/machine-money/NovelBitcoinProtocol";
-import { PayPalSwarmConsole } from "@/components/machine-money/PayPalSwarmConsole";
 import type { VendorQuoteCandidate } from "@/lib/api";
 
 export default function MachineMoneyPage() {
@@ -368,9 +367,35 @@ export default function MachineMoneyPage() {
       </div>
 
       {/* --------------------------------------------------------------------- */}
-      {/* PAYPAL AI HACKATHON 2026: AGENTIC COMMERCE & COLD-CHAIN PRESERVATION   */}
+      {/* PAYPAL AI HACKATHON 2026: EVIDENCE-GATED INDUSTRIAL PROCUREMENT        */}
       {/* --------------------------------------------------------------------- */}
-      <PayPalSwarmConsole />
+      <Card className="border-[#003087]/50 bg-[#003087]/10 p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-[#003087] text-white border-0 text-xs font-mono">
+                PayPal Orders v2
+              </Badge>
+              <Badge variant="outline" className="border-amber-500/40 text-amber-400 bg-amber-500/10 text-xs">
+                "No Evidence, No Capture"
+              </Badge>
+            </div>
+            <h3 className="text-base font-bold text-foreground">
+              Evidence-Gated Industrial Procurement Console
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Evaluate autonomous spending mandates, two-phase PayPal authorizations, and evidence-gated settlements.
+            </p>
+          </div>
+          <Button
+            className="bg-[#003087] hover:bg-[#00256c] text-white font-medium text-xs gap-1.5 shrink-0"
+            nativeButton={false}
+            render={<a href="/procurement" />}
+          >
+            Launch Procurement Console <ArrowRightIcon className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </Card>
 
       {/* --------------------------------------------------------------------- */}
       {/* Judge Mode: One-Click Autonomous Settlement Pipeline & Live Timeline   */}

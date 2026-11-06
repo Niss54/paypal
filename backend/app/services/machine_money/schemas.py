@@ -406,21 +406,7 @@ class SwarmAgentMessage(BaseModel):
     timestamp: datetime = Field(default_factory=utcnow)
 
 
-class ColdChainSwarmAuctionResponse(BaseModel):
-    scenario_id: str = "COLDCHAIN-EXCURSION-TRK-9042"
-    asset_tag: str = "REEFER-TRK-9042"
-    cargo_manifest: str = "1,200 Vials Trastuzumab (Herceptin 440mg)"
-    cargo_valuation_usd: float = 1400000.00
-    regulatory_standard: str = "USP <1079> Good Storage & Shipping Practices / FDA 21 CFR § 211.150"
-    mkt_status: str
-    swarm_agents: List[SwarmAgentMessage]
-    rfq_candidates: List[VendorQuoteCandidate]
-    selected_depot: VendorQuoteCandidate
-    payout_result: Optional[PayPalPayoutResponse] = None
-    reconciliation: Optional[ERPReconciliationRecord] = None
-    elapsed_ms: int = 1420
-    mandate: Optional["SpendingMandate"] = None
-    mandate_auth: Optional["MandateAuthorizationResult"] = None
+# Legacy ColdChainSwarmAuctionResponse removed
 
 
 
