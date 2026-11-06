@@ -24,7 +24,7 @@
 
 > **Interactive Live Route:** `/procurement` (`http://localhost:3000/procurement`)  
 
-> **Automated Test Suite:** 100% pass rate: 405 automated backend/integration tests passing with zero errors + Next.js 16 production build passing with 0 errors across all 15 routes.
+> **Automated Test Suite:** 100% pass rate: 526 automated tests (456 backend + 70 frontend) passing with zero errors + Next.js 16 production build passing with 0 errors across all 15 routes.
 
 
 
@@ -196,11 +196,11 @@ pytest tests/test_paypal_provider.py \
 
 # 2. Live PayPal Sandbox API Tests against api-m.sandbox.paypal.com (2 passed)
 
-pytest tests/test_paypal_sandbox_live.py -v
+pytest tests/test_paypal_sandbox_live.py tests/test_paypal_sandbox_e2e_lifecycle.py -v
 
 
 
-# 3. Frontend Vitest Suite (17 test files, 65 tests passed)
+# 3. Frontend Vitest Suite (18 test files, 70 tests passed)
 
 cd frontend && npm test -- --run
 

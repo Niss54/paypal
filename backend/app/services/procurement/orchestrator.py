@@ -166,18 +166,111 @@ DEMO_QUOTES = [
     },
 ]
 
+CANONICAL_INCIDENT_REEFER = {
+    "scenario_id": "SCN-2026-COLD-01",
+    "equipment_id": "REEFER-TRK-9042",
+    "equipment_tag": "REEFER-TRK-9042",
+    "equipment_name": "Refrigerated Transport Truck #9042 (Thermo King SB-210)",
+    "component": "Compressor Scroll Assembly (Thermo King SB-210+)",
+    "part_number": "TK-SCROLL-420-R",
+    "unspsc_code": "24102305",
+    "manufacturer": "Thermo King Corporation",
+    "anomaly_source": "Carrier APX™ Cold Chain Telematics Gateway",
+    "trigger_timestamp": "2026-11-05T09:14:00Z",
+    "metric_name": "Discharge Temperature Delta",
+    "measured_value_mm_s": 8.7,
+    "normal_baseline_mm_s": 2.0,
+    "alarm_threshold_mm_s": 5.0,
+    "status": "CRITICAL_THERMAL_EXCURSION",
+    "diagnosis": (
+        "Refrigerant discharge temperature delta reached +8.7°C (normal: +2.0°C, alarm boundary: +5.0°C). "
+        "Compressor scroll seal degradation detected via thermal gradient sensor. "
+        "Perishable pharmaceutical cold chain integrity breached if not serviced within 4 operating hours."
+    ),
+    "recommended_action": "Emergency cold-dock dispatch, compressor scroll gasket overhaul, and nitrogen pressure decay test.",
+    "work_order_id": "WO-2026-COLD-001",
+    "is_critical_asset": True,
+    "requires_supervisor_signoff": True,
+}
+
+DEMO_QUOTES_REEFER = [
+    {
+        "quote_id": "Q-2026-COLD-01",
+        "vendor_id": "chicago-emergency-dock",
+        "vendor_code": "US-CHI-98211",
+        "vendor_name": "Chicago Cold Logistics & Emergency Docking",
+        "service_id": "emergency-cold-dock",
+        "part_number": "TK-SCROLL-420-R",
+        "part_name": "Thermo King OEM Scroll Seal & Refrigerant Recharge",
+        "unspsc_code": "24102305",
+        "amount": "480.00",
+        "currency": "USD",
+        "sla_hours": 2,
+        "is_allowlisted": True,
+        "is_synthetic": True,
+        "synthetic_label": "[SYNTHETIC DEMO QUOTE]",
+        "scope_description": "Immediate mobile cold-dock dispatch within 2 hours, nitrogen pressure decay test, and certified EPA 608 recovery.",
+        "is_direct_paypal_sandbox_merchant": True,
+        "scoring": {
+            "cost_score": 90.0,
+            "sla_score": 99.0,
+            "reliability_score": 95.0,
+            "composite_rank": 1,
+            "hard_gates_passed": True,
+        },
+        "ai_evaluation": {
+            "recommended": True,
+            "rationale": "Emergency response winner. At $480.00 USD, satisfies the $500.00 mandate cap. 2-hour SLA prevents catastrophic pharmaceutical spoilage before the 4-hour threshold.",
+            "tradeoff_vs_competitors": "Faster turnaround than Joliet Cold Logistics (6h SLA breach) and within autonomous spending policy limits.",
+        },
+    },
+    {
+        "quote_id": "Q-2026-COLD-02",
+        "vendor_id": "joliet-cold-logistics",
+        "vendor_code": "US-JOL-33104",
+        "vendor_name": "Joliet Industrial Refrigeration Fleet Partners",
+        "service_id": "emergency-cold-dock",
+        "part_number": "TK-SCROLL-420-R",
+        "part_name": "Standard Compressor Maintenance Package",
+        "unspsc_code": "24102305",
+        "amount": "390.00",
+        "currency": "USD",
+        "sla_hours": 6,
+        "is_allowlisted": True,
+        "is_synthetic": True,
+        "synthetic_label": "[SYNTHETIC DEMO QUOTE]",
+        "scope_description": "Standard ground depot repair and nitrogen test.",
+        "is_direct_paypal_sandbox_merchant": False,
+        "scoring": {
+            "cost_score": 96.0,
+            "sla_score": 45.0,
+            "reliability_score": 88.0,
+            "composite_rank": 2,
+            "hard_gates_passed": False,
+            "gate_failure_reason": "SLA 6h exceeds critical 4h cold-chain spoilage horizon",
+        },
+        "ai_evaluation": {
+            "recommended": False,
+            "rationale": "High cargo risk. Lowest price ($390.00 USD), but 6-hour SLA exceeds the critical 4-hour spoilage window, risking $120,000 in perishable inventory.",
+            "tradeoff_vs_competitors": "$90 cheaper than Chicago Emergency Dock, but catastrophic downtime risk.",
+        },
+    },
+]
+
+ALL_DEMO_QUOTES = DEMO_QUOTES + DEMO_QUOTES_REEFER
+
 CANONICAL_MANDATE = SpendingMandate(
     mandate_id="MND-2026-P101A",
     version=1,
     site_id="plant-mumbai-01",
-    equipment_scope=["P-101A", "P-101B", "C-201"],
-    allowed_service_ids=["SRV-BRG-REPLACE", "bearing-inspection"],
-    allowed_vendor_ids=["VND-001", "VND-002", "VND-003", "apex-diagnostics"],
+    equipment_scope=["P-101A", "P-101B", "C-201", "REEFER-TRK-9042"],
+    allowed_service_ids=["SRV-BRG-REPLACE", "bearing-inspection", "emergency-cold-dock"],
+    allowed_vendor_ids=["VND-001", "VND-002", "VND-003", "apex-diagnostics", "chicago-emergency-dock", "joliet-cold-logistics"],
     max_amount="500.00",
     currency_code="USD",
     max_sla_hours=48,
     require_human_for_critical_assets=True,
-    critical_asset_tags=["P-101A"],
+    critical_asset_tags=["P-101A", "REEFER-TRK-9042"],
 )
 
 
@@ -197,8 +290,74 @@ class ProcurementOrchestrator:
         self.evidence_validator = EvidenceValidator()
         self.evidence_controller = EvidenceGatedCaptureController()
 
-    def get_incident(self) -> Dict[str, Any]:
-        """Returns the grounded NASA IMS bearing anomaly incident details with live GraphRAG knowledge graph retrieval and provenance distinction."""
+    @staticmethod
+    def compute_merkle_root(leaves: List[str]) -> Tuple[str, int]:
+        """Compute binary Merkle tree root and depth from a list of leaf hashes."""
+        if not leaves:
+            return "0" * 64, 0
+        import math
+        depth = math.ceil(math.log2(len(leaves))) if len(leaves) > 1 else 1
+        current = list(leaves)
+        while len(current) > 1:
+            if len(current) % 2 == 1:
+                current.append(current[-1])  # Duplicate last element for odd counts
+            next_level = []
+            for i in range(0, len(current), 2):
+                combined = hashlib.sha256(f"{current[i]}:{current[i+1]}".encode("utf-8")).hexdigest()
+                next_level.append(combined)
+            current = next_level
+        return current[0], depth
+
+    def get_incident(self, scenario_id: Optional[str] = None) -> Dict[str, Any]:
+        """Returns the grounded incident details (NASA IMS or Reefer Cold-Chain) with live GraphRAG knowledge graph retrieval."""
+        if scenario_id and scenario_id.lower() in ("cold-chain", "reefer", "scn-2026-cold-01"):
+            incident = CANONICAL_INCIDENT_REEFER.copy()
+            incident["graphrag_context"] = {
+                "node_id": "FE-COLD-01",
+                "failure_mode": "Compressor Scroll Seal Degradation & Refrigerant Leak",
+                "component_subsystem": "Transport Refrigeration Unit (TRU)",
+                "root_cause_analysis": (
+                    "Refrigerant discharge delta +8.7°C exceeds alarm threshold (+5.0°C). "
+                    "Compressor scroll seal blow-by confirmed. Cargo compartment loss of cooling imminent within 2-4 hours."
+                ),
+                "ai_repair_scope_recommendation": (
+                    "Execute Work Order WO-2026-COLD-001: Mobile cold-dock dispatch, "
+                    "re-seal scroll assembly, nitrogen pressure decay test, and verify discharge delta <= 2.5°C before capture."
+                ),
+                "rca_confidence": 0.958,
+                "rca_confidence_note": "Bayesian thermal envelope match score",
+                "failure_forecast_hours": "2-4",
+                "failure_forecast_note": "Perishable pharmaceutical cargo spoilage threshold",
+                "knowledge_graph_path": [
+                    {"type": "Equipment", "id": "REEFER-TRK-9042", "name": "Refrigerated Transport Truck #9042"},
+                    {"type": "FailureEvent", "id": "FE-COLD-01", "name": "Scroll Seal Blow-By"},
+                    {"type": "Procedure", "id": "PROC-COLD-01", "name": "EPA 608 Mobile Refrigerant Service"},
+                    {"type": "Standard", "id": "FDA-21CFR211", "name": "Current Good Manufacturing Practice (cGMP) Cold Chain"},
+                ],
+                "citations": [
+                    "FDA-21CFR211: Cold Chain Temperature Assurance",
+                    "PROC-COLD-01: Rapid Emergency Mobile Refrigerant Service Standard",
+                    "CARRIER-APX-TRU: Historical Failure Envelope Dataset",
+                ],
+                "provenance_split": {
+                    "empirical_research_foundation": {
+                        "dataset": "Carrier APX™ Cold Chain Telematics Gateway",
+                        "source_fixture_tag": "REPLAY-TRU-COLD-01",
+                        "historical_failure_runout_rms": "8.7°C Delta",
+                        "sampling_frequency_khz": 1.0,
+                        "curator": "Global Cold Chain Quality Assurance Council",
+                    },
+                    "operational_plant_demonstration": {
+                        "asset_tag": "REEFER-TRK-9042 (Transport Refrigeration Truck)",
+                        "current_vibration_rms": "8.7°C Delta",
+                        "iso_zone": "Critical Thermal Excursion (Alarm: 5.0°C)",
+                        "risk_classification": "LANE_B_CRITICAL",
+                        "mandated_dual_control": True,
+                    },
+                },
+            }
+            return incident
+
         incident = CANONICAL_INCIDENT.copy()
 
         # Dynamic Knowledge Graph Traversal & Diagnostic Attribution
@@ -285,8 +444,10 @@ class ProcurementOrchestrator:
         }
         return incident
 
-    def get_quotes(self) -> List[Dict[str, Any]]:
+    def get_quotes(self, scenario_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Returns the comparison RFQ quotes with synthetic disclosures."""
+        if scenario_id and scenario_id.lower() in ("cold-chain", "reefer", "scn-2026-cold-01"):
+            return [q.copy() for q in DEMO_QUOTES_REEFER]
         return [q.copy() for q in DEMO_QUOTES]
 
     def get_mandate(self) -> Dict[str, Any]:
@@ -306,7 +467,7 @@ class ProcurementOrchestrator:
 
     def evaluate_quote(self, quote_id: str, policy_lane: Optional[str] = None) -> Dict[str, Any]:
         """Deterministic evaluation of a candidate quote against the spending mandate."""
-        quote_dict = next((q for q in DEMO_QUOTES if q["quote_id"] == quote_id), None)
+        quote_dict = next((q for q in ALL_DEMO_QUOTES if q["quote_id"] == quote_id), None)
         if not quote_dict:
             raise ValueError(f"Quote {quote_id} not found")
 
@@ -333,7 +494,7 @@ class ProcurementOrchestrator:
         res = SpendingMandateEngine.evaluate_quote(
             mandate=active_mandate,
             quote=quote_dict,
-            equipment_tag=CANONICAL_INCIDENT["equipment_tag"],
+            equipment_tag=("REEFER-TRK-9042" if "COLD" in quote_id else CANONICAL_INCIDENT["equipment_tag"]),
             untrusted_text=quote_dict.get("scope_description", ""),
         )
 
@@ -372,8 +533,8 @@ class ProcurementOrchestrator:
         amount_dec = Decimal(str(quote["amount"]))
         currency = quote["currency"]
 
-        # Stable logical operation key per work order and quote for deterministic retries
-        idempotency_key = f"order:{CANONICAL_INCIDENT['work_order_id']}:{quote_id}"
+        active_incident = CANONICAL_INCIDENT_REEFER if "COLD" in quote_id else CANONICAL_INCIDENT
+        idempotency_key = f"order:{active_incident['work_order_id']}:{quote_id}"
         approve_url = None
 
         if is_simulation or not self.order_service.client.is_configured:
@@ -388,9 +549,9 @@ class ProcurementOrchestrator:
             order_resp = await self.order_service.create_order(
                 amount_value=str(amount_dec),
                 currency_code=currency,
-                work_order_id=CANONICAL_INCIDENT["work_order_id"],
+                work_order_id=active_incident["work_order_id"],
                 quote_id=quote_id,
-                description=f"Emergency repair {CANONICAL_INCIDENT['equipment_id']} - {quote['vendor_name']}",
+                description=f"Emergency repair {active_incident['equipment_id']} - {quote['vendor_name']}",
                 idempotency_key=idempotency_key,
             )
             paypal_order_id = order_resp.id
@@ -413,9 +574,9 @@ class ProcurementOrchestrator:
 
         order_record = PayPalOrderRecord(
             paypal_order_id=paypal_order_id,
-            work_order_id=CANONICAL_INCIDENT["work_order_id"],
+            work_order_id=active_incident["work_order_id"],
             predictive_event_id="EVT-2026-IMS-01",
-            equipment_tag=CANONICAL_INCIDENT["equipment_tag"],
+            equipment_tag=("REEFER-TRK-9042" if "COLD" in quote_id else CANONICAL_INCIDENT["equipment_tag"]),
             quote_id=quote_id,
             vendor_id=quote["vendor_id"],
             amount_value=str(amount_dec),
@@ -948,16 +1109,21 @@ class ProcurementOrchestrator:
             },
         ]
 
-        # Compute continuous cryptographic SHA-256 hash chaining across all 7 stages
+        # Compute continuous cryptographic SHA-256 hash chaining and binary Merkle tree
         prev_hash = "0" * 64
+        leaf_hashes = []
         for stage in stages:
             stage["previous_stage_hash"] = prev_hash
             stage_serialized = json.dumps(stage, sort_keys=True, default=str)
             stage_hash = hashlib.sha256(f"{prev_hash}:{stage_serialized}".encode("utf-8")).hexdigest()
             stage["stage_hash"] = stage_hash
+            leaf_hash = hashlib.sha256(stage_serialized.encode("utf-8")).hexdigest()
+            stage["leaf_hash"] = leaf_hash
+            leaf_hashes.append(leaf_hash)
             prev_hash = stage_hash
 
         audit_snapshot_hash = prev_hash
+        merkle_root, merkle_depth = self.compute_merkle_root(leaf_hashes)
 
         return {
             "order_id": order.paypal_order_id,
@@ -968,8 +1134,14 @@ class ProcurementOrchestrator:
             "is_simulated": getattr(order, "is_simulated", False),
             "final_chain_digest": audit_snapshot_hash,
             "audit_snapshot_hash": audit_snapshot_hash,
-            "merkle_root": audit_snapshot_hash,  # Preserved as backward-compatible alias for final chain digest
-            "ledger_type": "Hash-Chained Audit Snapshot",
+            "merkle_root": merkle_root,
+            "merkle_tree": {
+                "root": merkle_root,
+                "depth": merkle_depth,
+                "leaf_count": len(leaf_hashes),
+                "verification_complexity": f"O(log2({len(leaf_hashes)})) = {merkle_depth} hops",
+            },
+            "ledger_type": "Binary Merkle Tree + Sequential Hash Chain",
             "chain_valid": True,
             "lineage_stages": stages,
         }
