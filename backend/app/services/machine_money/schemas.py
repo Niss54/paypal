@@ -381,7 +381,7 @@ class PayPalPayoutResponse(BaseModel):
 class ERPReconciliationRecord(BaseModel):
     reconciliation_id: str
     gl_account: str = "GL-6410"
-    gl_account_name: str = "Emergency Biopharma Freight Preservation"
+    gl_account_name: str = "Emergency Industrial Machinery Maintenance Settlement"
     invoice_number: str
     bill_of_lading: str = "BOL-99412"
     payout_batch_id: str

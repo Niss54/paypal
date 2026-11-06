@@ -1,6 +1,6 @@
 """PayPal Enterprise Agentic Commerce Provider using PayPal REST Payouts API.
 Complies with PayPal Payouts v1 REST endpoints and OAuth2 Client Credentials grant.
-Designed for autonomous B2B biopharma cold-chain emergency dock reservation and vendor settlement.
+Designed for autonomous industrial MRO equipment maintenance procurement and vendor settlement.
 """
 import logging
 import os

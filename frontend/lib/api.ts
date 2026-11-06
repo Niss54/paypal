@@ -2822,13 +2822,13 @@ export async function getProcurementMandate(token?: string): Promise<Procurement
   return res.json();
 }
 
-export async function evaluateProcurementQuote(quoteId: string, token?: string): Promise<MandateEvalResult> {
+export async function evaluateProcurementQuote(quoteId: string, token?: string, policyLane?: string): Promise<MandateEvalResult> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API_URL}/api/procurement/evaluate-quote`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ quote_id: quoteId }),
+    body: JSON.stringify({ quote_id: quoteId, policy_lane: policyLane }),
     cache: "no-store",
   });
   if (!res.ok) {
@@ -2854,13 +2854,13 @@ export async function approvePayPalOrder(orderId: string, simulated: boolean = f
   return res.json();
 }
 
-export async function createPayPalOrder(quoteId: string, actor: string = "kinetix-procurement-agent", isSimulation: boolean = false, token?: string): Promise<PayPalOrderState> {
+export async function createPayPalOrder(quoteId: string, actor: string = "kinetix-procurement-agent", isSimulation: boolean = false, token?: string, policyLane?: string): Promise<PayPalOrderState> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API_URL}/api/paypal/orders`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ quote_id: quoteId, actor, is_simulation: isSimulation }),
+    body: JSON.stringify({ quote_id: quoteId, actor, is_simulation: isSimulation, policy_lane: policyLane }),
     cache: "no-store",
   });
   if (!res.ok) {

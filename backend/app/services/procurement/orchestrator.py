@@ -304,14 +304,34 @@ class ProcurementOrchestrator:
             "critical_asset_tags": CANONICAL_MANDATE.critical_asset_tags,
         }
 
-    def evaluate_quote(self, quote_id: str) -> Dict[str, Any]:
+    def evaluate_quote(self, quote_id: str, policy_lane: Optional[str] = None) -> Dict[str, Any]:
         """Deterministic evaluation of a candidate quote against the spending mandate."""
         quote_dict = next((q for q in DEMO_QUOTES if q["quote_id"] == quote_id), None)
         if not quote_dict:
             raise ValueError(f"Quote {quote_id} not found")
 
+        # Policy Lane A (Autonomous Agent Settlement for Routine Spares < $500):
+        # Critical asset dual-signature check is bypassed per autonomous MRO delegation policy rule.
+        # Policy Lane B (Regulated Dual-Control Safety Policy):
+        # Critical asset requires human supervisor dual-signature.
+        is_lane_a = bool(policy_lane and policy_lane.upper() in ("LANE_A", "AUTONOMOUS", "ROUTINE"))
+
+        active_mandate = SpendingMandate(
+            mandate_id=CANONICAL_MANDATE.mandate_id,
+            version=CANONICAL_MANDATE.version,
+            site_id=CANONICAL_MANDATE.site_id,
+            equipment_scope=CANONICAL_MANDATE.equipment_scope,
+            allowed_service_ids=CANONICAL_MANDATE.allowed_service_ids,
+            allowed_vendor_ids=CANONICAL_MANDATE.allowed_vendor_ids,
+            max_amount=CANONICAL_MANDATE.max_amount,
+            currency_code=CANONICAL_MANDATE.currency_code,
+            max_sla_hours=CANONICAL_MANDATE.max_sla_hours,
+            require_human_for_critical_assets=(not is_lane_a),
+            critical_asset_tags=CANONICAL_MANDATE.critical_asset_tags,
+        )
+
         res = SpendingMandateEngine.evaluate_quote(
-            mandate=CANONICAL_MANDATE,
+            mandate=active_mandate,
             quote=quote_dict,
             equipment_tag=CANONICAL_INCIDENT["equipment_tag"],
             untrusted_text=quote_dict.get("scope_description", ""),
@@ -336,9 +356,10 @@ class ProcurementOrchestrator:
         quote_id: str,
         actor: str = "kinetix-procurement-agent",
         is_simulation: bool = False,
+        policy_lane: Optional[str] = None,
     ) -> PayPalOrderRecord:
         """Evaluates mandate and creates a PayPal Order with intent=AUTHORIZE."""
-        eval_result = self.evaluate_quote(quote_id)
+        eval_result = self.evaluate_quote(quote_id, policy_lane=policy_lane)
         decision = eval_result["decision"]
         if decision == MandateDecision.BLOCKED.value:
             reasons = "; ".join(eval_result["reason_codes"])
