@@ -56,6 +56,7 @@ class SpendingMandate(BaseModel):
     )
     max_amount: str = "1000.00"  # Decimal string representation
     currency_code: str = "USD"
+    max_sla_hours: int = 48
     max_quote_age_seconds: int = 86400  # 24 hours
     min_evidence_requirements: List[str] = Field(
         default_factory=lambda: ["checklist", "diagnostic_report"]
@@ -173,7 +174,10 @@ class SpendingMandateEngine:
             quote_amount_dec = Decimal(0)
             mandate_cap_dec = Decimal(0)
 
-        if quote_amount_dec > mandate_cap_dec:
+        if quote_amount_dec <= Decimal("0.00"):
+            reasons.append(f"POL-AMOUNT-NONPOSITIVE: Quote amount ${quote_amount_dec} must be strictly positive")
+            decision = MandateDecision.BLOCKED
+        elif quote_amount_dec > mandate_cap_dec:
             excess = quote_amount_dec - mandate_cap_dec
             reasons.append(f"POL-BUDGET-EXCEEDED: Quote ${quote_amount_dec} exceeds cap ${mandate_cap_dec} by ${excess}")
             decision = MandateDecision.REQUIRES_REVIEW
@@ -181,7 +185,19 @@ class SpendingMandateEngine:
             human_approval_required = True
             details["excess_amount"] = str(excess)
 
-        # 7. Quote Expiry check
+        # 7. SLA hours limit check
+        sla_val = quote.get("sla_hours")
+        if sla_val is not None:
+            try:
+                sla_hours = float(sla_val)
+                max_sla = getattr(mandate, "max_sla_hours", 48)
+                if sla_hours > max_sla:
+                    reasons.append(f"POL-SLA-EXCEEDED: SLA {sla_hours:g}h exceeds maximum allowed {max_sla}h window")
+                    decision = MandateDecision.BLOCKED
+            except (ValueError, TypeError):
+                pass
+
+        # 8. Quote Expiry check
         created_at_val = quote.get("created_at")
         if isinstance(created_at_val, str):
             try:
@@ -195,7 +211,7 @@ class SpendingMandateEngine:
             except Exception:
                 pass
 
-        # 8. Critical Asset Escalation (Risk Lane B)
+        # 9. Critical Asset Escalation (Risk Lane B)
         if equipment_tag in mandate.critical_asset_tags and mandate.require_human_for_critical_assets:
             if decision == MandateDecision.ALLOWED:
                 reasons.append(f"POL-CRITICAL-ASSET: '{equipment_tag}' requires human supervisor dual-signature")
