@@ -94,3 +94,29 @@ variable "entra_client_id" {
   type        = string
   default     = "kinetix-enterprise-app"
 }
+
+variable "paypal_client_id" {
+  description = "PayPal REST API Client ID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "paypal_client_secret" {
+  description = "PayPal REST API Client Secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "paypal_webhook_id" {
+  description = "PayPal Webhook ID for signature verification"
+  type        = string
+  default     = ""
+}
+
+variable "paypal_environment" {
+  description = "PayPal environment (sandbox or live)"
+  type        = string
+  default     = "sandbox"
+}

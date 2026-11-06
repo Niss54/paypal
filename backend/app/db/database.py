@@ -83,6 +83,25 @@ def init_db(target_engine=None):
                     conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN approve_url VARCHAR(512)"))
                 if "is_simulated" not in existing_cols:
                     conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN is_simulated BOOLEAN DEFAULT 0"))
-                conn.commit()
-    except Exception:
+                if "site_id" not in existing_cols:
+                    conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN site_id VARCHAR(64) DEFAULT 'plant-mumbai-01'"))
+                if "organization_id" not in existing_cols:
+                    conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN organization_id VARCHAR(64) DEFAULT 'kinetix-industrial'"))
+
+            res_ev = conn.execute(text("PRAGMA table_info(completion_evidence_records)")).fetchall()
+            ev_cols = {row[1] for row in res_ev}
+            if ev_cols:
+                if "order_id" not in ev_cols:
+                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN order_id VARCHAR(64)"))
+                if "file_content" not in ev_cols:
+                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN file_content TEXT"))
+                if "file_size_bytes" not in ev_cols:
+                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN file_size_bytes INTEGER DEFAULT 0"))
+                if "submitted_by" not in ev_cols:
+                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN submitted_by VARCHAR(128)"))
+                if "provenance_classification" not in ev_cols:
+                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN provenance_classification VARCHAR(64) DEFAULT 'SYNTHETIC_DEMO_FIXTURE'"))
+
+            conn.commit()
+    except Exception as e:
         pass

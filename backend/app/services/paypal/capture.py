@@ -62,15 +62,26 @@ class PayPalCaptureService:
             status = CaptureStatus.UNKNOWN
 
         amt_dict = data.get("amount", {})
-        money = Money(
-            currency_code=amt_dict.get("currency_code", currency_code),
-            value=amt_dict.get("value", amount_value),
-        )
+        ret_curr = amt_dict.get("currency_code")
+        ret_val = amt_dict.get("value")
 
-        # Verify returned amount & currency match expectations
-        if money.currency_code != currency_code or money.value != amount_value:
-            logger.warning("Capture amount mismatch: expected %s %s, PayPal returned %s %s",
-                           amount_value, currency_code, money.value, money.currency_code)
+        if not ret_curr or not ret_val:
+            logger.error("Capture response missing required amount or currency: %s", amt_dict)
+            status = CaptureStatus.UNKNOWN
+            money = Money(
+                currency_code=ret_curr or currency_code,
+                value=ret_val or "0.00",
+            )
+        else:
+            money = Money(currency_code=ret_curr, value=ret_val)
+
+        # Fail closed on amount or currency mismatch! Never allow mismatch to be marked COMPLETED!
+        if ret_curr != currency_code or ret_val != amount_value:
+            logger.error(
+                "Capture amount mismatch: expected %s %s, PayPal returned %s %s",
+                amount_value, currency_code, ret_val, ret_curr
+            )
+            status = CaptureStatus.UNKNOWN
 
         links = [
             LinkDescription(
