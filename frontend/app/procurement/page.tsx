@@ -662,11 +662,22 @@ export default function ProcurementPage() {
                 </p>
 
                 {gateBlocked && (
-                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs space-y-1">
-                    <span className="font-semibold flex items-center gap-1.5">
-                      <LockIcon className="w-3.5 h-3.5 text-red-400" /> Access Blocked by Security Policy
-                    </span>
-                    <p className="text-[11px] font-mono leading-tight">{gateBlocked}</p>
+                  <div className="p-3.5 rounded-lg bg-red-950/40 border border-red-500/50 text-red-200 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5 text-red-400">
+                        <LockIcon className="w-3.5 h-3.5" /> AI SPEND LEAKAGE PREVENTED
+                      </span>
+                      <Badge variant="destructive" className="text-[10px] font-mono">
+                        HTTP 403 FORBIDDEN
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] font-mono leading-relaxed bg-black/40 p-2 rounded border border-red-500/20">
+                      {gateBlocked}
+                    </p>
+                    <div className="text-[10px] text-emerald-400 flex items-center gap-1.5">
+                      <ShieldCheckIcon className="size-3 shrink-0" />
+                      <span>Buyer funds remain safely authorized in PayPal escrow. Zero capital loss.</span>
+                    </div>
                   </div>
                 )}
               </CardContent>
