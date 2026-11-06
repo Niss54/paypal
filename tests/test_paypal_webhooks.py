@@ -199,3 +199,96 @@ async def test_reconciliation_service_sync(in_memory_db, mock_client):
         in_memory_db.refresh(order)
         assert order.authorization_id == "AUTH-RECON-999"
         assert order.status == "AUTHORIZED"
+
+
+def test_webhook_capture_completed_amount_mismatch_rejected(in_memory_db, mock_client):
+    service = PayPalWebhookService(mock_client)
+    order = PayPalOrderRecord(
+        paypal_order_id="ORDER-CAP-MISMATCH",
+        authorization_id="AUTH-CAP-MISMATCH",
+        status="AUTHORIZED",
+        work_order_id="WO-CAP-MISMATCH",
+        predictive_event_id="EVT-01",
+        equipment_tag="P-101A",
+        quote_id="quote-01",
+        vendor_id="apex-diagnostics",
+        amount_value="450.00",
+        currency_code="USD",
+        create_request_id="req-create-cap-mismatch",
+    )
+    in_memory_db.add(order)
+    in_memory_db.commit()
+
+    event_data = {
+        "id": "WH-EVT-CAP-MISMATCH-1",
+        "event_type": "PAYMENT.CAPTURE.COMPLETED",
+        "resource": {
+            "id": "CAPTURE-SANDBOX-MISMATCH",
+            "amount": {"currency_code": "USD", "value": "999.00"},
+            "links": [{"rel": "up", "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/AUTH-CAP-MISMATCH"}],
+        },
+    }
+
+    res = service.process_event(in_memory_db, event_data, signature_verified=True)
+    assert res["status"] == "AMOUNT_MISMATCH_REJECTED"
+
+    in_memory_db.refresh(order)
+    assert order.status == "CAPTURE_AMOUNT_MISMATCH"
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_service_rejects_amount_mismatch(in_memory_db, mock_client):
+    recon_service = PayPalReconciliationService(mock_client)
+    order = PayPalOrderRecord(
+        paypal_order_id="ORDER-RECON-MISMATCH",
+        status="ORDER_CREATED",
+        work_order_id="WO-RECON-MISMATCH",
+        predictive_event_id="EVT-03",
+        equipment_tag="P-101A",
+        quote_id="quote-03",
+        vendor_id="apex-diagnostics",
+        amount_value="450.00",
+        currency_code="USD",
+        create_request_id="req-create-recon-mismatch",
+    )
+    in_memory_db.add(order)
+    in_memory_db.commit()
+
+    fake_order_res = PayPalOrderResponse(
+        id="ORDER-RECON-MISMATCH",
+        status=OrderStatus.APPROVED,
+        intent=OrderIntent.AUTHORIZE,
+        purchase_units=[
+            PurchaseUnit(
+                reference_id="pu-WO-RECON-MISMATCH",
+                amount=PurchaseUnitAmount(currency_code="USD", value="999.00"),
+            )
+        ],
+        raw_response={
+            "id": "ORDER-RECON-MISMATCH",
+            "status": "APPROVED",
+            "purchase_units": [
+                {
+                    "payments": {
+                        "authorizations": [
+                            {
+                                "id": "AUTH-RECON-TAMPERED",
+                                "status": "CREATED",
+                                "amount": {"currency_code": "USD", "value": "999.00"}
+                            }
+                        ]
+                    }
+                }
+            ],
+        },
+    )
+
+    with patch.object(recon_service.order_service, "get_order", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = fake_order_res
+        res = await recon_service.reconcile_order(in_memory_db, "ORDER-RECON-MISMATCH")
+        assert res["status"] == "RECONCILED"
+
+        in_memory_db.refresh(order)
+        # Authorization ID should NOT be set because amount mismatched
+        assert order.authorization_id is None
+        assert order.status != "AUTHORIZED"

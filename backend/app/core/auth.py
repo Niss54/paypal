@@ -35,9 +35,13 @@ class AppRole(str, Enum):
     AutomationAdmin = "AutomationAdmin"
     Auditor = "Auditor"
     ProcurementAgent = "ProcurementAgent"
+    ProcurementLead = "ProcurementLead"
     Buyer = "Buyer"
     Supervisor = "Supervisor"
+    ReliabilityLead = "ReliabilityLead"
     PaymentService = "PaymentService"
+    VendorTechnician = "VendorTechnician"
+    FinanceAdmin = "FinanceAdmin"
 
 
 ALL_ROLES = {role.value for role in AppRole}
@@ -127,7 +131,23 @@ def fetch_jwks() -> dict:
         )
 
 
-DEV_JWT_SECRET = os.environ.get("TEST_JWT_SECRET", "kinetix-enterprise-auth-secret-2026")
+def get_jwt_secret() -> str:
+    """Dynamically retrieve the JWT signing/verification secret from the environment.
+    Avoids stale module-level caching and enforces strong secret requirements.
+    """
+    secret = os.environ.get("TEST_JWT_SECRET", "").strip()
+    if secret:
+        return secret
+    if not is_auth_enabled() or "PYTEST_CURRENT_TEST" in os.environ or _get_env_bool("ALLOW_DEV_TEST_JWT", False):
+        return "kinetix-enterprise-auth-secret-2026"
+    return ""
+
+
+def is_dev_jwt_allowed() -> bool:
+    """Allow HS256 JWTs only in test environments or when explicitly permitted."""
+    if "PYTEST_CURRENT_TEST" in os.environ or _get_env_bool("ALLOW_DEV_TEST_JWT", False):
+        return True
+    return not is_auth_enabled()
 
 
 def create_access_token(
@@ -152,22 +172,17 @@ def create_access_token(
         "iat": int(now),
         "exp": int(now + expires_delta_seconds),
     }
-    return jwt.encode(payload, DEV_JWT_SECRET, algorithm="HS256")
+    secret = get_jwt_secret()
+    if not secret:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "auth_configuration_missing", "detail": "JWT secret is not configured for token creation"},
+        )
+    return jwt.encode(payload, secret, algorithm="HS256")
 
 
 def verify_entra_token(token: str) -> dict:
-    """Verify an Entra ID OIDC token or local signed JWT against trusted keys."""
-    # Check for signed HS256 tokens using DEV_JWT_SECRET
-    try:
-        return jwt.decode(
-            token,
-            DEV_JWT_SECRET,
-            algorithms=["HS256"],
-            options={"verify_aud": False},
-        )
-    except jwt.PyJWTError:
-        pass  # Fallback to RS256 JWKS verification
-
+    """Verify an Entra ID OIDC token (RS256) or local test signed JWT (HS256) against trusted keys."""
     try:
         unverified_headers = jwt.get_unverified_header(token)
     except jwt.PyJWTError as exc:
@@ -175,6 +190,37 @@ def verify_entra_token(token: str) -> dict:
             status_code=401,
             detail={"error": "invalid_token", "detail": f"Malformed token header: {str(exc)}"},
         )
+
+    alg = unverified_headers.get("alg")
+    if alg == "HS256":
+        if not is_dev_jwt_allowed():
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "invalid_token", "detail": "HS256 tokens are disabled in production mode. Microsoft Entra ID RS256 token required."},
+            )
+        secret = get_jwt_secret()
+        if not secret:
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "invalid_token", "detail": "JWT signing secret not configured"},
+            )
+        try:
+            return jwt.decode(
+                token,
+                secret,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "token_expired", "detail": "Bearer token has expired"},
+            )
+        except jwt.PyJWTError as exc:
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "invalid_token", "detail": f"HS256 verification failed: {str(exc)}"},
+            )
 
     kid = unverified_headers.get("kid")
     if not kid:
@@ -208,6 +254,18 @@ def verify_entra_token(token: str) -> dict:
             audience=client_id if client_id else None,
             options=options,
         )
+        tenant_id = get_tenant_id()
+        if tenant_id and tenant_id != "common":
+            expected_issuers = [
+                f"https://login.microsoftonline.com/{tenant_id}/v2.0",
+                f"https://sts.windows.net/{tenant_id}/",
+            ]
+            iss = claims.get("iss", "")
+            if iss and not any(iss.startswith(expected) for expected in expected_issuers):
+                raise HTTPException(
+                    status_code=401,
+                    detail={"error": "invalid_token", "detail": f"Token issuer '{iss}' does not match configured tenant '{tenant_id}'"},
+                )
         return claims
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -289,7 +347,8 @@ def get_current_user(
         # Dev / local mode fallback identity
         dev_user_id = request.headers.get("X-User-ID", "local-operator")
         dev_site_id = request.headers.get("X-Site-ID", "plant-mumbai-01")
-        raw_roles = [r.strip() for r in request.headers.get("X-User-Roles", "PlantOperator").split(",") if r.strip()]
+        default_roles = "PlantOperator,ProcurementAgent,Buyer,Supervisor,PaymentService,VendorTechnician,FinanceAdmin"
+        raw_roles = [r.strip() for r in request.headers.get("X-User-Roles", default_roles).split(",") if r.strip()]
         # Whitelist and sanitize roles to prevent arbitrary role injection
         sanitized_roles = [r for r in raw_roles if r in ALL_ROLES]
         if not sanitized_roles:

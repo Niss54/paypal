@@ -39,6 +39,7 @@ class EvidenceSubmission(BaseModel):
     checklist_items: List[str] = Field(default_factory=list)
     measurements: Dict[str, Any] = Field(default_factory=dict)
     file_bytes: Optional[bytes] = None
+    file_content: Optional[str] = None
     file_sha256: Optional[str] = None
     is_synthetic: bool = True
     synthetic_disclosure: str = "SYNTHETIC DEMO FIXTURE: Service completion diagnostic report"
@@ -137,11 +138,20 @@ class EvidenceValidator:
         file_integrity_valid = True
         if evidence.file_bytes:
             calculated_hash = cls.compute_sha256(evidence.file_bytes)
-            if evidence.file_sha256 and calculated_hash != evidence.file_sha256:
+            if evidence.file_sha256 and calculated_hash.lower() != evidence.file_sha256.lower():
                 file_integrity_valid = False
                 reasons.append("EVD-HASH-MISMATCH: Computed SHA256 does not match submitted digest")
             else:
                 evidence.file_sha256 = calculated_hash
+        elif getattr(evidence, "file_content", None):
+            raw_bytes = evidence.file_content.encode("utf-8")
+            calculated_hash = cls.compute_sha256(raw_bytes)
+            if evidence.file_sha256 and calculated_hash.lower() != evidence.file_sha256.lower():
+                file_integrity_valid = False
+                reasons.append("EVD-HASH-MISMATCH: Computed SHA256 does not match submitted digest")
+            else:
+                evidence.file_sha256 = calculated_hash
+                evidence.file_bytes = raw_bytes
         elif not evidence.is_synthetic:
             # Operational evidence strictly requires uploaded payload bytes
             file_integrity_valid = False
@@ -164,6 +174,15 @@ class EvidenceValidator:
 
         decision = EvidenceDecision.PASS if all_passed else EvidenceDecision.FAIL
 
+        # Server-side provenance derivation: NEVER let caller choose trust level
+        is_order_simulated = getattr(expected_order, "is_simulated", False)
+        if is_order_simulated or evidence.is_synthetic or not (evidence.file_bytes or getattr(evidence, "file_content", None)):
+            derived_provenance = "SYNTHETIC_DEMO_FIXTURE"
+        elif all_passed and not is_order_simulated:
+            derived_provenance = "VERIFIED_OPERATIONAL"
+        else:
+            derived_provenance = "SYNTHETIC_DEMO_FIXTURE"
+
         return EvidenceValidationResult(
             decision=decision,
             work_order_match=work_order_match,
@@ -174,7 +193,7 @@ class EvidenceValidator:
             required_fields_complete=required_fields_complete,
             measurements_valid=measurements_valid,
             file_integrity_valid=file_integrity_valid,
-            evidence_provenance="SYNTHETIC_DEMO_FIXTURE" if evidence.is_synthetic else "VERIFIED_OPERATIONAL",
+            evidence_provenance=derived_provenance,
             reason_codes=reasons,
         )
 
