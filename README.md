@@ -42,7 +42,7 @@
 
   <a href="#-paypal-ai-hackathon-2026-rubric-alignment"><img src="https://img.shields.io/badge/PayPal%20AI%20Hackathon-Agentic%20Commerce%20Track-003087?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Track"/></a>
 
-  <a href="#-verified-test-suite-396-passing-tests"><img src="https://img.shields.io/badge/Pytest-39%20PayPal%20%26%20ERP%20%2F%20405%20Total-2ea44f?style=for-the-badge&logo=pytest&logoColor=white" alt="39 PayPal & ERP / 405 Total"/></a>
+  <a href="#-verified-test-suite-396-passing-tests"><img src="https://img.shields.io/badge/Pytest-456%20Backend%20%2B%2070%20Frontend%20%2F%20526%20Total-2ea44f?style=for-the-badge&logo=pytest&logoColor=white" alt="39 PayPal & ERP / 405 Total"/></a>
 
   <a href="./JUDGE_README.md"><img src="https://img.shields.io/badge/Judge%20Guide-3--Minute%20Fast--Track-FFC439?style=for-the-badge&logo=readme&logoColor=black" alt="Judge Guide"/></a>
 
@@ -273,7 +273,7 @@ To maintain absolute academic and engineering integrity:
 
 
 
-## 🧪 Verified Test Suite (394 Passing Tests)
+## 🧪 Verified Automated Test Suite (526 Total Tests: 456 Backend + 70 Frontend)
 
 
 
@@ -301,7 +301,7 @@ pytest tests/test_paypal_orders_v2.py \
 
 
 
-# 2. Run Frontend Vitest Component Suite (17 test files, 65 tests)
+# 2. Run Frontend Vitest Component Suite (18 test files, 70 tests passed)
 
 cd frontend && npm test -- --run
 
@@ -337,11 +337,11 @@ pytest -v
 
 | **Pre-Submission Secret Scan**| `tests/test_secret_scan.py` | 2 tests | **100% PASS ✅** |
 
-| **Frontend UI & Components** | Vitest (`frontend/`) | 65 tests | **100% PASS ✅** |
+| **Frontend UI & Components** | Vitest (`frontend/`) | 70 tests (18 suites) | **100% PASS ✅** |
 
-| **Live PayPal Sandbox** | `tests/test_paypal_sandbox_live.py` | 2 tests | **100% PASS ✅** |
+| **Live PayPal Sandbox** | `tests/test_paypal_sandbox_*.py` | 6 tests (E2E Lifecycle) | **100% PASS ✅** |
 
-| **Full Project Harness** | Backend Core, Retrieval, Agents, ML | **394 tests** | **100% PASS ✅** |
+| **Full Project Harness** | Backend Core, Retrieval, Agents, ML, Adversarial | **456 backend tests** (526 total) | **100% PASS ✅** |
 
 
 
