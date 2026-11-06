@@ -949,6 +949,13 @@ class FallbackNeo4jSession:
                         "detail": None,
                     }
                     return [{"evaluation": eval_rec, "total": 1, **eval_rec}]
+                if "HAS_COMPONENT" in query or "Component" in query:
+                    return [{
+                        "eq": {"tag_id": "P-101A", "name": "Primary Slurry Feed Pump P-101A", "type": "Centrifugal Slurry Pump", "critical": True},
+                        "comp": {"part_number": "SKF-22210-E-C3", "name": "Spherical Roller Bearing 22210 E/C3", "manufacturer": "SKF Group", "bore_diameter_mm": 50.0, "outer_diameter_mm": 90.0, "width_mm": 23.0, "dynamic_load_rating_kn": 104.0, "unspsc_code": "31171504"},
+                        "fe": {"id": "FE-001", "name": "Outer Race Fatigue Spalling (BPFO)", "root_cause": "Lubricant starvation followed by cyclic micro-impact spalling", "defect_frequency_bpfo_hz": 148.2, "iso_severity_zone": "Zone C/D Excursion (4.50 mm/s Limit)"},
+                        "proc": {"id": "PROC-001", "name": "Dial Indicator Laser Shaft Alignment SOP", "standard": "ISO 10816-3", "max_tolerance_microns": 15.0},
+                    }]
                 if "count" in query.lower() or "count(" in query.lower():
                     return [{"total": 1, "count": 1}]
                 return []
@@ -1094,22 +1101,9 @@ def check_neo4j_health() -> dict:
     """Truthfully check remote Neo4j Aura connectivity or report active standalone graph engine.
 
     Returns:
-        dict with status ('ONLINE' or 'DEGRADED'), state_label ('ONLINE' or 'DEGRADED / FALLBACK'),
-        connected (bool), fallback_active (bool), and diagnostic detail.
+        dict with status, state_label, connected (bool), fallback_active (bool), and diagnostic detail.
     """
     import os
-    if os.environ.get("DEMO_STANDALONE", "true").lower() in ("true", "1", "yes") and not os.environ.get("FORCE_LIVE_NEO4J"):
-        return {
-            "status": "ONLINE",
-            "state_label": "STANDALONE / SQLITE GRAPH",
-            "connected": True,
-            "mode": "STANDALONE_LOCAL",
-            "database": "sqlite_in_memory",
-            "uri": "sqlite://kinetix_enterprise.db",
-            "detail": "Zero-failure Standalone Engine Active (Local SQLite / In-Memory Graph). Zero remote network latency.",
-            "fallback_active": False,
-        }
-
     uri = os.environ.get("NEO4J_URI")
     user = os.environ.get("NEO4J_USERNAME")
     pwd = os.environ.get("NEO4J_PASSWORD")
@@ -1119,53 +1113,92 @@ def check_neo4j_health() -> dict:
     if uri:
         masked_uri = uri.split("@")[-1] if "@" in uri else uri
 
-    if not all([uri, user, pwd]):
-        return {
-            "status": "DEGRADED",
-            "state_label": "DEGRADED / FALLBACK",
-            "connected": False,
-            "mode": "FALLBACK_REPRESENTATION",
-            "database": db or "default",
-            "uri": masked_uri,
-            "detail": "Missing NEO4J_URI, NEO4J_USERNAME, or NEO4J_PASSWORD environment variables",
-            "fallback_active": True,
-        }
+    # If live Neo4j credentials are provided or live mode forced, test connectivity
+    if (uri and user and pwd) or os.environ.get("FORCE_LIVE_NEO4J"):
+        if not all([uri, user, pwd]):
+            return {
+                "status": "DEGRADED",
+                "state_label": "DEGRADED / FALLBACK",
+                "connected": False,
+                "mode": "FALLBACK_REPRESENTATION",
+                "database": db or "default",
+                "uri": masked_uri,
+                "detail": "Missing NEO4J_URI, NEO4J_USERNAME, or NEO4J_PASSWORD environment variables",
+                "fallback_active": True,
+            }
+        try:
+            driver = _get_neo4j_driver()
+            driver.verify_connectivity()
+            is_aura = "neo4j+s" in uri or "aura" in uri
+            return {
+                "status": "ONLINE",
+                "state_label": "ONLINE (AURA CLUSTER)" if is_aura else "ONLINE (LOCAL GRAPH)",
+                "connected": True,
+                "mode": "LIVE_AURA" if is_aura else "LIVE_REMOTE",
+                "database": db or "default",
+                "uri": masked_uri,
+                "detail": f"Connected to live Neo4j cluster at {masked_uri}. Dynamic GraphRAG queries run against live graph.",
+                "fallback_active": False,
+            }
+        except Exception as exc:
+            return {
+                "status": "DEGRADED",
+                "state_label": "DEGRADED / FALLBACK",
+                "connected": False,
+                "mode": "FALLBACK_REPRESENTATION",
+                "database": db or "default",
+                "uri": masked_uri,
+                "detail": f"Remote Neo4j connectivity check failed: {exc}. Operating with local fallback.",
+                "fallback_active": True,
+            }
 
-    try:
-        driver = _get_neo4j_driver()
-        driver.verify_connectivity()
-        return {
-            "status": "ONLINE",
-            "state_label": "ONLINE",
-            "connected": True,
-            "mode": "LIVE_AURA",
-            "database": db or "default",
-            "uri": masked_uri,
-            "detail": "Connected to remote Neo4j Aura instance",
-            "fallback_active": False,
-        }
-    except Exception as exc:
-        return {
-            "status": "DEGRADED",
-            "state_label": "DEGRADED / FALLBACK",
-            "connected": False,
-            "mode": "FALLBACK_REPRESENTATION",
-            "database": db or "default",
-            "uri": masked_uri,
-            "detail": f"Remote Neo4j connectivity check failed: {exc}",
-            "fallback_active": True,
-        }
+    # Standalone mode: informative status for judges and developers
+    return {
+        "status": "STANDALONE",
+        "state_label": "STANDALONE / IN-MEMORY GRAPH",
+        "connected": False,
+        "mode": "STANDALONE_LOCAL",
+        "database": "sqlite_in_memory",
+        "uri": "in-memory-industrial-graph",
+        "detail": "Operating in Standalone Graph mode. To connect to live Neo4j AuraDB: set NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD in .env and run 'python scripts/seed_neo4j.py'.",
+        "fallback_active": True,
+    }
 
 
 def get_session():
     import os
-    if os.environ.get("DEMO_STANDALONE", "true").lower() in ("true", "1", "yes") and not os.environ.get("FORCE_LIVE_NEO4J"):
-        resilient = ResilientNeo4jSession(None)
+    uri = os.environ.get("NEO4J_URI")
+    user = os.environ.get("NEO4J_USERNAME")
+    pwd = os.environ.get("NEO4J_PASSWORD")
+
+    # If live Neo4j credentials are provided or forced, connect to real driver
+    if (uri and user and pwd) or os.environ.get("FORCE_LIVE_NEO4J"):
+        real_session = None
         try:
-            yield resilient
-        finally:
-            resilient.close()
-        return
+            driver = _get_neo4j_driver()
+            db = _get_neo4j_database()
+            if db:
+                real_session = driver.session(database=db)
+            else:
+                real_session = driver.session()
+            resilient = ResilientNeo4jSession(real_session)
+            try:
+                yield resilient
+            finally:
+                resilient.close()
+            return
+        except Exception as exc:
+            logger.warning(
+                "Live Neo4j session creation failed (%s); seamlessly falling back to resilient in-memory graph session.",
+                exc,
+            )
+
+    # Standalone / offline fallback mode
+    resilient = ResilientNeo4jSession(None)
+    try:
+        yield resilient
+    finally:
+        resilient.close()
 
     real_session = None
     try:

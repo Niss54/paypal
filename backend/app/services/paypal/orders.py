@@ -34,6 +34,7 @@ class PayPalOrderService:
         idempotency_key: Optional[str] = None,
         return_url: Optional[str] = None,
         cancel_url: Optional[str] = None,
+        payee_email: Optional[str] = None,
     ) -> PayPalOrderResponse:
         """Create a PayPal order with intent=AUTHORIZE for deferred capture."""
         purchase_unit = PurchaseUnit(
@@ -56,19 +57,21 @@ class PayPalOrderService:
         if cancel_url:
             app_context["cancel_url"] = cancel_url
 
+        pu_dict: Dict[str, Any] = {
+            "reference_id": purchase_unit.reference_id,
+            "description": purchase_unit.description,
+            "custom_id": purchase_unit.custom_id,
+            "amount": {
+                "currency_code": purchase_unit.amount.currency_code,
+                "value": purchase_unit.amount.value,
+            },
+        }
+        if payee_email:
+            pu_dict["payee"] = {"email_address": payee_email}
+
         payload = {
             "intent": OrderIntent.AUTHORIZE.value,
-            "purchase_units": [
-                {
-                    "reference_id": purchase_unit.reference_id,
-                    "description": purchase_unit.description,
-                    "custom_id": purchase_unit.custom_id,
-                    "amount": {
-                        "currency_code": purchase_unit.amount.currency_code,
-                        "value": purchase_unit.amount.value,
-                    },
-                }
-            ],
+            "purchase_units": [pu_dict],
             "application_context": app_context,
         }
 

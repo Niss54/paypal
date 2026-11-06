@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 
+from backend.app.core.auth import AppRole, UserProfile, get_current_user, require_roles
 from backend.app.core.neo4j import get_session
 from backend.app.db.database import get_db
 from backend.app.services.machine_money.registry import generate_idempotency_key
@@ -108,7 +109,7 @@ async def create_invoice(req: InvoiceRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/pay")
-async def pay_invoice(req: PayInvoiceRequest, db: Session = Depends(get_db)):
+async def pay_invoice(req: PayInvoiceRequest, current_user: UserProfile = Depends(get_current_user), db: Session = Depends(get_db)):
     """Execute a Lightning payment under automated spending policy governance."""
     # Task 6.1: Backend policy is authoritative. A client cannot unilaterally bypass spending caps.
     max_autopay = int(os.environ.get("MACHINE_MONEY_MAX_AUTOPAY_SATS", "500"))
@@ -221,6 +222,7 @@ class AgentPaymentProposal(BaseModel):
 @router.post("/trigger-from-telemetry")
 async def trigger_from_telemetry(
     req: TelemetryTriggerRequest,
+    current_user: UserProfile = Depends(get_current_user),
     db: Session = Depends(get_db),
     neo4j_session = Depends(get_session),
 ):
@@ -247,6 +249,7 @@ async def trigger_from_telemetry(
 @router.post("/agent-tool")
 async def agent_payment_tool(
     proposal: AgentPaymentProposal,
+    current_user: UserProfile = Depends(get_current_user),
     db: Session = Depends(get_db),
     neo4j_session = Depends(get_session),
 ):
@@ -318,6 +321,7 @@ def get_judge_scenario_fixture():
 @router.post("/judge/execute", response_model=JudgeExecutionResponse)
 async def execute_judge_mode(
     req: Optional[JudgeExecutionRequest] = None,
+    current_user: UserProfile = Depends(get_current_user),
     db: Session = Depends(get_db),
     neo4j_session = Depends(get_session),
 ):
@@ -338,7 +342,7 @@ async def execute_judge_mode(
 
 
 @router.post("/judge/reset")
-async def reset_judge_mode():
+async def reset_judge_mode(current_user: UserProfile = Depends(get_current_user)):
     """Reset Judge Mode demonstration state without clearing unrelated historical records."""
     health = await service.get_health()
     return {
@@ -456,7 +460,7 @@ def get_nwc_info(uri: Optional[str] = None):
 
 
 @router.post("/nwc/pay")
-async def execute_nwc_payment(req: NWCPayRequest, db: Session = Depends(get_db)):
+async def execute_nwc_payment(req: NWCPayRequest, current_user: UserProfile = Depends(get_current_user), db: Session = Depends(get_db)):
     """Novel Bitcoin Innovation: Execute autonomous M2M Lightning payment over Nostr Wallet Connect (NIP-47).
     Emits signed kind: 23194 request event, verifies kind: 23195 response event, and checks preimage invariant.
     """
@@ -512,27 +516,14 @@ def calculate_multi_hop_route(req: RouteCalculationRequest):
 
 
 @router.post("/paypal/payout", response_model=PayPalPayoutResponse)
-async def execute_paypal_payout(req: PayPalPayoutRequest):
-    """Execute direct PayPal Payout to certified depot under USP <1079>."""
-    provider = PayPalProvider()
-    res = await provider.execute_payout(
-        recipient=req.recipient,
-        amount_usd=req.amount_usd,
-        note=req.note,
-        sender_item_id=req.sender_item_id,
-        sender_batch_id=req.sender_batch_id,
-        recipient_type=req.recipient_type,
-    )
-    return PayPalPayoutResponse(
-        success=res.get("success", True),
-        payout_batch_id=res.get("payout_batch_id", ""),
-        sender_batch_id=res.get("sender_batch_id", ""),
-        batch_status=res.get("batch_status", "PENDING"),
-        amount_usd=req.amount_usd,
-        recipient=req.recipient,
-        sender_item_id=req.sender_item_id,
-        links=res.get("links", []),
-        raw_response=res.get("raw_response", {}),
+async def execute_paypal_payout(
+    req: PayPalPayoutRequest,
+    current_user: UserProfile = Depends(require_roles(AppRole.FinanceAdmin, AppRole.PaymentService)),
+):
+    """Direct unauthenticated PayPal Payouts are permanently disabled."""
+    raise HTTPException(
+        status_code=403,
+        detail="Direct unauthenticated PayPal Payouts are permanently disabled. Use /api/paypal/orders for Evidence-Gated Procurement with two-phase authorization.",
     )
 
 

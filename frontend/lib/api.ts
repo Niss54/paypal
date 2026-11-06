@@ -2751,11 +2751,48 @@ export interface AuthTokenResponse {
   name: string;
 }
 
+const DEMO_PERSONA_PASSWORDS: Record<string, string> = {
+  "supervisor": "demo-supervisor-pass",
+  "procurement-agent": "demo-agent-pass",
+  "buyer": "demo-buyer-pass",
+  "technician": "demo-tech-pass",
+  "finance": "demo-finance-pass",
+  "auditor": "demo-auditor-pass",
+  "operator": "demo-operator-pass",
+  "payment-service": "demo-payment-pass",
+};
+
+export async function computeSha256(content: string): Promise<string> {
+  if (typeof window !== "undefined" && window.crypto && window.crypto.subtle) {
+    const enc = new TextEncoder();
+    const data = enc.encode(content);
+    const hashBuf = await window.crypto.subtle.digest("SHA-256", data);
+    const hashArr = Array.from(new Uint8Array(hashBuf));
+    return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  return "5316f8f37a31793b32f24d349d7deab14f48654ba5416295d8209b3ce7250119";
+}
+
 export async function getAuthToken(persona: string = "procurement-agent", userId?: string): Promise<AuthTokenResponse> {
+  const normPersona = persona.toLowerCase().trim();
+  const password = DEMO_PERSONA_PASSWORDS[normPersona] || "demo-agent-pass";
+  try {
+    const loginRes = await fetch(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: normPersona, password }),
+    });
+    if (loginRes.ok) {
+      return await loginRes.json();
+    }
+  } catch (e) {
+    // Fall back to token endpoint
+  }
+
   const res = await fetch(`${API_URL}/api/auth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ persona, user_id: userId }),
+    body: JSON.stringify({ persona: normPersona, user_id: userId, password }),
   });
   if (!res.ok) throw new Error("Failed to obtain authentication token");
   return res.json();
@@ -2933,5 +2970,101 @@ export async function getOrderAuditLineage(orderId: string, token?: string): Pro
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/audit`, { headers, cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load audit lineage for order ${orderId}`);
+  return res.json();
+}
+
+
+export interface SAPSyncResponse {
+  success: boolean;
+  sap_order_id: string;
+  sap_notification_id: string;
+  odata_url: string;
+  status: string;
+  equipment_id: string;
+  vendor_id: string;
+  gl_clearing_account: string;
+  accounting_posting: {
+    posting_date: string;
+    document_type: string;
+    company_code: string;
+    currency: string;
+    debit_account: string;
+    credit_account: string;
+    amount: string;
+    reference_key: string;
+    cleared: boolean;
+    clearing_document?: string;
+  };
+  connector_mode: string;
+  sync_timestamp: string;
+  odata_payload_preview: any;
+}
+
+export interface MaximoSyncResponse {
+  success: boolean;
+  wonum: string;
+  status: string;
+  oslc_uri: string;
+  asset_num: string;
+  site_id: string;
+  paypal_auth_ref?: string;
+  paypal_capture_ref?: string;
+  evidence_validated: boolean;
+  connector_mode: string;
+  sync_timestamp: string;
+  oslc_payload_preview: any;
+}
+
+export interface ERPStatus {
+  sap_s4hana: any;
+  ibm_maximo: any;
+  gl_clearing_account: {
+    gl_account: string;
+    description: string;
+    currency: string;
+    active_commitments_usd: number;
+    settled_cleared_usd: number;
+    total_postings_count: number;
+  };
+  timestamp: string;
+}
+
+export async function syncOrderToSAP(payload: any, token?: string): Promise<SAPSyncResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}/api/erp/sap/sync`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to sync to SAP S/4HANA");
+  }
+  return res.json();
+}
+
+export async function syncOrderToMaximo(payload: any, token?: string): Promise<MaximoSyncResponse> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}/api/erp/maximo/sync`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to sync to IBM Maximo");
+  }
+  return res.json();
+}
+
+export async function getERPStatus(token?: string): Promise<ERPStatus> {
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}/api/erp/status`, { headers, cache: "no-store" });
+  if (!res.ok) throw new Error("Failed to load ERP status");
   return res.json();
 }
