@@ -6,6 +6,8 @@ Complies with Master PRD V2 Sections 0.2, 0.3, 6.1, 6.2, 8.4, 9.4, 9.5, and 10.
 import hashlib
 import json
 import logging
+import os
+import re
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -46,8 +48,11 @@ CANONICAL_INCIDENT = {
     "scenario_id": "SCN-2026-IMS-01",
     "equipment_id": "P-101A",
     "equipment_tag": "P-101A",
-    "equipment_name": "Primary Slurry Feed Pump",
-    "component": "Drive-End Spherical Roller Bearing",
+    "equipment_name": "Primary Slurry Feed Pump P-101A",
+    "component": "Drive-End Spherical Roller Bearing (SKF 22210 E/C3)",
+    "part_number": "SKF-22210-E-C3",
+    "unspsc_code": "31171504",
+    "manufacturer": "SKF Group",
     "anomaly_source": "NASA IMS Bearing Accelerometry Dataset (Test 2, Bearing 1)",
     "trigger_timestamp": "2026-11-04T14:32:00Z",
     "metric_name": "Vibration Velocity RMS",
@@ -56,11 +61,11 @@ CANONICAL_INCIDENT = {
     "alarm_threshold_mm_s": 4.50,
     "status": "CRITICAL_ANOMALY_EXCURSION",
     "diagnosis": (
-        "Outer race fatigue spalling detected via high-frequency envelope analysis. "
-        "Bearing degradation exceeds ISO 10816 Level C operational boundary (4.50 mm/s RMS). "
+        "Outer race fatigue spalling detected via high-frequency envelope analysis (BPFO: 148.2 Hz). "
+        "Bearing degradation exceeds ISO 10816-3 Level C operational boundary (4.50 mm/s RMS). "
         "Catastrophic seizure anticipated within 48-72 operating hours without intervention."
     ),
-    "recommended_action": "Emergency replacement of bearing assembly and post-repair vibration validation.",
+    "recommended_action": "Emergency replacement with OEM SKF 22210 E/C3 bearing, dial indicator laser alignment, and vibration validation.",
     "work_order_id": "WO-2026-IMS-001",
     "is_critical_asset": True,
     "requires_supervisor_signoff": True,
@@ -70,15 +75,19 @@ DEMO_QUOTES = [
     {
         "quote_id": "Q-2026-001",
         "vendor_id": "VND-001",
-        "vendor_name": "Bearing Supply Co",
+        "vendor_code": "US-MOT-10821",
+        "vendor_name": "Motion Industries (Direct Industrial Partner)",
         "service_id": "SRV-BRG-REPLACE",
+        "part_number": "SKF-22210-E-C3",
+        "part_name": "SKF Explorer Spherical Roller Bearing (50mm Bore)",
+        "unspsc_code": "31171504",
         "amount": "450.00",
         "currency": "USD",
         "sla_hours": 24,
         "is_allowlisted": True,
         "is_synthetic": True,
         "synthetic_label": "[SYNTHETIC DEMO QUOTE]",
-        "scope_description": "Supply SKF 22210 spherical roller bearing and dispatch certified millwright technician for on-site replacement.",
+        "scope_description": "Supply genuine OEM SKF 22210 E/C3 bearing and dispatch certified millwright technician for on-site replacement, laser alignment, and vibration verification.",
         "is_direct_paypal_sandbox_merchant": True,
         "scoring": {
             "cost_score": 92.0,
@@ -87,19 +96,28 @@ DEMO_QUOTES = [
             "composite_rank": 1,
             "hard_gates_passed": True,
         },
+        "ai_evaluation": {
+            "recommended": True,
+            "rationale": "Optimal Pareto frontier solution. At $450.00 USD, complies with the $500.00 mandate cap. 24h SLA guarantees repair well within the 48-72h failure horizon. Highest composite reliability score (96%).",
+            "tradeoff_vs_competitors": "Preferred over VND-002 ($680.00 cap breach) and VND-003 (72h SLA breach risking pump seizure).",
+        },
     },
     {
         "quote_id": "Q-2026-002",
         "vendor_id": "VND-002",
-        "vendor_name": "Apex Industrial Parts",
+        "vendor_code": "US-AIT-40291",
+        "vendor_name": "Applied Industrial Technologies (SKF Certified Partner)",
         "service_id": "SRV-BRG-REPLACE",
+        "part_number": "SKF-22210-E-C3-CERAMIC",
+        "part_name": "SKF Hybrid Ceramic Bearing Upgrade",
+        "unspsc_code": "31171504",
         "amount": "680.00",
         "currency": "USD",
         "sla_hours": 12,
         "is_allowlisted": True,
         "is_synthetic": True,
         "synthetic_label": "[SYNTHETIC DEMO QUOTE]",
-        "scope_description": "Expedited 12h emergency response with premium ceramic bearing upgrade.",
+        "scope_description": "Expedited 12h emergency response with premium hybrid ceramic bearing upgrade and laser alignment.",
         "is_direct_paypal_sandbox_merchant": False,
         "scoring": {
             "cost_score": 60.0,
@@ -109,12 +127,21 @@ DEMO_QUOTES = [
             "hard_gates_passed": False,
             "gate_failure_reason": "Quote amount $680.00 exceeds $500.00 spending mandate cap",
         },
+        "ai_evaluation": {
+            "recommended": False,
+            "rationale": "Hard-gate policy breach. At $680.00 USD, exceeds the $500.00 autonomous mandate cap by $180.00. While 12h SLA is superior, policy strictly forbids unapproved budget overruns.",
+            "tradeoff_vs_competitors": "Faster delivery than VND-001, but requires supervisor budget exception override.",
+        },
     },
     {
         "quote_id": "Q-2026-003",
         "vendor_id": "VND-003",
-        "vendor_name": "Precision Spares Direct",
+        "vendor_code": "US-GRN-99120",
+        "vendor_name": "Grainger Industrial Supply (MRO Spares)",
         "service_id": "SRV-BRG-REPLACE",
+        "part_number": "SKF-22210-E-C3-STANDARD",
+        "part_name": "SKF 22210 Standard Spares Kit",
+        "unspsc_code": "31171504",
         "amount": "420.00",
         "currency": "USD",
         "sla_hours": 72,
@@ -130,6 +157,11 @@ DEMO_QUOTES = [
             "composite_rank": 3,
             "hard_gates_passed": False,
             "gate_failure_reason": "SLA 72h exceeds 48h emergency replacement window",
+        },
+        "ai_evaluation": {
+            "recommended": False,
+            "rationale": "Operational risk violation. Lowest cost ($420.00 USD), but 72h SLA exceeds the critical 48h emergency replacement window, creating unacceptable asset seizure risk.",
+            "tradeoff_vs_competitors": "$30.00 cheaper than VND-001, but unacceptable downtime risk.",
         },
     },
 ]
@@ -180,12 +212,33 @@ class ProcurementOrchestrator:
         try:
             sess_gen = get_session()
             sess = next(sess_gen)
-            res = list(sess.run("MATCH (fe:FailureEvent {id: 'FE-001'}) RETURN fe"))
+            # Live multi-hop Cypher traversal: Equipment -> Component -> FailureEvent -> Procedure
+            multi_hop_query = """
+            MATCH (eq:Equipment {tag_id: 'P-101A'})-[:HAS_COMPONENT]->(comp:Component)
+            OPTIONAL MATCH (comp)-[:SUSCEPTIBLE_TO]->(fe:FailureEvent)
+            OPTIONAL MATCH (fe)-[:MITIGATED_BY]->(proc:Procedure)
+            RETURN eq, comp, fe, proc
+            """
+            res = list(sess.run(multi_hop_query))
             if res:
-                fe_record = res[0]
-                rc = fe_record.get("root_cause")
+                row = res[0]
+                comp_node = row.get("comp") or {}
+                fe_node = row.get("fe") or {}
+                proc_node = row.get("proc") or {}
+                rc = fe_node.get("root_cause")
                 if rc:
-                    root_cause_desc = f"Knowledge Graph Entity FE-001: {rc}. High-frequency envelope acceleration spectrum indicates outer race fatigue spalling."
+                    root_cause_desc = f"Knowledge Graph Entity FE-001: {rc}. Defect frequency BPFO: {fe_node.get('defect_frequency_bpfo_hz', '148.2')} Hz. Outer race spalling confirmed."
+                if comp_node.get("name"):
+                    traversed_nodes[1] = {"type": "Component", "id": comp_node.get("part_number", "SKF-22210-E-C3"), "name": comp_node.get("name"), "manufacturer": comp_node.get("manufacturer", "SKF Group")}
+                if proc_node.get("name"):
+                    traversed_nodes[2] = {"type": "Procedure", "id": proc_node.get("id", "PROC-001"), "name": proc_node.get("name"), "standard": proc_node.get("standard", "ISO 10816-3")}
+            else:
+                res_simple = list(sess.run("MATCH (fe:FailureEvent {id: 'FE-001'}) RETURN fe"))
+                if res_simple:
+                    fe_record = res_simple[0]
+                    rc = fe_record.get("root_cause")
+                    if rc:
+                        root_cause_desc = f"Knowledge Graph Entity FE-001: {rc}. High-frequency envelope acceleration spectrum indicates outer race fatigue spalling."
         except Exception as exc:
             logger.warning("Dynamic Knowledge Graph query fallback: %s", exc)
 
@@ -210,7 +263,7 @@ class ProcurementOrchestrator:
             "citations": [
                 "ISO-10816-3: Mechanical Vibration Evaluation on Industrial Machines (Table C.1)",
                 "PROC-001: Laser Alignment Standard Operating Procedure",
-                "DOC-P101-RCA: Plant Reliability Inner Race Failure Ontology and Historical Incident Ledger",
+                "DOC-P101-RCA: Plant Reliability Outer Race Defect (BPFO) Ontology and Historical Incident Ledger",
                 "NASA-IMS-2004: Run-to-Failure Accelerometry Baseline Curves (Test 2, Bearing 1)",
             ],
             "provenance_split": {
@@ -420,6 +473,7 @@ class ProcurementOrchestrator:
             return order
 
         auth_id = sandbox_authorization_id
+        auth_status = "CREATED"
         if not auth_id:
             if order.is_simulated:
                 auth_id = f"SIM-AUTH-{uuid.uuid4().hex[:12].upper()}"
@@ -457,7 +511,11 @@ class ProcurementOrchestrator:
                     raise ValueError("Authorization amount or currency does not match local order")
 
         order.authorization_id = auth_id
-        order.status = "AUTHORIZED"
+        # Map PENDING authorization status to AUTH_PENDING (blocks capture until review completes)
+        if auth_status == "PENDING":
+            order.status = "AUTH_PENDING"
+        else:
+            order.status = "AUTHORIZED"
         order.authorized_at = utcnow()
         order.authorize_request_id = f"auth-req-{order_id}"
         db.commit()
@@ -511,15 +569,39 @@ class ProcurementOrchestrator:
             file_hash = hashlib.sha256(file_bytes).hexdigest()
         file_hash = file_hash or hashlib.sha256(f"evidence_{submission.evidence_id}_{order_id}".encode()).hexdigest()
 
-        # Persist physical evidence artifact to storage
+        # Enforce 5 MB maximum file size limit
+        if file_bytes and len(file_bytes) > 5 * 1024 * 1024:
+            raise ValueError("Evidence payload exceeds maximum allowed size limit of 5 MB")
+
+        # Sanitize evidence ID to eliminate path traversal vulnerabilities
+        safe_evidence_id = re.sub(r"[^a-zA-Z0-9_\-]", "", submission.evidence_id)
+        if not safe_evidence_id:
+            safe_evidence_id = f"evd_{uuid.uuid4().hex[:8]}"
+
+        # Derive truthful artifact file extension from content
+        ext = ".bin"
         if file_bytes:
-            os.makedirs(".runtime/evidence", exist_ok=True)
-            artifact_file = f".runtime/evidence/{submission.evidence_id}.bin"
+            stripped = file_bytes.strip()
+            if stripped.startswith(b"%PDF"):
+                ext = ".pdf"
+            elif stripped.startswith(b"{") or stripped.startswith(b"["):
+                ext = ".json"
+            else:
+                ext = ".bin"
+
+        # Persist physical evidence artifact to storage with path containment verification
+        if file_bytes:
+            storage_dir = os.path.abspath(".runtime/evidence")
+            os.makedirs(storage_dir, exist_ok=True)
+            artifact_file = os.path.abspath(os.path.join(storage_dir, f"{safe_evidence_id}{ext}"))
+            if os.path.commonpath([storage_dir, artifact_file]) != storage_dir:
+                raise ValueError("Path traversal attempt detected in evidence identifier")
             try:
                 with open(artifact_file, "wb") as f_art:
                     f_art.write(file_bytes)
             except Exception as e_art:
-                logger.warning("Could not persist evidence artifact: %s", e_art)
+                logger.error("Could not persist evidence artifact: %s", e_art)
+                raise RuntimeError(f"Storage error: Failed to safely write evidence artifact ({e_art})") from e_art
 
         evidence_record = CompletionEvidenceRecord(
             evidence_record_id=submission.evidence_id,
@@ -528,7 +610,7 @@ class ProcurementOrchestrator:
             quote_id=submission.quote_id,
             equipment_tag=submission.equipment_tag,
             evidence_type="DIAGNOSTIC_REPORT",
-            filename=f"repair_report_{submission.work_order_id}.pdf",
+            filename=f"repair_report_{submission.work_order_id}{ext}",
             file_sha256=file_hash,
             file_content=getattr(submission, "file_content", None) or (file_bytes.decode("utf-8", errors="ignore") if file_bytes else None),
             file_size_bytes=len(file_bytes) if file_bytes else 0,
@@ -863,6 +945,7 @@ class ProcurementOrchestrator:
             "amount": order.amount_value,
             "currency": order.currency_code,
             "is_simulated": getattr(order, "is_simulated", False),
+            "final_chain_digest": audit_snapshot_hash,
             "audit_snapshot_hash": audit_snapshot_hash,
             "merkle_root": audit_snapshot_hash,  # Preserved as backward-compatible alias for final chain digest
             "ledger_type": "Hash-Chained Audit Snapshot",

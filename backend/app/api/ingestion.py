@@ -3,8 +3,12 @@
 import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from redis import Redis
-from rq import Queue
+try:
+    from redis import Redis
+    from rq import Queue
+except ImportError:
+    Redis = None  # type: ignore
+    Queue = None  # type: ignore
 
 from ingestion.workers.storage import get_object_store, safe_filename
 from ingestion.workers.tasks import process_object
@@ -19,6 +23,11 @@ async def enqueue_document(
     request: Request,
     filename: str = Query(min_length=1, max_length=200),
 ) -> dict:
+    if Redis is None or Queue is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "service_unavailable", "detail": "Ingestion queue dependencies (redis/rq) not installed in this environment."},
+        )
     content = await request.body()
     if not content:
         raise HTTPException(

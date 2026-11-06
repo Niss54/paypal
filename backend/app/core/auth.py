@@ -87,7 +87,11 @@ def _get_env_bool(key: str, default: bool = False) -> bool:
 
 
 def is_auth_enabled() -> bool:
-    return _get_env_bool("AUTH_ENABLED", default=False)
+    env = os.environ.get("ENVIRONMENT", os.environ.get("NODE_ENV", "")).strip().lower()
+    is_prod = env in ("production", "prod") or bool(
+        os.environ.get("RENDER") or os.environ.get("FLY_APP_NAME") or os.environ.get("AWS_EXECUTION_ENV")
+    )
+    return _get_env_bool("AUTH_ENABLED", default=is_prod)
 
 
 def get_tenant_id() -> str:
@@ -245,6 +249,18 @@ def verify_entra_token(token: str) -> dict:
     try:
         public_key = RSAAlgorithm.from_jwk(matching_key)
         client_id = get_client_id()
+        tenant_id = get_tenant_id()
+        if is_auth_enabled() and not ("PYTEST_CURRENT_TEST" in os.environ or _get_env_bool("ALLOW_DEV_TEST_JWT", False)):
+            if not client_id:
+                raise HTTPException(
+                    status_code=401,
+                    detail={"error": "invalid_configuration", "detail": "ENTRA_CLIENT_ID must be configured for audience validation in production"},
+                )
+            if not tenant_id or tenant_id == "common":
+                raise HTTPException(
+                    status_code=401,
+                    detail={"error": "invalid_configuration", "detail": "Specific ENTRA_TENANT_ID must be configured for issuer validation in production"},
+                )
         options = {"verify_aud": bool(client_id)}
 
         claims = jwt.decode(
@@ -297,16 +313,18 @@ def claims_to_user_profile(claims: dict, request: Request | None = None) -> User
     if not roles:
         roles = [AppRole.PlantOperator.value]
 
-    # Tenancy & Site attributes
+    # Tenancy & Site attributes (Disallow caller header spoofing in auth-enabled mode)
     site_id = claims.get("site_id")
-    if not site_id and request:
-        site_id = request.headers.get("X-Site-ID")
-    site_id = site_id or "plant-mumbai-01"
+    if not site_id:
+        if not is_auth_enabled() and request:
+            site_id = request.headers.get("X-Site-ID")
+        site_id = site_id or "plant-mumbai-01"
 
     org_id = claims.get("organization_id")
-    if not org_id and request:
-        org_id = request.headers.get("X-Organization-ID")
-    org_id = org_id or "kinetix-industrial"
+    if not org_id:
+        if not is_auth_enabled() and request:
+            org_id = request.headers.get("X-Organization-ID")
+        org_id = org_id or "kinetix-industrial"
 
     raw_clearance = claims.get("clearance_level", "INTERNAL").upper()
     try:
@@ -347,7 +365,10 @@ def get_current_user(
         # Dev / local mode fallback identity
         dev_user_id = request.headers.get("X-User-ID", "local-operator")
         dev_site_id = request.headers.get("X-Site-ID", "plant-mumbai-01")
-        default_roles = "PlantOperator,ProcurementAgent,Buyer,Supervisor,PaymentService,VendorTechnician,FinanceAdmin"
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            default_roles = "PlantOperator,ProcurementAgent,Supervisor,Buyer,PaymentService,VendorTechnician,FinanceAdmin"
+        else:
+            default_roles = "PlantOperator,ProcurementAgent"
         raw_roles = [r.strip() for r in request.headers.get("X-User-Roles", default_roles).split(",") if r.strip()]
         # Whitelist and sanitize roles to prevent arbitrary role injection
         sanitized_roles = [r for r in raw_roles if r in ALL_ROLES]

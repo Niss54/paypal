@@ -11,7 +11,33 @@
 ## 📊 0.1 Repository State & Test Summary
 
 | Metric | Verified Count | Execution Time | Status |
-|:-------|:---------------|:---------------|:-------|
+|:
+---
+
+## 💳 0.3 PayPal Agentic Commerce & Evidence-Gating Test Suite (57 Tests Passing)
+
+This dedicated test suite verifies the complete PayPal Orders v2 integration, deterministic 'No Evidence, No Capture' policy gates, authentication elevation boundaries, and machine money policy enforcement:
+
+Command executed:
+```powershell
+pytest tests/test_machine_money_policy_hardening.py tests/test_machine_money_judge_mode.py tests/backend/test_auth_elevation_hardening.py tests/backend/test_auth.py tests/test_evidence_gating.py tests/test_paypal_orders_v2.py tests/test_paypal_provider.py tests/test_paypal_sandbox_live.py tests/test_paypal_api_endpoints.py -v
+```
+**Output:**
+```text
+================== 57 passed, 1 warning in 74.36s (0:01:14) ===================
+```
+
+**PayPal Suite Breakdown (57 tests):**
+- **Evidence Gating & Policy Gates (11 tests):** `tests/test_evidence_gating.py` (Deterministic multi-category scope matching, synthetic evidence rejection on live orders, ISO vibration verification, AUTH_PENDING capture blocking)
+- **PayPal Orders v2 API Service (6 tests):** `tests/test_paypal_orders_v2.py` (Token caching, order creation with intent=AUTHORIZE, authorization, capture, void)
+- **PayPal Provider & Payouts (8 tests):** `tests/test_paypal_provider.py` (Payout batch status, token fetch, error mapping, lightning compatibility)
+- **Official PayPal Developer Sandbox Live (2 tests):** `tests/test_paypal_sandbox_live.py` (Live OAuth2 Bearer token acquisition and real Order v2 creation/retrieval against `api-m.sandbox.paypal.com`)
+- **Procurement & PayPal API Endpoints (8 tests):** `tests/test_paypal_api_endpoints.py` (Full 7-stage procurement lifecycle, buyer approval, dual-control sign-off, gated capture, cryptographic audit hash chaining)
+- **Authentication Elevation Hardening (5 tests):** `tests/backend/test_auth_elevation_hardening.py` (Enterprise login, supervisor password verification, identity spoofing prevention)
+- **Backend Authentication & Tenancy (10 tests):** `tests/backend/test_auth.py` (Entra ID OIDC verification, RBAC clearance, tenancy enforcement)
+- **Machine Money Policy Hardening (3 tests):** `tests/test_machine_money_policy_hardening.py` (Spending cap enforcement, pending approval transitions)
+- **Judge Mode & Emergency Scenarios (4 tests):** `tests/test_machine_money_judge_mode.py` (Industrial emergency lifecycle, policy escalation, judge reset)
+-------|:---------------|:---------------|:-------|
 | **Core Pytest Validation Suite** | **126 Passed** (0 failed, 0 errors, 0 skipped) | 12.56s | PASS ✅ |
 | **Backend Core & Multi-Tenancy** | **41 Passed** | ~4.2s | PASS ✅ |
 | **Hybrid Retrieval & Graph** | **36 Passed** | ~3.8s | PASS ✅ |

@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.app.api import (
+    erp,
     auth,
     automations,
     chat,
@@ -145,6 +146,7 @@ app.include_router(vendors.router, prefix="/api/v1")
 app.include_router(graph_risk.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(paypal.router, prefix="/api")
+app.include_router(erp.router)
 
 
 

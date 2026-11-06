@@ -8,6 +8,8 @@ import {
   AlertTriangleIcon,
   ArrowRightIcon,
   CheckCircle2Icon,
+  CheckCircleIcon,
+  CpuIcon,
   ChevronRightIcon,
   ClockIcon,
   CreditCardIcon,
@@ -39,9 +41,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  syncOrderToSAP,
+  syncOrderToMaximo,
+  getERPStatus,
+  type SAPSyncResponse,
+  type MaximoSyncResponse,
   approvePayPalOrder,
   authorizePayPalOrder,
   capturePayPalOrder,
+  computeSha256,
   createPayPalOrder,
   evaluateProcurementQuote,
   getAuthToken,
@@ -79,9 +87,16 @@ export default function ProcurementPage() {
   // Active Transaction State
   const [order, setOrder] = useState<PayPalOrderState | null>(null);
   const [evidenceSubmitted, setEvidenceSubmitted] = useState<boolean>(false);
+  const [submittedHash, setSubmittedHash] = useState<string>("");
   const [supervisorSigned, setSupervisorSigned] = useState<boolean>(false);
   const [captureResult, setCaptureResult] = useState<any | null>(null);
   const [auditLineage, setAuditLineage] = useState<OrderAuditLineage | null>(null);
+
+  // ERP & Mode State
+  const [isSimulationMode, setIsSimulationMode] = useState<boolean>(false);
+  const [sapSyncResult, setSapSyncResult] = useState<SAPSyncResponse | null>(null);
+  const [maximoSyncResult, setMaximoSyncResult] = useState<MaximoSyncResponse | null>(null);
+  const [syncingERP, setSyncingERP] = useState<boolean>(false);
 
   // Status & Feedback
   const [loading, setLoading] = useState<boolean>(false);
@@ -160,7 +175,7 @@ export default function ProcurementPage() {
 
       // Create Order via backend Orders v2 with intent: AUTHORIZE
       const requester = currentUser?.user_id || "usr-procurement-agent";
-      const created = await createPayPalOrder(selectedQuoteId, requester, false, authToken);
+      const created = await createPayPalOrder(selectedQuoteId, requester, isSimulationMode, authToken);
       setOrder(created);
       setActiveStep(2);
       setFeedback({
@@ -246,7 +261,10 @@ export default function ProcurementPage() {
         timestamp: new Date().toISOString(),
       }, null, 2);
 
-      // Verified post-repair operational evidence with authentic SHA-256 digest and report artifact
+      // Verified post-repair operational evidence with real computed SHA-256 digest and report artifact
+      const calculatedHash = await computeSha256(evidenceDocContent);
+      setSubmittedHash(calculatedHash);
+
       const payload = {
         evidence_id: `EVD-${order.paypal_order_id}`,
         work_order_id: order.work_order_id,
@@ -267,11 +285,14 @@ export default function ProcurementPage() {
           bearing_temperature_c: 41.2,
         },
         file_content: evidenceDocContent,
-        file_sha256: "5316f8f37a31793b32f24d349d7deab14f48654ba5416295d8209b3ce7250119",
+        file_sha256: calculatedHash,
         is_synthetic: true,
       };
 
-      await submitCompletionEvidence(order.paypal_order_id, payload, authToken);
+      const evRes = await submitCompletionEvidence(order.paypal_order_id, payload, authToken);
+      if (!evRes || !evRes.validation_passed) {
+        throw new Error("Completion evidence rejected by deterministic policy gate: Validation checks failed");
+      }
       setEvidenceSubmitted(true);
       setFeedback({
         type: "success",
@@ -397,7 +418,10 @@ export default function ProcurementPage() {
         timestamp: new Date().toISOString(),
       }, null, 2);
 
-      await submitCompletionEvidence(authorized.paypal_order_id, {
+      const calculatedAutoHash = await computeSha256(evidenceDocContent);
+      setSubmittedHash(calculatedAutoHash);
+
+      const evAutoRes = await submitCompletionEvidence(authorized.paypal_order_id, {
         evidence_id: `EVD-${authorized.paypal_order_id}`,
         work_order_id: authorized.work_order_id,
         quote_id: authorized.quote_id,
@@ -405,12 +429,19 @@ export default function ProcurementPage() {
         vendor_id: authorized.vendor_id,
         service_id: "SRV-BRG-REPLACE",
         technician_id: "TECH-CERT-441",
-        checklist_items: ["Physical replacement completed", "Laser alignment verified", "Vibration baseline passed"],
+        checklist_items: [
+          "Disassembly and physical bearing replacement completed per SOP",
+          "Laser alignment verified within tolerance",
+          "Post-repair vibration baseline passed ISO Zone A",
+        ],
         measurements: { vibration_after_mm_s: 1.25, vibration_zone: "Zone A (Good)", bearing_temperature_c: 41.2 },
         file_content: evidenceDocContent,
-        file_sha256: "5316f8f37a31793b32f24d349d7deab14f48654ba5416295d8209b3ce7250119",
+        file_sha256: calculatedAutoHash,
         is_synthetic: true,
       }, tokenResAgent.access_token);
+      if (!evAutoRes || !evAutoRes.validation_passed) {
+        throw new Error("Auto-demo evidence validation failed: Policy requirements not satisfied");
+      }
       setEvidenceSubmitted(true);
 
       // 6. Switch to Supervisor for dual control
@@ -443,6 +474,61 @@ export default function ProcurementPage() {
       setFeedback({ type: "error", msg: err.message || "Auto-demo encountered an error" });
     } finally {
       setAutoRunning(false);
+    }
+  };
+
+  const handleSyncToSAP = async () => {
+    if (!order) return;
+    try {
+      setSyncingERP(true);
+      const res = await syncOrderToSAP({
+        equipment_id: order.equipment_tag || "P-101A",
+        order_type: "PM01",
+        short_text: `Emergency Bearing Replacement on ${order.equipment_tag || "P-101A"}`,
+        vendor_id: order.vendor_id || "US-MOT-10821",
+        vendor_name: "Motion Industries",
+        estimated_amount: order.amount_value || "450.00",
+        currency: order.currency_code || "USD",
+        paypal_order_id: order.paypal_order_id,
+        paypal_auth_id: order.authorization_id || undefined,
+        paypal_capture_id: captureResult?.capture?.capture_id || captureResult?.capture_id || undefined,
+        evidence_hash: submittedHash || undefined,
+      }, authToken);
+      setSapSyncResult(res);
+      setFeedback({
+        type: "success",
+        msg: `Synced to SAP S/4HANA Cloud! Order: ${res.sap_order_id} (Status: ${res.status}). Liability committed to GL 2100-PAYPAL-CLEARING.`,
+      });
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: err.message || "SAP synchronization failed" });
+    } finally {
+      setSyncingERP(false);
+    }
+  };
+
+  const handleSyncToMaximo = async () => {
+    if (!order) return;
+    try {
+      setSyncingERP(true);
+      const res = await syncOrderToMaximo({
+        asset_num: order.equipment_tag || "P-101A",
+        description: `NASA IMS Bearing Replacement on ${order.equipment_tag || "P-101A"}`,
+        vendor_id: order.vendor_id || "US-MOT-10821",
+        estimated_cost: order.amount_value || "450.00",
+        paypal_order_id: order.paypal_order_id,
+        paypal_auth_id: order.authorization_id || undefined,
+        paypal_capture_id: captureResult?.capture?.capture_id || captureResult?.capture_id || undefined,
+        evidence_hash: submittedHash || undefined,
+      }, authToken);
+      setMaximoSyncResult(res);
+      setFeedback({
+        type: "success",
+        msg: `Synced to IBM Maximo! WONUM: ${res.wonum} (Status: ${res.status}). OSLC resource updated.`,
+      });
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: err.message || "IBM Maximo synchronization failed" });
+    } finally {
+      setSyncingERP(false);
     }
   };
 
@@ -993,7 +1079,7 @@ export default function ProcurementPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Document SHA-256:</span>
                     <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[180px]">
-                      5316f8f37a31793b32f2...
+                      {submittedHash ? `${submittedHash.slice(0, 20)}...` : "5316f8f37a31793b32f2..."}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1114,6 +1200,92 @@ export default function ProcurementPage() {
               <div className="mt-3 p-2.5 rounded-lg border border-border/40 bg-card/40 text-[11px] text-muted-foreground flex items-center justify-between">
                 <span className="font-medium text-foreground">Disbursement Architecture (Option A):</span>
                 <span>Facility Operator acts as Merchant of Record with funds released upon physical sign-off.</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Enterprise ERP Bridge & General Ledger Clearing */}
+          <Card className="border-indigo-500/40 bg-indigo-500/5 shadow-xs">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <CpuIcon className="w-5 h-5 text-indigo-400" />
+                  <div>
+                    <CardTitle className="text-base font-semibold">
+                      Enterprise ERP Bridge (SAP S/4HANA & IBM Maximo)
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Two-way synchronization for maintenance orders, purchase orders, and GL clearing account (2100-PAYPAL-CLEARING).
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSyncToSAP}
+                    disabled={syncingERP}
+                    className="h-7 px-2.5 text-xs border-indigo-400/40 text-indigo-300 hover:bg-indigo-500/10"
+                  >
+                    Sync SAP S/4HANA (PM01)
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSyncToMaximo}
+                    disabled={syncingERP}
+                    className="h-7 px-2.5 text-xs border-indigo-400/40 text-indigo-300 hover:bg-indigo-500/10"
+                  >
+                    Sync IBM Maximo (OSLC)
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                {/* SAP Status Box */}
+                <div className="p-3.5 rounded-lg border border-border/40 bg-card/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-400"></span> SAP S/4HANA Cloud (OData)
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-blue-400/40 text-blue-300">
+                      {sapSyncResult ? `ORDER: ${sapSyncResult.sap_order_id}` : "READY FOR SYNC"}
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground space-y-1">
+                    <div>Status: <span className="text-foreground font-mono font-medium">{sapSyncResult?.status || "CRTD / REL"}</span></div>
+                    <div>GL Liability Account: <span className="text-emerald-400 font-mono">2100-PAYPAL-CLEARING</span></div>
+                    <div>Cost Center: <span className="text-foreground font-mono">CC-MUMBAI-01</span> • Plant: <span className="text-foreground font-mono">1000</span></div>
+                  </div>
+                  {sapSyncResult && (
+                    <div className="pt-2 border-t border-border/40 text-[10px] font-mono text-emerald-400">
+                      Posting: Debit {sapSyncResult.accounting_posting.debit_account} / Credit {sapSyncResult.accounting_posting.credit_account} (${sapSyncResult.accounting_posting.amount})
+                    </div>
+                  )}
+                </div>
+
+                {/* IBM Maximo Status Box */}
+                <div className="p-3.5 rounded-lg border border-border/40 bg-card/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span> IBM Maximo Asset Management
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-emerald-400/40 text-emerald-300">
+                      {maximoSyncResult ? `WONUM: ${maximoSyncResult.wonum}` : "READY FOR SYNC"}
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground space-y-1">
+                    <div>Status: <span className="text-foreground font-mono font-medium">{maximoSyncResult?.status || "APPR / COMP"}</span></div>
+                    <div>Asset Tag: <span className="text-foreground font-mono">P-101A</span> • Site: <span className="text-foreground font-mono">BEDFORD</span></div>
+                    <div>OSLC Protocol: <span className="text-foreground font-mono">/maximo/oslc/os/mxwo</span></div>
+                  </div>
+                  {maximoSyncResult && (
+                    <div className="pt-2 border-t border-border/40 text-[10px] font-mono text-emerald-400">
+                      Evidence Hash Verified: {maximoSyncResult.evidence_validated ? "YES (Gate Settled)" : "PENDING"}
+                    </div>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -75,12 +75,18 @@ class PurchaseUnitAmount(BaseModel):
     breakdown: Optional[AmountBreakdown] = None
 
 
+class Payee(BaseModel):
+    email_address: Optional[str] = Field(default=None, description="Payee PayPal email address")
+    merchant_id: Optional[str] = Field(default=None, description="Payee PayPal merchant ID")
+
+
 class PurchaseUnit(BaseModel):
     reference_id: str = Field(default="default", max_length=256)
     description: Optional[str] = Field(default=None, max_length=127)
     custom_id: Optional[str] = Field(default=None, max_length=127, description="Correlates work order or quote")
     invoice_id: Optional[str] = Field(default=None, max_length=127)
     amount: PurchaseUnitAmount
+    payee: Optional[Payee] = Field(default=None, description="Optional vendor payee for Platform Merchant of Record routing")
     items: Optional[List[ItemUnit]] = None
 
 

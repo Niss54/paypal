@@ -42,7 +42,7 @@
 
   <a href="#-paypal-ai-hackathon-2026-rubric-alignment"><img src="https://img.shields.io/badge/PayPal%20AI%20Hackathon-Agentic%20Commerce%20Track-003087?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Track"/></a>
 
-  <a href="#-verified-test-suite-396-passing-tests"><img src="https://img.shields.io/badge/Pytest-34%20PayPal%20%2F%20396%20Total-2ea44f?style=for-the-badge&logo=pytest&logoColor=white" alt="34 PayPal / 396 Total"/></a>
+  <a href="#-verified-test-suite-396-passing-tests"><img src="https://img.shields.io/badge/Pytest-39%20PayPal%20%26%20ERP%20%2F%20405%20Total-2ea44f?style=for-the-badge&logo=pytest&logoColor=white" alt="39 PayPal & ERP / 405 Total"/></a>
 
   <a href="./JUDGE_README.md"><img src="https://img.shields.io/badge/Judge%20Guide-3--Minute%20Fast--Track-FFC439?style=for-the-badge&logo=readme&logoColor=black" alt="Judge Guide"/></a>
 
@@ -76,7 +76,8 @@
 
 > - 🌐 **Interactive 4-Stage Procurement Experience**: `/procurement` (`http://localhost:3000/procurement`)
 
-> - 🧪 **36 Automated PayPal & Security Tests (34 Unit/Integration + 2 Live Sandbox)**: `pytest tests/test_paypal_*.py tests/test_spending_mandate_v2.py tests/test_evidence_gating.py tests/test_secret_scan.py -v`
+> - 🧪 **39 Automated PayPal, ERP & Security Tests (37 Unit/Integration + 2 Live Sandbox)**: `pytest tests/test_paypal_*.py tests/test_erp_connectors.py tests/test_spending_mandate_v2.py tests/test_secret_scan.py -v`
+> - 🩺 **1-Command Pre-Flight System Audit**: `python scripts/verify_sandbox.py`
 
 
 
@@ -134,7 +135,7 @@ flowchart TD
 
         IOT["Vibration Sensor Excursion<br/>(Synthetic Asset P-101A: 4.82 mm/s RMS)"] -->|ISO 10816 Zone C/D Alert| DIAG["GraphRAG Knowledge Engine"]
 
-        DIAG -->|Diagnosis: Inner Race Bearing Wear| WO["Work Order WO-2026-IMS-001<br/>(Scope: SCOPE-BRG-REPLACE-01)"]
+        DIAG -->|Diagnosis: Outer Race Bearing Spalling (BPFO)| WO["Work Order WO-2026-IMS-001<br/>(Scope: SCOPE-BRG-REPLACE-01)"]
 
     end
 

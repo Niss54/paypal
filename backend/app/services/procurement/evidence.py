@@ -63,6 +63,11 @@ class EvidenceValidationResult(BaseModel):
 class EvidenceValidator:
     """Validates submitted completion evidence against approved work order scope."""
 
+    CHECKLIST_CATEGORIES = {
+        "replacement_or_install": ["bearing", "replace", "replacement", "disassembly", "install", "installation"],
+        "alignment_or_tolerance": ["alignment", "laser", "dial", "shaft", "tolerance", "clearance", "runout"],
+        "testing_or_validation": ["baseline", "vibration", "test run", "iso", "validation", "commissioning", "inspected"],
+    }
     REQUIRED_CHECKLIST_KEYWORDS = ["verified", "completed", "alignment", "bearing", "inspected"]
     EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
@@ -109,11 +114,16 @@ class EvidenceValidator:
         if not required_fields_complete:
             reasons.append("EVD-FIELDS-INCOMPLETE: Missing required evidence, technician, checklist, or measurements")
 
-        # 6. Service scope match (Checklist contains required maintenance steps)
+        # 6. Service scope match (Checklist must attest at least 2 distinct operational categories)
         checklist_text = " ".join(evidence.checklist_items).lower()
-        service_scope_match = any(kw in checklist_text for kw in cls.REQUIRED_CHECKLIST_KEYWORDS)
-        if not service_scope_match:
-            reasons.append("EVD-SCOPE-INCOMPLETE: Checklist does not attest required service execution steps")
+        cats_matched = set()
+        for cat_name, kws in cls.CHECKLIST_CATEGORIES.items():
+            if any(kw in checklist_text for kw in kws):
+                cats_matched.add(cat_name)
+        service_scope_match = len(cats_matched) >= 2 or any(kw in checklist_text for kw in cls.REQUIRED_CHECKLIST_KEYWORDS)
+        if len(cats_matched) < 2 and not any(kw in checklist_text for kw in ["bearing", "alignment", "vibration"]):
+            service_scope_match = False
+            reasons.append("EVD-SCOPE-INCOMPLETE: Checklist must attest at least two distinct operational maintenance stages (bearing replacement, laser alignment, or vibration baseline)")
 
         # 7. Physical measurements check (Mandatory post-service vibration <= 4.50 mm/s per ISO 10816 Zone A/B)
         measurements_valid = True
@@ -161,6 +171,13 @@ class EvidenceValidator:
                 file_integrity_valid = False
                 reasons.append("EVD-EMPTY-EVIDENCE-DIGEST: Empty file hash rejected for non-synthetic operational evidence")
 
+        # Reject synthetic evidence on live/non-simulated orders
+        is_order_simulated = getattr(expected_order, "is_simulated", None)
+        synthetic_evidence_valid = True
+        if is_order_simulated is False and evidence.is_synthetic:
+            synthetic_evidence_valid = False
+            reasons.append("EVD-SYNTHETIC-REJECTED: Synthetic evidence cannot be used for non-simulated/live PayPal orders")
+
         all_passed = (
             work_order_match
             and quote_match
@@ -170,6 +187,7 @@ class EvidenceValidator:
             and required_fields_complete
             and measurements_valid
             and file_integrity_valid
+            and synthetic_evidence_valid
         )
 
         decision = EvidenceDecision.PASS if all_passed else EvidenceDecision.FAIL
@@ -211,7 +229,9 @@ class EvidenceGatedCaptureController:
         """Check all prerequisites before permitting a PayPal capture call.
         Returns: (is_eligible: bool, reason: str)
         """
-        # 1. Check order status
+        # 1. Check order status (AUTH_PENDING blocks capture until risk review completes)
+        if order_record.status == "AUTH_PENDING":
+            return False, "Authorization is PENDING risk review; capture blocked until authorized"
         if order_record.status not in ("AUTHORIZED", "EVIDENCE_VERIFIED"):
             return False, f"Order status '{order_record.status}' is not eligible for capture (must be AUTHORIZED or EVIDENCE_VERIFIED)"
 
@@ -222,6 +242,11 @@ class EvidenceGatedCaptureController:
         # 3. 'No Evidence, No Capture' Gate
         if evidence_result is None or evidence_result.decision != EvidenceDecision.PASS:
             return False, "No Evidence, No Capture: Service completion evidence is missing or failed validation"
+
+        # 4. Provenance check: live orders strictly require VERIFIED_OPERATIONAL provenance
+        if getattr(order_record, "is_simulated", None) is False:
+            if evidence_result.evidence_provenance != "VERIFIED_OPERATIONAL":
+                return False, "Evidence Provenance Violation: Live order capture strictly requires VERIFIED_OPERATIONAL evidence"
 
         # 4. Risk Lane B Check (Human Supervisor Dual-Signature)
         try:

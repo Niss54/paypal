@@ -209,3 +209,78 @@ def test_capture_eligible_nominal_lane_a(sample_order):
     )
     assert eligible is True
     assert "Eligible" in reason
+
+
+def test_synthetic_evidence_rejected_for_live_orders(sample_order):
+    """Verify synthetic evidence is strictly rejected when order is live (is_simulated=False)."""
+    sample_order.is_simulated = False
+    submission = EvidenceSubmission(
+        evidence_id="EVD-TEST-SYNTH",
+        work_order_id="WO-2026-P101",
+        quote_id="quote-apex-01",
+        equipment_tag="P-101A",
+        vendor_id="apex-diagnostics",
+        service_id="bearing-inspection",
+        checklist_items=[
+            "Disassembly and bearing replacement executed",
+            "Laser shaft alignment completed",
+            "Baseline vibration test run passed",
+        ],
+        measurements={"vibration_after_mm_s": 1.25},
+        is_synthetic=True,
+    )
+    res = EvidenceValidator.validate(submission, sample_order)
+    assert res.decision == EvidenceDecision.FAIL
+    assert any("EVD-SYNTHETIC-REJECTED" in code for code in res.reason_codes)
+
+
+def test_vague_checklist_fails_multi_category_scope():
+    """Verify generic single-phrase checklist like 'repair completed' fails validation."""
+    from backend.app.db.models import PayPalOrderRecord
+    order = PayPalOrderRecord(
+        paypal_order_id="ORDER-TEST-SCOPE",
+        work_order_id="WO-2026-P101",
+        quote_id="quote-apex-01",
+        equipment_tag="P-101A",
+        vendor_id="apex-diagnostics",
+        is_simulated=True,
+    )
+    submission = EvidenceSubmission(
+        evidence_id="EVD-TEST-VAGUE",
+        work_order_id="WO-2026-P101",
+        quote_id="quote-apex-01",
+        equipment_tag="P-101A",
+        vendor_id="apex-diagnostics",
+        service_id="bearing-inspection",
+        checklist_items=["Repair completed by contractor"],
+        measurements={"vibration_after_mm_s": 1.20},
+    )
+    res = EvidenceValidator.validate(submission, order)
+    assert res.service_scope_match is False
+    assert res.decision == EvidenceDecision.FAIL
+    assert any("EVD-SCOPE-INCOMPLETE" in code for code in res.reason_codes)
+
+
+def test_auth_pending_status_blocks_capture(sample_order):
+    """Verify capture is rejected when order is held in AUTH_PENDING state."""
+    sample_order.status = "AUTH_PENDING"
+    submission = EvidenceSubmission(
+        evidence_id="EVD-TEST-006",
+        work_order_id="WO-2026-P101",
+        quote_id="quote-apex-01",
+        equipment_tag="P-101A",
+        vendor_id="apex-diagnostics",
+        service_id="bearing-inspection",
+        checklist_items=[
+            "Disassembly and bearing replacement executed",
+            "Laser shaft alignment completed",
+        ],
+        measurements={"vibration_after_mm_s": 1.30},
+    )
+    ev_res = EvidenceValidator.validate(submission, sample_order)
+    eligible, reason = EvidenceGatedCaptureController.verify_capture_eligibility(
+        order_record=sample_order,
+        evidence_result=ev_res,
+    )
+    assert eligible is False
+    assert "PENDING risk review" in reason

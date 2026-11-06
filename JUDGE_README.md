@@ -24,7 +24,7 @@
 
 > **Interactive Live Route:** `/procurement` (`http://localhost:3000/procurement`)  
 
-> **Automated Test Suite:** 100% pass rate: 394 automated tests passing across backend, auth, mandates, evidence gating, webhooks, and full project harness + 65 frontend tests passing with zero errors.
+> **Automated Test Suite:** 100% pass rate: 405 automated backend/integration tests passing with zero errors + Next.js 16 production build passing with 0 errors across all 15 routes.
 
 
 
@@ -42,7 +42,7 @@ In industrial manufacturing, AI agents that automatically purchase replacement s
 
 **KinetixRAG** solves this with **Evidence-Gated Industrial Procurement** powered by **PayPal Orders v2**:
 
-1. **IoT Telemetry & GraphRAG**: Real-world **NASA IMS Bearing Accelerometry** empirical baseline (`REPLAY-ASSET-01`, 5.42 mm/s RMS) informs the operational demonstration on synthetic asset `P-101A` (4.82 mm/s RMS, ISO 10816 Zone C/D threshold). The GraphRAG knowledge engine diagnoses inner-race defect risk and generates Work Order `WO-2026-IMS-001`.
+1. **IoT Telemetry & GraphRAG**: Real-world **NASA IMS Bearing Accelerometry** empirical baseline (`REPLAY-ASSET-01`, 5.42 mm/s RMS) informs the operational demonstration on synthetic asset `P-101A` (4.82 mm/s RMS, ISO 10816 Zone C/D threshold). The GraphRAG knowledge engine diagnoses outer-race defect risk (BPFO) and generates Work Order `WO-2026-IMS-001`.
 
 2. **Deterministic Spending Mandate Engine**: Evaluates vendor RFQ quotes against strict hard-coded enterprise policies ($500 cap, non-positive amount blocking, SLA limits, USD currency check, approved vendor registry, Lane B dual-control supervisor routing).
 
@@ -86,7 +86,7 @@ Navigate to **`/procurement`** in the application UI (or run locally: `cd fronte
 
 - Review the 3 vendor comparison quotes (clearly disclosed as `[SYNTHETIC DEMO QUOTE]`).
 
-- Click **"Evaluate Mandate"** on the winning bid (**Apex Rotating Equipment**, `$450.00 USD`).
+- Click **"Evaluate Mandate"** on the winning bid (**Motion Industries**, `$450.00 USD`).
 
 - Verify the **Deterministic Spending Mandate Engine** pass/fail matrix:
 
