@@ -2577,28 +2577,7 @@ export interface ERPReconciliationRecord {
   timestamp: string;
 }
 
-export interface ColdChainSwarmAuctionResponse {
-  scenario_id: string;
-  asset_tag: string;
-  cargo_manifest: string;
-  cargo_valuation_usd: number;
-  regulatory_standard: string;
-  mkt_status: string;
-  swarm_agents: SwarmAgentMessage[];
-  rfq_candidates: VendorQuoteCandidate[];
-  selected_depot: VendorQuoteCandidate;
-  payout_result?: {
-    success: boolean;
-    payout_batch_id: string;
-    sender_batch_id: string;
-    batch_status: string;
-    amount_usd: number;
-    recipient: string;
-    links: { href: string; rel: string; method: string }[];
-  } | null;
-  reconciliation?: ERPReconciliationRecord | null;
-  elapsed_ms: number;
-}
+
 
 export async function getPayPalConfig(): Promise<PayPalConfigResponse> {
   const res = await fetch(`${API_URL}/api/machine-money/paypal/config`, { cache: "no-store" });
