@@ -93,8 +93,8 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
               tooltip="KinetixRAG Industrial Platform"
               render={<Link href="/" onClick={closeMobileSidebar} />}
             >
-              <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#003087] font-heading font-bold text-white shadow-sm">
-                <CreditCardIcon className="size-4 text-cyan-400" />
+              <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-background/60 border border-cyan-500/40 p-0.5 shadow-sm overflow-hidden">
+                <img src="/kr.png" alt="KinetixRAG Logo" className="size-full object-contain" />
               </div>
               <div className="flex min-w-0 flex-col items-start group-data-[collapsible=icon]:hidden">
                 <span className="font-heading text-base font-semibold tracking-tight">KinetixRAG</span>
@@ -231,7 +231,10 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
           </div>
         </div>
         <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-[10px] text-muted-foreground/80 group-data-[collapsible=icon]:hidden font-mono border-t border-border/40">
-          <span>KinetixRAG</span>
+          <div className="flex items-center gap-1.5">
+            <img src="/kr.png" alt="KR" className="size-3.5 object-contain" />
+            <span>KinetixRAG</span>
+          </div>
           <span className="text-[#0079C1] dark:text-cyan-400 font-bold">PayPal AI 2026</span>
         </div>
       </SidebarFooter>

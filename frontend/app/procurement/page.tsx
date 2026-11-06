@@ -388,8 +388,10 @@ export default function ProcurementPage() {
     <div className="flex-1 space-y-6 p-4 sm:p-6 max-w-6xl mx-auto">
       {/* Top Header Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 pb-5">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-start gap-3.5">
+          <img src="/kr.png" alt="KinetixRAG Logo" className="size-11 rounded-xl object-contain drop-shadow bg-background/50 border border-cyan-500/40 p-1 shrink-0 mt-0.5" />
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
             <Badge className="bg-[#003087] hover:bg-[#00256c] text-white border-0 gap-1.5 px-2.5 py-1 text-xs">
               <CreditCardIcon className="w-3.5 h-3.5 text-[#0079C1]" /> PayPal Orders v2
             </Badge>
@@ -406,6 +408,7 @@ export default function ProcurementPage() {
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Autonomous AI maintenance procurement with deterministic spending mandates, physical telemetry verification, and two-phase PayPal settlement.
           </p>
+        </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

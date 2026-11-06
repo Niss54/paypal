@@ -106,7 +106,9 @@ export default function CommandCenterPage() {
       <section className="overflow-hidden rounded-2xl bg-card shadow-xs ring-1 ring-foreground/10 border border-[#003087]/30">
         <div className="grid lg:grid-cols-[minmax(0,1.25fr)_minmax(380px,0.75fr)]">
           <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-3.5 mb-2">
+              <img src="/kr.png" alt="KinetixRAG Logo" className="size-12 rounded-xl object-contain drop-shadow bg-background/50 border border-cyan-500/40 p-1 shrink-0" />
+              <div className="flex flex-wrap items-center gap-2">
               <Badge className="bg-[#003087] hover:bg-[#00256c] text-white border-0 text-xs font-mono flex items-center gap-1.5 py-1 px-2.5">
                 <CreditCardIcon className="size-3.5" />
                 PayPal AI Hackathon 2026
@@ -120,6 +122,7 @@ export default function CommandCenterPage() {
               <Badge variant="outline" className="text-xs font-mono border-emerald-500/40 text-emerald-400 bg-emerald-950/20">
                 PayPal Orders v2
               </Badge>
+              </div>
             </div>
 
             <h1 className="mt-4 max-w-3xl font-heading text-3xl font-bold tracking-tight sm:text-4xl text-foreground">
