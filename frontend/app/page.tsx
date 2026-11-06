@@ -318,7 +318,7 @@ export default function CommandCenterPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <Badge className="bg-[#003087] text-white text-[10px] font-mono border-0">
-                🏆 Flagship Track Demo
+                Flagship Track Demo
               </Badge>
               <CreditCardIcon className="size-5 text-[#0079C1]" />
             </div>
