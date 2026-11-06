@@ -50,10 +50,11 @@ If an AI agent pays an equipment vendor upfront, or if settlement occurs before 
 **KinetixRAG** pioneers **Evidence-Gated Industrial Procurement** by combining:
 1. **Physical Grounding**: Real vibration telemetry from the **NASA IMS Bearing Run-to-Failure dataset** (4.82 mm/s RMS, ISO 10816 Zone C/D).
 2. **GraphRAG Diagnosis**: Grounded knowledge retrieval identifies inner-race bearing degradation on Primary Slurry Pump `P-101A` and drafts Work Order `WO-2026-IMS-001`.
-3. **Deterministic Spending Mandate Engine**: Evaluates vendor bids against non-negotiable server-side constraints (strict $500 cap, USD currency gate, vendor allowlist, Lane B dual-control supervisor routing).
-4. **PayPal Orders v2 Two-Phase Settlement**: Creates a 29-day authorized hold on the buyer's funds (`intent: AUTHORIZE`) via PayPal Sandbox.
+3. **Deterministic Spending Mandate Engine**: Evaluates vendor bids against non-negotiable server-side constraints (strict $500 cap, non-positive amount blocking, SLA limits, USD currency gate, vendor allowlist, Lane B dual-control supervisor routing).
+4. **PayPal Orders v2 Two-Phase Settlement & Buyer Approval**: Creates an order with `intent: AUTHORIZE` via PayPal Sandbox (`api-m.sandbox.paypal.com`), confirms buyer approval via HATEOAS approval link, and executes an authorized hold (29-day authorization window with 3-day guaranteed honor period).
 5. **Evidence Gating Engine ("No Evidence, No Capture")**: **Strictly blocks funds capture (HTTP 403)** until the contractor submits verifiable completion evidence (post-repair vibration measurement $\le$ 4.5 mm/s, SHA-256 document checksum) and a designated reliability supervisor signs off.
-6. **Deterministic Capture & 7-Stage Causal Audit Ledger**: Captures authorized funds via PayPal API `POST /v2/payments/authorizations/{id}/capture` and seals an unbroken causal audit trail from initial sensor telemetry to final PayPal Capture ID.
+6. **Dual-Control Separation of Duties**: Strictly enforces that the procurement requester cannot approve their own payment (`order.requester_user_id != supervisor_id`, HTTP 403 on self-approval).
+7. **Deterministic Capture & Continuous Cryptographic Audit**: Captures authorized funds via PayPal API `POST /v2/payments/authorizations/{id}/capture` and seals an unbroken continuous SHA-256 hash chain and Merkle root from initial sensor telemetry to final PayPal Capture ID.
 
 ---
 

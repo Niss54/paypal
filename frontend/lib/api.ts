@@ -2674,6 +2674,9 @@ export interface PayPalOrderState {
   evidence_status: string;
   reviewer_user_id?: string | null;
   reviewer_notes?: string | null;
+  requester_user_id?: string;
+  approve_url?: string | null;
+  is_simulated?: boolean;
   created_at?: string;
   authorized_at?: string | null;
   captured_at?: string | null;
@@ -2694,6 +2697,7 @@ export interface AuditLineageStage {
   selected_vendor_id?: string;
   disclosure?: string;
   mandate_id?: string;
+  mandate_snapshot?: any;
   budget_cap?: string;
   risk_lane?: string;
   requires_supervisor_signoff?: boolean;
@@ -2711,6 +2715,8 @@ export interface AuditLineageStage {
   file_sha256?: string | null;
   capture_id?: string | null;
   captured_at?: string | null;
+  stage_hash?: string;
+  previous_stage_hash?: string;
 }
 
 export interface OrderAuditLineage {
@@ -2719,6 +2725,9 @@ export interface OrderAuditLineage {
   status: string;
   amount: string;
   currency: string;
+  is_simulated?: boolean;
+  merkle_root?: string;
+  chain_valid?: boolean;
   lineage_stages: AuditLineageStage[];
 }
 
@@ -2754,11 +2763,25 @@ export async function evaluateProcurementQuote(quoteId: string): Promise<Mandate
   return res.json();
 }
 
-export async function createPayPalOrder(quoteId: string, actor: string = "kinetix-procurement-agent"): Promise<PayPalOrderState> {
+export async function approvePayPalOrder(orderId: string, simulated: boolean = false): Promise<PayPalOrderState> {
+  const res = await fetch(`${API_URL}/api/paypal/orders/${orderId}/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ simulated_approval: simulated }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to record buyer approval for PayPal order");
+  }
+  return res.json();
+}
+
+export async function createPayPalOrder(quoteId: string, actor: string = "kinetix-procurement-agent", isSimulation: boolean = false): Promise<PayPalOrderState> {
   const res = await fetch(`${API_URL}/api/paypal/orders`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ quote_id: quoteId, actor }),
+    body: JSON.stringify({ quote_id: quoteId, actor, is_simulation: isSimulation }),
     cache: "no-store",
   });
   if (!res.ok) {

@@ -123,7 +123,7 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                     <SidebarMenuButton
                       isActive={isActive}
                       tooltip={item.label}
-                      className={item.highlight ? "font-semibold text-foreground bg-[#003087]/15 border border-[#003087]/30" : ""}
+                      className={item.highlight ? "font-semibold text-foreground bg-[#003087]/15 border border-[#003087]/30 whitespace-nowrap flex-nowrap" : "whitespace-nowrap flex-nowrap"}
                       render={<Link href={item.href} onClick={closeMobileSidebar} />}
                     >
                       <Icon className={item.highlight ? "text-[#0079C1] dark:text-cyan-400 shrink-0" : "shrink-0"} />
