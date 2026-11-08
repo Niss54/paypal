@@ -27,6 +27,9 @@ def get_default_sqlite_path() -> Path:
 DEFAULT_SQLITE_PATH = get_default_sqlite_path()
 
 def get_database_url() -> str:
+    import sys
+    if "PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv):
+        return f"sqlite:///{DEFAULT_SQLITE_PATH}"
     url = os.environ.get("DATABASE_URL")
     if not url:
         return f"sqlite:///{DEFAULT_SQLITE_PATH}"

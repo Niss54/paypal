@@ -103,6 +103,9 @@ def get_client_id() -> str:
 
 
 def get_jwks_uri() -> str:
+    neon_jwks = os.environ.get("NEON_AUTH_JWKS_URL")
+    if neon_jwks:
+        return neon_jwks
     custom = os.environ.get("ENTRA_JWKS_URI")
     if custom:
         return custom

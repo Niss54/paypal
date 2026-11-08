@@ -69,3 +69,4 @@ ml/graph_risk/reports/*.png
 ml/graph_risk/reports/*.pdf
 
 
+.neon
