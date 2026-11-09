@@ -11,7 +11,6 @@ except ImportError:
     Queue = None  # type: ignore
 
 from ingestion.workers.storage import get_object_store, safe_filename
-from ingestion.workers.tasks import process_object
 
 router = APIRouter()
 
@@ -43,6 +42,8 @@ async def enqueue_document(
             },
         )
     try:
+        from ingestion.workers.tasks import process_object
+
         store = get_object_store()
         reference = store.put_bytes(content, safe_filename(filename))
         queue = Queue(

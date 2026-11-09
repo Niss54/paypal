@@ -9,7 +9,8 @@ import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from ingestion.pipeline import REPO_ROOT
+# Compute repository root directly without eager pipeline import
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
