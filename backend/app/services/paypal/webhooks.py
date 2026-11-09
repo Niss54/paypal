@@ -24,7 +24,7 @@ class PayPalWebhookService:
 
     def __init__(self, client: Optional[PayPalClient] = None, webhook_id: Optional[str] = None):
         self.client = client or PayPalClient()
-        self.webhook_id = (webhook_id or os.environ.get("PAYPAL_WEBHOOK_ID", "WH-SIMULATED-ID")).strip()
+        self.webhook_id = (webhook_id or os.environ.get("PAYPAL_WEBHOOK_ID", "6AC51894PA229561H")).strip()
 
     async def verify_signature(
         self,

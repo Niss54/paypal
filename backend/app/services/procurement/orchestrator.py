@@ -553,6 +553,7 @@ class ProcurementOrchestrator:
                 quote_id=quote_id,
                 description=f"Emergency repair {active_incident['equipment_id']} - {quote['vendor_name']}",
                 idempotency_key=idempotency_key,
+                payee_email=os.environ.get("PAYPAL_DEMO_RECIPIENT", "sb-wezex53719890@business.example.com"),
             )
             paypal_order_id = order_resp.id
             order_status = "ORDER_CREATED"

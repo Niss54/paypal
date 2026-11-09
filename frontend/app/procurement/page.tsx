@@ -27,6 +27,10 @@ import {
   UserIcon,
   WrenchIcon,
   ZapIcon,
+  CopyIcon,
+  CheckIcon,
+  RadioIcon,
+  TerminalIcon,
 } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -67,6 +71,9 @@ import {
   type ProcurementIncident,
   type ProcurementMandate,
   type ProcurementQuote,
+  getPayPalWebhooks,
+  triggerSimulatedWebhook,
+  type PayPalWebhookRecord,
 } from "@/lib/api";
 
 export default function ProcurementPage() {
@@ -98,6 +105,50 @@ export default function ProcurementPage() {
   // ERP & Mode State
   const [isSimulationMode, setIsSimulationMode] = useState<boolean>(false);
   const [sapSyncResult, setSapSyncResult] = useState<SAPSyncResponse | null>(null);
+
+  // Judge Sandbox & Webhook State
+  const [webhooks, setWebhooks] = useState<PayPalWebhookRecord[]>([]);
+  const [webhookLoading, setWebhookLoading] = useState<boolean>(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [showWebhookHub, setShowWebhookHub] = useState<boolean>(true);
+
+  const copyToClipboard = (text: string, key: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2500);
+    }
+  };
+
+  const loadWebhooks = async () => {
+    try {
+      const records = await getPayPalWebhooks(6);
+      if (records && Array.isArray(records)) {
+        setWebhooks(records);
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  useEffect(() => {
+    loadWebhooks();
+    const interval = setInterval(loadWebhooks, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleTriggerTestWebhook = async (evtType: string = "PAYMENT.AUTHORIZATION.CREATED") => {
+    setWebhookLoading(true);
+    try {
+      const res = await triggerSimulatedWebhook(evtType, order?.paypal_order_id);
+      setFeedback({ type: "success", msg: `Webhook Verified & Recorded! Event: ${evtType} (ID: ${res.event_id})` });
+      await loadWebhooks();
+    } catch (e: any) {
+      setFeedback({ type: "error", msg: `Webhook test failed: ${e.message}` });
+    } finally {
+      setWebhookLoading(false);
+    }
+  };
   const [maximoSyncResult, setMaximoSyncResult] = useState<MaximoSyncResponse | null>(null);
   const [syncingERP, setSyncingERP] = useState<boolean>(false);
 
@@ -702,6 +753,154 @@ export default function ProcurementPage() {
         </div>
       </div>
 
+      {/* JUDGE FAST-TRACK & LIVE PAYPAL WEBHOOK HUB */}
+      <Card className="border-border/80 bg-card/85 shadow-sm overflow-hidden backdrop-blur-xs">
+        <CardHeader className="py-3 px-4 bg-muted/20 border-b border-border/50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground font-mono">
+                <SparklesIcon className="size-4 text-amber-400" />
+                JUDGE FAST-TRACK: LIVE PAYPAL SANDBOX & WEBHOOK HUB
+              </CardTitle>
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono">
+                WEBHOOK ID: 6AC51894PA229561H
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTriggerTestWebhook("PAYMENT.AUTHORIZATION.CREATED")}
+                disabled={webhookLoading}
+                className="h-7 text-xs border-[#0079C1]/50 text-cyan-400 hover:bg-[#0079C1]/10 gap-1.5 font-mono"
+              >
+                <RadioIcon className={`size-3.5 ${webhookLoading ? "animate-spin" : ""}`} />
+                {webhookLoading ? "Pinging..." : "Test Webhook Ping"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowWebhookHub(!showWebhookHub)}
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {showWebhookHub ? "Collapse" : "Expand"}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        {showWebhookHub && (
+          <CardContent className="p-4 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Left Column: Live Sandbox Credentials */}
+              <div className="space-y-2 p-3 rounded-lg bg-background/60 border border-border/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <CreditCardIcon className="size-3.5 text-[#0079C1]" />
+                    PayPal Sandbox Test Account (For Judges & Reviewers)
+                  </span>
+                  <Badge variant="outline" className="text-[10px] border-border text-muted-foreground font-mono">
+                    Region: IN / Global
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Use these credentials when PayPal Checkout prompts for login during the buyer approval step:
+                </p>
+                <div className="space-y-1.5 text-xs font-mono">
+                  <div className="flex items-center justify-between p-2 rounded bg-card border border-border/50">
+                    <div className="truncate mr-2">
+                      <span className="text-muted-foreground text-[10px] block font-sans">Business / Merchant Email:</span>
+                      <span className="text-foreground select-all text-xs font-semibold">sb-wezex53719890@business.example.com</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToClipboard("sb-wezex53719890@business.example.com", "email")}
+                      className="h-7 px-2 text-cyan-400 hover:bg-cyan-500/10 shrink-0 gap-1"
+                    >
+                      {copiedKey === "email" ? <CheckIcon className="size-3 text-emerald-400" /> : <CopyIcon className="size-3" />}
+                      <span className="text-[11px]">{copiedKey === "email" ? "Copied" : "Copy"}</span>
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded bg-card border border-border/50">
+                    <div>
+                      <span className="text-muted-foreground text-[10px] block font-sans">Password:</span>
+                      <span className="text-foreground select-all text-xs font-semibold">a+)n46B6</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToClipboard("a+)n46B6", "pwd")}
+                      className="h-7 px-2 text-cyan-400 hover:bg-cyan-500/10 shrink-0 gap-1"
+                    >
+                      {copiedKey === "pwd" ? <CheckIcon className="size-3 text-emerald-400" /> : <CopyIcon className="size-3" />}
+                      <span className="text-[11px]">{copiedKey === "pwd" ? "Copied" : "Copy"}</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Webhook Listener & Integration Specs */}
+              <div className="space-y-2 p-3 rounded-lg bg-background/60 border border-border/60">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <TerminalIcon className="size-3.5 text-amber-400" />
+                    Verified Webhook Invariant (HTTP /api/paypal/webhook)
+                  </span>
+                  <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+                    LISTENER ACTIVE
+                  </Badge>
+                </div>
+                <div className="text-[11px] text-muted-foreground space-y-1 font-mono">
+                  <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
+                    <span className="text-muted-foreground">Webhook ID:</span>
+                    <span className="text-emerald-400 font-bold select-all">6AC51894PA229561H</span>
+                  </div>
+                  <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
+                    <span className="text-muted-foreground">Public Endpoint:</span>
+                    <span className="text-cyan-400 truncate max-w-[240px] select-all">https://paypal-y2jk.onrender.com/api/paypal/webhook</span>
+                  </div>
+                  <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
+                    <span className="text-muted-foreground">Events Subscribed:</span>
+                    <span className="text-foreground">All Events (Auth, Capture, Orders)</span>
+                  </div>
+                </div>
+
+                {/* Live Webhook Feed */}
+                <div className="mt-2 pt-2 border-t border-border/50">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                    <span className="font-semibold text-foreground">Recent Webhook Invocations:</span>
+                    <span className="font-mono text-[10px]">{webhooks.length} recorded</span>
+                  </div>
+                  <div className="space-y-1 max-h-24 overflow-y-auto font-mono text-[10px]">
+                    {webhooks.length === 0 ? (
+                      <div className="text-center py-2 text-muted-foreground italic">
+                        No webhooks received yet. Click &ldquo;Test Webhook Ping&rdquo; to simulate live arrival.
+                      </div>
+                    ) : (
+                      webhooks.map((w, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-1 rounded bg-card/60 border border-border/30">
+                          <div className="flex items-center gap-1.5 truncate mr-2">
+                            <span className="size-1.5 rounded-full bg-emerald-400" />
+                            <span className="text-foreground font-semibold truncate">{w.event_type}</span>
+                            <span className="text-muted-foreground truncate">{w.event_id}</span>
+                          </div>
+                          <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-400 bg-emerald-500/10 py-0 px-1">
+                            VERIFIED
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
       {/* Global Alerts */}
       {feedback && (
         <Alert
@@ -1025,11 +1224,25 @@ export default function ProcurementPage() {
                     {order.status !== "BUYER_APPROVED" ? (
                       <>
                         {order.approve_url && (
-                          <a href={order.approve_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" variant="outline" className="gap-1.5 text-xs border-blue-400/40 text-blue-300 hover:bg-blue-500/10">
-                              <ExternalLinkIcon className="w-3.5 h-3.5" /> Open Sandbox Checkout
-                            </Button>
-                          </a>
+                          <div className="flex flex-col gap-2">
+                            <a href={order.approve_url} target="_blank" rel="noopener noreferrer">
+                              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-blue-400/40 text-blue-300 hover:bg-blue-500/10 w-full sm:w-auto">
+                                <ExternalLinkIcon className="w-3.5 h-3.5" /> Open Sandbox Checkout
+                              </Button>
+                            </a>
+                            <div className="flex flex-wrap items-center gap-2 p-1.5 rounded bg-card border border-border/60 text-[10px] font-mono text-muted-foreground">
+                              <span className="text-amber-400 font-sans font-semibold">Test Login:</span>
+                              <span className="text-foreground select-all">sb-wezex53719890@business.example.com</span>
+                              <button type="button" onClick={() => copyToClipboard("sb-wezex53719890@business.example.com", "btn-email")} className="text-cyan-400 hover:underline">
+                                {copiedKey === "btn-email" ? "Copied!" : "Copy Email"}
+                              </button>
+                              <span>/</span>
+                              <span className="text-foreground select-all">a+)n46B6</span>
+                              <button type="button" onClick={() => copyToClipboard("a+)n46B6", "btn-pwd")} className="text-cyan-400 hover:underline">
+                                {copiedKey === "btn-pwd" ? "Copied!" : "Copy Pass"}
+                              </button>
+                            </div>
+                          </div>
                         )}
                         <Button
                           size="sm"

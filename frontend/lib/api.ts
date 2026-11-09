@@ -3074,3 +3074,32 @@ export async function getERPStatus(token?: string): Promise<ERPStatus> {
   if (!res.ok) throw new Error("Failed to load ERP status");
   return res.json();
 }
+
+
+// --- PayPal Webhook & Live Audit Types ---
+export interface PayPalWebhookRecord {
+  id: number;
+  event_id: string;
+  event_type: string;
+  resource_id: string;
+  signature_verified: boolean;
+  status: string;
+  payload_summary: Record<string, any>;
+  received_at: string | null;
+  processed_at: string | null;
+}
+
+export async function getPayPalWebhooks(limit = 20): Promise<PayPalWebhookRecord[]> {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/api/paypal/webhooks?limit=${limit}`, { cache: "no-store" });
+  if (!res.ok) return [];
+  return res.json().catch(() => []);
+}
+
+export async function triggerSimulatedWebhook(eventType = "PAYMENT.AUTHORIZATION.CREATED", orderId?: string): Promise<any> {
+  const base = getApiBaseUrl();
+  const url = `${base}/api/paypal/webhook/simulate-test?event_type=${encodeURIComponent(eventType)}${orderId ? `&order_id=${encodeURIComponent(orderId)}` : ""}`;
+  const res = await fetch(url, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to trigger test webhook");
+  return res.json();
+}
