@@ -48,13 +48,14 @@ app = FastAPI(title="KinetixRAG Operator Console API")
 
 
 def cors_origins() -> list[str]:
-    configured = os.environ.get(
-        "BACKEND_CORS_ORIGINS",
-        "*",
-    )
+    configured = os.environ.get("BACKEND_CORS_ORIGINS") or os.environ.get("FRONTEND_URL") or "*"
     if not configured or configured.strip() == "*":
         return ["*"]
-    return [origin.strip().rstrip("/") for origin in configured.split(",") if origin.strip()]
+    origins = [origin.strip().rstrip("/") for origin in configured.split(",") if origin.strip()]
+    for default_origin in ("https://paypal-pink.vercel.app", "http://localhost:3000", "http://localhost:3001"):
+        if default_origin not in origins:
+            origins.append(default_origin)
+    return origins
 
 # ponytail: wide-open localhost dev origins, no auth — matches the project's
 # standing "no auth/permissions" ground rule and this being a local demo app,

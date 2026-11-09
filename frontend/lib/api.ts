@@ -5,14 +5,19 @@ import { getChatIdentity } from "@/lib/session";
 import type { PredictiveNotification } from "@/lib/notifications";
 
 export function getApiBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes("backend:8000")) {
-    return process.env.NEXT_PUBLIC_API_URL;
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (envUrl && !envUrl.includes("backend:8000")) {
+    return envUrl.replace(/\/+$/, "");
   }
   if (typeof window !== "undefined") {
     const { protocol, hostname } = window.location;
+    // Route to live Render backend when deployed on Vercel or any non-localhost domain
+    if (hostname.includes("vercel.app") || hostname.includes("paypal-pink") || (hostname !== "localhost" && hostname !== "127.0.0.1")) {
+      return "https://paypal-y2jk.onrender.com";
+    }
     return `${protocol}//${hostname}:8000`;
   }
-  return "http://localhost:8000";
+  return "https://paypal-y2jk.onrender.com";
 }
 
 const API_URL = getApiBaseUrl();
@@ -28,7 +33,8 @@ export interface ReadinessResponse {
 }
 
 export async function getReadiness(): Promise<ReadinessResponse> {
-  const res = await fetch(`${API_URL}/api/health/ready`, { cache: "no-store" });
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/api/health/ready`, { cache: "no-store" });
   const body = await res.json().catch(() => null);
   if (body && typeof body.ready === "boolean") return body;
   throw new Error("Backend readiness is unavailable.");
