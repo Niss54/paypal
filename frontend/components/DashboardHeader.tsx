@@ -42,7 +42,7 @@ export default function DashboardHeader({
         <NotificationCenter />
         <Badge variant="outline" className="hidden lg:inline-flex text-[11px] font-mono border-amber-500/40 text-amber-500 bg-amber-500/10">
           <ZapIcon data-icon="inline-start" className="size-3 fill-amber-500 mr-1" />
-          Machine Money Active
+          Agentic Commerce Active
         </Badge>
         <Badge variant="outline" className="hidden sm:inline-flex">
           <FlaskConicalIcon data-icon="inline-start" />

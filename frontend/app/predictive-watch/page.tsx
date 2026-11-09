@@ -23,7 +23,7 @@ export default function PredictiveWatchPage() {
             </Badge>
           </div>
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            Stream empirical sensor telemetry (including NASA IMS bearing test rig) and evaluate ISO 10816 Zone C failure thresholds that trigger autonomous Lightning settlements.
+            Stream empirical sensor telemetry (including NASA IMS bearing test rig) and evaluate ISO 10816 Zone C failure thresholds that trigger autonomous PayPal Two-Phase settlements.
           </p>
         </section>
 
@@ -41,15 +41,15 @@ export default function PredictiveWatchPage() {
                 </Badge>
               </span>
               <p className="text-muted-foreground text-[11px] mt-0.5 leading-relaxed">
-                A PLC threshold only detects physical symptoms (5.42 mm/s vibration); GraphRAG justifies financial expenditures by verifying active OEM warranty, historical work orders (WO-1002), and plant SOPs before releasing autonomous Lightning satoshis.
+                A PLC threshold only detects physical symptoms (5.42 mm/s vibration); GraphRAG justifies financial expenditures by verifying active OEM warranty, historical work orders (WO-1002), and plant SOPs before authorizing autonomous PayPal escrow funds.
               </p>
             </div>
           </div>
           <Link
-            href="/machine-money"
+            href="/procurement"
             className="inline-flex items-center gap-1.5 text-[11px] font-medium text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 px-3 py-1.5 rounded-lg border border-purple-500/30 shrink-0 transition-colors"
           >
-            <span>View Machine Money Settlement</span>
+            <span>View PayPal Procurement Settlement</span>
             <ArrowRightIcon className="size-3" />
           </Link>
         </div>

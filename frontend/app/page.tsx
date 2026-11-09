@@ -12,7 +12,6 @@ import {
   SparklesIcon,
   WorkflowIcon,
   ZapIcon,
-  CheckCircle2Icon,
   LockIcon,
   ScaleIcon,
 } from "lucide-react";
@@ -215,10 +214,6 @@ export default function CommandCenterPage() {
               ))}
             </div>
 
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-2.5 flex items-center gap-2 text-xs text-emerald-400">
-              <CheckCircle2Icon className="size-4 shrink-0 text-emerald-400" />
-              <span><strong>385 Backend Tests & 65 Frontend Tests</strong> passing 100% green against live sandbox APIs.</span>
-            </div>
           </div>
         </div>
       </section>
@@ -400,7 +395,7 @@ export default function CommandCenterPage() {
         <div className="flex items-center gap-2">
           <ZapIcon className="size-4 text-amber-500 shrink-0" />
           <span>
-            <strong>Modular Multi-Rail Architecture:</strong> In addition to PayPal Orders v2, KinetixRAG supports micro-settlement adapters (such as Bitcoin Lightning NWC / BOLT-11) for specialized edge machines.
+            <strong>Modular Multi-Rail Architecture:</strong> KinetixRAG specializes in enterprise PayPal Orders v2 two-phase authorized hold settlement with deterministic evidence gating and multi-rail adapters for specialized machinery.
           </span>
         </div>
         <Button size="sm" variant="ghost" className="text-xs shrink-0 text-amber-500 hover:text-amber-400" nativeButton={false} render={<Link href="/machine-money" />}>
