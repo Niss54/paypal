@@ -96,6 +96,11 @@ const enterprisePillars = [
     detail: "Enterprises cannot hold volatile crypto on balance sheets. PayPal guarantees USD fiat stability, SAP ERP GL reconciliation, and commercial dispute protection.",
     badge: "Enterprise Ready",
   },
+  {
+    title: "Deterministic Spending Mandates (< $1,000 Cap)",
+    detail: "Autonomous sub-$1,000 parts dispatch clears without human lag, while high-value overhauls automatically enforce Supervisor Dual-Control (SUP-09).",
+    badge: "Policy Engine",
+  },
 ];
 
 export default function CommandCenterPage() {
@@ -185,20 +190,20 @@ export default function CommandCenterPage() {
           </div>
 
           {/* Side Thesis Card: Why PayPal Wins Over Crypto */}
-          <div className="flex flex-col justify-between gap-6 border-t bg-muted/20 p-6 lg:border-t-0 lg:border-l lg:p-8">
+          <div className="flex flex-col justify-start gap-4 border-t bg-muted/20 p-6 lg:border-t-0 lg:border-l lg:p-7">
             <div>
               <div className="text-xs font-semibold tracking-wider text-[#0079C1] dark:text-cyan-400 uppercase flex items-center gap-1.5 font-mono">
                 <ScaleIcon className="size-3.5" />
                 The Agentic Commerce Thesis
               </div>
-              <p className="mt-3 font-heading text-base font-semibold leading-6 text-foreground">
+              <p className="mt-2 font-heading text-base font-semibold leading-snug text-foreground">
                 Why Enterprise AI Requires PayPal Orders v2 Rather Than Crypto Smart Contracts
               </p>
             </div>
 
-            <div className="grid gap-3 font-mono text-xs">
+            <div className="grid gap-2.5 font-mono text-xs">
               {enterprisePillars.map((p) => (
-                <div key={p.title} className="rounded-xl border border-[#003087]/30 bg-[#003087]/5 p-3.5 space-y-1">
+                <div key={p.title} className="rounded-xl border border-[#003087]/30 bg-[#003087]/5 p-3 space-y-1 hover:border-[#003087]/50 transition-colors">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] text-blue-400 font-bold uppercase tracking-wider">
                       {p.title}
@@ -212,6 +217,37 @@ export default function CommandCenterPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Live Enterprise Guardrails Matrix */}
+            <div className="rounded-xl border border-[#003087]/40 bg-[#003087]/10 p-3 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-mono">
+                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] text-cyan-400">
+                  <ShieldCheckIcon className="size-3.5 text-cyan-400" />
+                  Autonomous Safety Guardrails
+                </span>
+                <Badge variant="outline" className="text-[9px] border-cyan-500/40 text-cyan-300 bg-cyan-950/40">
+                  Live Active
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
+                  <span className="text-muted-foreground block text-[9px] uppercase">Settlement Rail</span>
+                  <span className="text-foreground font-semibold">PayPal Orders v2</span>
+                </div>
+                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
+                  <span className="text-muted-foreground block text-[9px] uppercase">Spending Mandate</span>
+                  <span className="text-emerald-400 font-semibold">&lt; $1,000 Cap</span>
+                </div>
+                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
+                  <span className="text-muted-foreground block text-[9px] uppercase">Evidence Gate</span>
+                  <span className="text-cyan-400 font-semibold">ISO 10816 &lt; 4.5 mm/s</span>
+                </div>
+                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
+                  <span className="text-muted-foreground block text-[9px] uppercase">Persistence</span>
+                  <span className="text-purple-400 font-semibold">Neon DB &amp; Neo4j</span>
+                </div>
+              </div>
             </div>
 
           </div>
