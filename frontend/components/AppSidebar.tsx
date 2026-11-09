@@ -173,24 +173,24 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
             }
           />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <div className="text-xs font-medium">
+            <div className="text-xs font-medium truncate">
               {readiness === null
                 ? "Checking systems"
                 : readiness.ready
                   ? "Systems operational"
                   : "Systems degraded"}
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-muted-foreground truncate">
               {readiness?.ready ? "Dependencies ready" : "Open health status for details"}
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-[10px] text-muted-foreground/80 group-data-[collapsible=icon]:hidden font-mono border-t border-border/40">
-          <div className="flex items-center gap-1.5">
-            <img src="/kr.png" alt="KR" className="size-3.5 object-contain" />
-            <span>KinetixRAG</span>
+        <div className="flex items-center justify-between px-2.5 pt-2 pb-1 text-[10px] text-muted-foreground/80 group-data-[collapsible=icon]:hidden font-mono border-t border-border/40 overflow-hidden">
+          <div className="flex items-center gap-1.5 min-w-0 truncate">
+            <img src="/kr.png" alt="KR" className="size-3.5 shrink-0 object-contain" />
+            <span className="truncate">KinetixRAG</span>
           </div>
-          <span className="text-[#0079C1] dark:text-cyan-400 font-bold">PayPal AI 2026</span>
+          <span className="text-[#0079C1] dark:text-cyan-400 font-bold shrink-0">PayPal AI 2026</span>
         </div>
       </SidebarFooter>
       <SidebarRail />
