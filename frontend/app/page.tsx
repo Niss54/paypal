@@ -82,24 +82,22 @@ const workflow = [
 
 const enterprisePillars = [
   {
-    title: "29-Day Authorized Hold (Zero Upfront Loss)",
+    title: "29-Day Authorized Hold",
+    badge: "Zero Upfront Loss",
     detail: "Blockchains force immediate irrevocable settlement. PayPal Orders v2 holds buyer funds safely in authorized status for up to 29 days without capital lockup.",
-    badge: "PayPal Orders v2",
+    invariant: "Intent: AUTHORIZE · 29-Day Protection",
   },
   {
-    title: "Physical Evidence Gate (HTTP 403 Block)",
-    detail: "Non-negotiable server invariant (NO_EVIDENCE_NO_CAPTURE) strictly rejects capture requests until post-repair vibration drops below the ISO 4.5 mm/s threshold.",
-    badge: "Safety Invariant",
+    title: "Physical Evidence Gate",
+    badge: "HTTP 403 Block",
+    detail: "Non-negotiable server invariant (NO_EVIDENCE_NO_CAPTURE) strictly rejects capture requests until post-repair vibration drops below ISO 4.5 mm/s limit.",
+    invariant: "ISO 10816 Zone C/D Gated Barrier",
   },
   {
-    title: "Enterprise GAAP & Dispute Arbitration",
-    detail: "Enterprises cannot hold volatile crypto on balance sheets. PayPal guarantees USD fiat stability, SAP ERP GL reconciliation, and commercial dispute protection.",
+    title: "Enterprise GAAP & Dispute Protection",
     badge: "Enterprise Ready",
-  },
-  {
-    title: "Deterministic Spending Mandates (< $1,000 Cap)",
-    detail: "Autonomous sub-$1,000 parts dispatch clears without human lag, while high-value overhauls automatically enforce Supervisor Dual-Control (SUP-09).",
-    badge: "Policy Engine",
+    detail: "Enterprises cannot hold volatile crypto on balance sheets. PayPal guarantees USD fiat stability, SAP ERP GL reconciliation, and commercial dispute arbitration.",
+    invariant: "SAP GL-6410 Automated Matching",
   },
 ];
 
@@ -108,7 +106,7 @@ export default function CommandCenterPage() {
     <div className="dashboard-enter mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-6">
       {/* Flagship Hero Section */}
       <section className="overflow-hidden rounded-2xl bg-card shadow-xs ring-1 ring-foreground/10 border border-[#003087]/30">
-        <div className="grid lg:grid-cols-[minmax(0,1.25fr)_minmax(380px,0.75fr)]">
+        <div className="grid lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
           <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
             <div className="flex items-center gap-3.5 mb-2">
               <img src="/kr.png" alt="KinetixRAG Logo" className="size-12 rounded-xl object-contain drop-shadow bg-background/50 border border-cyan-500/40 p-1 shrink-0" />
@@ -190,66 +188,57 @@ export default function CommandCenterPage() {
           </div>
 
           {/* Side Thesis Card: Why PayPal Wins Over Crypto */}
-          <div className="flex flex-col justify-start gap-4 border-t bg-muted/20 p-6 lg:border-t-0 lg:border-l lg:p-7">
-            <div>
+          <div className="flex flex-col justify-between gap-5 border-t bg-muted/20 p-6 sm:p-7 lg:border-t-0 lg:border-l border-[#003087]/25 lg:p-8">
+            <div className="space-y-2">
               <div className="text-xs font-semibold tracking-wider text-[#0079C1] dark:text-cyan-400 uppercase flex items-center gap-1.5 font-mono">
-                <ScaleIcon className="size-3.5" />
+                <ScaleIcon className="size-3.5 text-cyan-400" />
                 The Agentic Commerce Thesis
               </div>
-              <p className="mt-2 font-heading text-base font-semibold leading-snug text-foreground">
+              <h3 className="font-heading text-lg font-bold leading-snug text-foreground">
                 Why Enterprise AI Requires PayPal Orders v2 Rather Than Crypto Smart Contracts
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed font-sans">
+                Industrial machinery requires legally binding dispute protection, fiat balance sheet stability, and physical sensor evidence before irrevocable fund capture.
               </p>
             </div>
 
-            <div className="grid gap-2.5 font-mono text-xs">
+            {/* 3 Flagship Pillars with Fixed Badge Height & Clear Hierarchy */}
+            <div className="flex flex-col gap-3.5">
               {enterprisePillars.map((p) => (
-                <div key={p.title} className="rounded-xl border border-[#003087]/30 bg-[#003087]/5 p-3 space-y-1 hover:border-[#003087]/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-blue-400 font-bold uppercase tracking-wider">
+                <div
+                  key={p.title}
+                  className="rounded-xl border border-[#003087]/35 bg-[#003087]/10 hover:bg-[#003087]/15 p-4 space-y-2 transition-colors shadow-xs"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs font-bold font-mono tracking-tight text-blue-400 uppercase">
                       {p.title}
                     </span>
-                    <Badge variant="outline" className="text-[9px] border-blue-500/30 text-blue-300">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] h-5 px-2.5 py-0 inline-flex items-center justify-center shrink-0 font-mono font-semibold border-blue-400/50 text-blue-300 bg-blue-950/50 rounded-md"
+                    >
                       {p.badge}
                     </Badge>
                   </div>
-                  <div className="text-muted-foreground text-[11px] leading-snug font-sans">
+                  <p className="text-muted-foreground text-xs leading-relaxed font-sans">
                     {p.detail}
+                  </p>
+                  <div className="pt-1 flex items-center gap-1.5 text-[10px] font-mono text-cyan-400 font-medium">
+                    <span className="size-1.5 rounded-full bg-cyan-400 inline-block" />
+                    <span>{p.invariant}</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Live Enterprise Guardrails Matrix */}
-            <div className="rounded-xl border border-[#003087]/40 bg-[#003087]/10 p-3 space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-mono">
-                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px] text-cyan-400">
-                  <ShieldCheckIcon className="size-3.5 text-cyan-400" />
-                  Autonomous Safety Guardrails
-                </span>
-                <Badge variant="outline" className="text-[9px] border-cyan-500/40 text-cyan-300 bg-cyan-950/40">
-                  Live Active
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
-                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
-                  <span className="text-muted-foreground block text-[9px] uppercase">Settlement Rail</span>
-                  <span className="text-foreground font-semibold">PayPal Orders v2</span>
-                </div>
-                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
-                  <span className="text-muted-foreground block text-[9px] uppercase">Spending Mandate</span>
-                  <span className="text-emerald-400 font-semibold">&lt; $1,000 Cap</span>
-                </div>
-                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
-                  <span className="text-muted-foreground block text-[9px] uppercase">Evidence Gate</span>
-                  <span className="text-cyan-400 font-semibold">ISO 10816 &lt; 4.5 mm/s</span>
-                </div>
-                <div className="rounded-lg bg-background/60 p-2 border border-border/40">
-                  <span className="text-muted-foreground block text-[9px] uppercase">Persistence</span>
-                  <span className="text-purple-400 font-semibold">Neon DB &amp; Neo4j</span>
-                </div>
-              </div>
+            {/* Grounding Footer: Invariant Assurance */}
+            <div className="pt-3 border-t border-border/40 flex items-center justify-between text-xs font-mono">
+              <span className="flex items-center gap-1.5 text-muted-foreground text-[11px]">
+                <ShieldCheckIcon className="size-3.5 text-emerald-400" />
+                <span>Dual-Phase Settlement Protocol</span>
+              </span>
+              <span className="text-emerald-400 font-bold text-[11px]">100% Invariant</span>
             </div>
-
           </div>
         </div>
       </section>
