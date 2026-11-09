@@ -594,21 +594,21 @@ export default function ProcurementPage() {
   const selectedQuote = quotes.find((q) => q.quote_id === selectedQuoteId) || quotes[0] || fallbackQuote;
 
   return (
-    <div className="flex-1 space-y-6 p-4 sm:p-6 max-w-6xl mx-auto">
+    <div className="dashboard-enter mx-auto flex w-full max-w-[1500px] flex-col gap-6 p-4 sm:p-6">
       {/* Top Header Banner & Persona Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/50 pb-5">
         <div className="flex items-start gap-3.5">
           <img src="/kr.png" alt="KinetixRAG Logo" className="size-11 rounded-xl object-contain drop-shadow bg-background/50 border border-cyan-500/40 p-1 shrink-0 mt-0.5" />
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-[#003087] hover:bg-[#00256c] text-white border-0 gap-1.5 px-2.5 py-1 text-xs">
+              <Badge className="bg-[#003087] hover:bg-[#00256c] text-white border-0 gap-1.5 px-2.5 py-1 text-xs font-mono">
                 <CreditCardIcon className="w-3.5 h-3.5 text-[#0079C1]" /> PayPal Orders v2
               </Badge>
-              <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-xs">
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-950/20 text-xs font-mono">
                 Sandbox Live
               </Badge>
               <Badge variant="outline" className="border-amber-500/40 text-amber-400 bg-amber-500/10 text-xs font-mono">
-                "No Evidence, No Capture"
+                &ldquo;No Evidence, No Capture&rdquo;
               </Badge>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-2">
@@ -622,14 +622,14 @@ export default function ProcurementPage() {
 
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 shrink-0">
           {/* Persona Switcher Pill */}
-          <div className="flex items-center gap-1.5 p-1 rounded-lg bg-card/80 border border-border/60 text-xs">
+          <div className="flex items-center gap-1.5 p-1 rounded-lg bg-card border border-border/60 text-xs shadow-xs">
             <span className="text-[10px] uppercase font-mono text-muted-foreground px-1.5">Persona:</span>
             <Button
               size="sm"
               variant={persona === "procurement-agent" ? "default" : "ghost"}
               onClick={() => handleSwitchPersona("procurement-agent")}
               disabled={loading || autoRunning}
-              className={`h-7 px-2.5 text-xs ${persona === "procurement-agent" ? "bg-blue-600 text-white font-medium" : "text-muted-foreground"}`}
+              className={`h-7 px-2.5 text-xs ${persona === "procurement-agent" ? "bg-[#003087] text-white font-medium shadow-xs" : "text-muted-foreground"}`}
             >
               <UserIcon className="w-3 h-3 mr-1" /> Requester Agent
             </Button>
@@ -638,7 +638,7 @@ export default function ProcurementPage() {
               variant={persona === "supervisor" ? "default" : "ghost"}
               onClick={() => handleSwitchPersona("supervisor")}
               disabled={loading || autoRunning}
-              className={`h-7 px-2.5 text-xs ${persona === "supervisor" ? "bg-emerald-600 text-white font-medium" : "text-muted-foreground"}`}
+              className={`h-7 px-2.5 text-xs ${persona === "supervisor" ? "bg-emerald-600 text-white font-medium shadow-xs" : "text-muted-foreground"}`}
             >
               <ShieldCheckIcon className="w-3 h-3 mr-1" /> Supervisor (SUP-09)
             </Button>
@@ -648,12 +648,12 @@ export default function ProcurementPage() {
             <Button
               onClick={handleRunAutoDemo}
               disabled={autoRunning || loading}
-              className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm font-medium"
+              className="gap-2 bg-[#003087] hover:bg-[#00256c] text-white shadow-lg shadow-blue-500/25 border-0 font-bold"
             >
-              <PlayCircleIcon className="w-4 h-4" />
+              <PlayCircleIcon className="w-4 h-4 text-cyan-400" />
               {autoRunning ? "Running Demo..." : "1-Click Auto Demo"}
             </Button>
-            <Button variant="outline" size="sm" onClick={handleReset} disabled={autoRunning} className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={handleReset} disabled={autoRunning} className="gap-1.5 border-border/60 hover:bg-card">
               <RotateCcwIcon className="w-3.5 h-3.5" /> Reset
             </Button>
           </div>
@@ -755,15 +755,15 @@ export default function ProcurementPage() {
               onClick={() => setActiveStep(s.step as any)}
               className={`p-3.5 rounded-xl text-left border transition-all ${
                 isActive
-                  ? "border-blue-500/60 bg-blue-500/10 text-foreground ring-1 ring-blue-500/40 shadow-sm"
+                  ? "border-[#003087]/70 bg-[#003087]/20 text-foreground ring-1 ring-cyan-500/30 shadow-xs"
                   : isDone
-                  ? "border-emerald-500/30 bg-emerald-500/5 text-muted-foreground hover:bg-emerald-500/10"
-                  : "border-border/40 bg-card/40 text-muted-foreground hover:bg-card/70"
+                  ? "border-emerald-500/30 bg-emerald-950/20 text-muted-foreground hover:bg-emerald-950/30"
+                  : "border-border/60 bg-card hover:bg-card/90 text-muted-foreground"
               }`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <s.icon className={`w-4 h-4 ${isActive ? "text-blue-400" : isDone ? "text-emerald-400" : "text-muted-foreground"}`} />
+                  <s.icon className={`w-4 h-4 ${isActive ? "text-cyan-400" : isDone ? "text-emerald-400" : "text-muted-foreground"}`} />
                   <span className="text-xs font-semibold">{s.title}</span>
                 </div>
                 {isDone && <CheckCircle2Icon className="w-4 h-4 text-emerald-400" />}

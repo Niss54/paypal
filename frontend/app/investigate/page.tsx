@@ -104,13 +104,21 @@ export default function InvestigatePage() {
 
   return (
     <div className="dashboard-enter mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 sm:p-6">
-        <section className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">GraphRAG Evidence Justification</h1>
-            <Badge variant="outline" className="text-xs font-mono border-primary/40 text-primary">
+        <section className="flex flex-col gap-2 border-b border-border/50 pb-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="bg-[#003087] hover:bg-[#00256c] text-white border-0 text-xs font-mono">
+              PayPal AI 2026
+            </Badge>
+            <Badge variant="outline" className="text-xs font-mono border-cyan-500/40 text-cyan-400 bg-cyan-950/20">
+              Deterministic GraphRAG
+            </Badge>
+            <Badge variant="outline" className="text-xs font-mono border-amber-500/40 text-amber-500 bg-amber-500/10">
               Audit & Reasoning Engine
             </Badge>
           </div>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
+            GraphRAG Evidence Justification
+          </h1>
           <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
             Deterministic multi-agent reasoning, SOP validation, and citation graph trails that mathematically justify autonomous machine payments and maintenance interventions.
           </p>

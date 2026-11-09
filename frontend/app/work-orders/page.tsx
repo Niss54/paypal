@@ -73,14 +73,22 @@ export default function WorkOrdersPage() {
 
   return (
     <div className="dashboard-enter mx-auto flex w-full max-w-[1600px] flex-col gap-5 p-4 sm:p-6">
-        <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-border/50 pb-5">
           <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <h1 className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">Funded Work-Order Ledger</h1>
-              <Badge variant="outline" className="text-xs font-mono border-amber-500/40 text-amber-500">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-[#003087] hover:bg-[#00256c] text-white border-0 text-xs font-mono">
+                PayPal AI 2026
+              </Badge>
+              <Badge variant="outline" className="text-xs font-mono border-amber-500/40 text-amber-500 bg-amber-500/10">
                 Cryptographically Bound
               </Badge>
+              <Badge variant="outline" className="text-xs font-mono border-cyan-500/40 text-cyan-400 bg-cyan-950/20">
+                Neo4j Operational Ledger
+              </Badge>
             </div>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
+              Funded Work-Order Ledger
+            </h1>
             <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
               Inspect machine-funded work orders, vendor assignments, and cryptographic payment preimages recorded in the Neo4j operational graph.
             </p>
