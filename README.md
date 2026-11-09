@@ -45,11 +45,19 @@
 > 4. An $O(\log_2 N)$ **Binary Merkle Tree** seals the cryptographic audit lineage from raw sensor anomaly to the final PayPal Capture ID.
 
 ### 📌 Direct Quick Links for Evaluators
+* 🌐 **Live Production Web Application**: **[`https://paypal-pink.vercel.app`](https://paypal-pink.vercel.app)**
+* ⚡ **Hero Procurement Cockpit**: **[`https://paypal-pink.vercel.app/procurement`](https://paypal-pink.vercel.app/procurement)**
+* 🚀 **Cloud REST API & Interactive Docs**: **[`https://paypal-y2jk.onrender.com/docs`](https://paypal-y2jk.onrender.com/docs)**
 * ⚡ **3-Minute Judge Evaluation Guide**: **[JUDGE_README.md](./JUDGE_README.md)**
 * 📜 **Consolidated Master PRD & Engineering Blueprint**: **[`docs/KINETIXRAG_PAYPAL_HACKATHON_MASTER_PRD_V2.md`](./docs/KINETIXRAG_PAYPAL_HACKATHON_MASTER_PRD_V2.md)**
-* 🌐 **Live Interactive Procurement Cockpit**: [`http://localhost:3000/procurement`](http://localhost:3000/procurement)
 * 🩺 **1-Command Pre-Flight Verification Script**: `python scripts/verify_sandbox.py` (7/7 Passes Verified)
 * 🧪 **Adversarial Judge Scenarios (32 Passing)**: `pytest tests/test_adversarial_judge_scenarios.py -v`
+
+### 💳 PayPal Sandbox Test Account for Judges
+* **Sandbox Business / Merchant Email**: `sb-wezex53719890@business.example.com`
+* **Sandbox Password**: `a+)n46B6`
+* **Registered Webhook ID**: `6AC51894PA229561H` (`All Events` active on `https://paypal-y2jk.onrender.com/api/paypal/webhook`)
+* **PayPal Client ID**: `ARTsQeQHa0ZxGBlWqNKjSODYXx2WimKMa1jJE43GAJO6LAnMgvWy8pXizVpCxIYDEU-71olEM9l16AC9`
 
 ---
 

@@ -169,7 +169,9 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                 ? "size-2 shrink-0 rounded-full bg-success shadow-[0_0_0_3px_color-mix(in_oklch,var(--success)_14%,transparent)]"
                 : readiness === null
                   ? "size-2 shrink-0 rounded-full bg-warning"
-                  : "size-2 shrink-0 rounded-full bg-destructive"
+                  : readiness?.dependencies?.backend?.status === "down"
+                    ? "size-2 shrink-0 rounded-full bg-amber-400 animate-pulse"
+                    : "size-2 shrink-0 rounded-full bg-destructive"
             }
           />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
@@ -178,10 +180,16 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
                 ? "Checking systems"
                 : readiness.ready
                   ? "Systems operational"
-                  : "Systems degraded"}
+                  : readiness?.dependencies?.backend?.status === "down"
+                    ? "Waking cloud backend..."
+                    : "Systems degraded"}
             </div>
             <div className="text-xs text-muted-foreground truncate">
-              {readiness?.ready ? "Dependencies ready" : "Open health status for details"}
+              {readiness?.ready
+                ? "Dependencies ready"
+                : readiness?.dependencies?.backend?.status === "down"
+                  ? "Render spin-up active (~30s)"
+                  : "Open health status for details"}
             </div>
           </div>
         </div>

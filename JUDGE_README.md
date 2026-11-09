@@ -15,15 +15,13 @@
 
 
 > **Project Identity:** KinetixRAG — Evidence-Gated Industrial Procurement  
-
 > **Target Track:** Best Use of Agentic Commerce ($5,000 Special Prize) & Grand Prize  
-
 > **Evaluation Duration:** 3 Minutes  
-
 > **Signature Innovation:** **"No Evidence, No Capture"** via PayPal Orders v2 Two-Phase Settlement  
-
-> **Interactive Live Route:** `/procurement` (`http://localhost:3000/procurement`)  
-
+> **🌐 Production Live Route:** [https://paypal-pink.vercel.app/procurement](https://paypal-pink.vercel.app/procurement) *(Hero Demo Cockpit)*  
+> **🚀 Cloud REST API Docs:** [https://paypal-y2jk.onrender.com/docs](https://paypal-y2jk.onrender.com/docs) *(FastAPI OpenAPI Swagger)*  
+> **💳 Sandbox Test Login:** Email `sb-wezex53719890@business.example.com` | Pass `a+)n46B6`  
+> **🔔 Registered Webhook ID:** `6AC51894PA229561H` *(Active on `https://paypal-y2jk.onrender.com/api/paypal/webhook`)*  
 > **Automated Test Suite:** 100% pass rate: 526 automated tests (456 backend + 70 frontend) passing with zero errors + Next.js 16 production build passing with 0 errors across all 15 routes.
 
 
@@ -66,7 +64,7 @@ In industrial manufacturing, AI agents that automatically purchase replacement s
 
 ### Step 1: Open the Evidence-Gated Procurement Console
 
-Navigate to **`/procurement`** in the application UI (or run locally: `cd frontend && npm run dev` ➔ `http://localhost:3000/procurement`).
+Navigate directly to the live deployed cockpit: **[`https://paypal-pink.vercel.app/procurement`](https://paypal-pink.vercel.app/procurement)** (or local: `http://localhost:3000/procurement`).
 
 *(Tip: You can use the **1-Click Auto Demo** button in the header for an instant 10-second guided simulation walkthrough, or follow the step-by-step interactive mode below.)*
 

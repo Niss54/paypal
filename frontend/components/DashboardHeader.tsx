@@ -61,6 +61,11 @@ export default function DashboardHeader({
             <CircleCheckIcon data-icon="inline-start" />
             Operational
           </Badge>
+        ) : readiness?.dependencies?.backend?.status === "down" ? (
+          <Badge variant="warning" className="border-amber-500/40 text-amber-400 bg-amber-500/10 gap-1.5 font-mono text-[11px]" title="Render Cloud backend is spinning up from inactivity (~30s). Reconnecting automatically...">
+            <LoaderCircleIcon className="size-3 animate-spin text-amber-400" />
+            Waking Backend (~30s)
+          </Badge>
         ) : (
           <Badge variant="destructive" title="One or more backend dependencies are unavailable.">
             <CircleAlertIcon data-icon="inline-start" />
