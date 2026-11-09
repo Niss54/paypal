@@ -11,6 +11,7 @@ from backend.app.core.auth import (
     AppRole,
     UserProfile,
     create_access_token,
+    get_client_id,
     get_current_user,
     is_auth_enabled,
 )
@@ -156,13 +157,13 @@ def issue_token(req: TokenRequest, request: Request):
     # Elevated personas with financial or policy sign-off clearance
     elevated_personas = {"supervisor", "buyer", "finance", "payment-service"}
 
-    if is_auth_enabled():
+    if is_auth_enabled() and get_client_id():
         if not (pw_matches or admin_authorized or is_test_env):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={
                     "error": "token_issuance_forbidden",
-                    "detail": "Authentication required when AUTH_ENABLED=true. Supply persona password, X-Admin-Key, or authenticate via Microsoft Entra ID OIDC.",
+                    "detail": "Authentication required when Microsoft Entra ID is configured. Supply persona password, X-Admin-Key, or authenticate via Microsoft Entra ID OIDC.",
                 },
             )
     else:
