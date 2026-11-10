@@ -12,7 +12,11 @@ RUN python -m pip install --no-cache-dir --upgrade pip \
     && python -m pip install --no-cache-dir "pyjwt>=2.8.0" "cryptography>=42.0.0" "psycopg2-binary>=2.9.9"
 
 ENV HF_HOME=/root/.cache/huggingface
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+RUN python -c "try:
+    from sentence_transformers import SentenceTransformer
+    SentenceTransformer('all-MiniLM-L6-v2')
+except Exception as e:
+    print('Warning: local model prewarm skipped (remote embeddings will be used):', e)" || true
 
 
 FROM python:3.12-slim-bookworm AS runtime

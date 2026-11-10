@@ -924,8 +924,14 @@ export default function ProcurementPage() {
         </Alert>
       )}
 
+      {/* Mobile Viewport Orientation Note */}
+      <div className="md:hidden bg-muted/30 border border-border/40 rounded-lg p-2.5 text-xs text-muted-foreground flex items-center gap-2">
+        <span className="text-cyan-400 shrink-0">🖥️</span>
+        <span>Industrial SCADA Cockpit: Recommended for desktop widescreen (1080p+).</span>
+      </div>
+
       {/* 3-Step Navigation Tabs */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {[
           {
             step: 1,
