@@ -7,7 +7,7 @@ import AppSidebar from "@/components/AppSidebar";
 import DashboardHeader from "@/components/DashboardHeader";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { getReadiness, type ReadinessResponse } from "@/lib/api";
+import { getReadiness, getApiBaseUrl, type ReadinessResponse } from "@/lib/api";
 
 const routeTitles: Array<[prefix: string, title: string]> = [
   ["/work-orders/", "Work Order"],
@@ -74,7 +74,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {readiness?.dependencies?.backend?.status === "down" && (
           <div className="bg-amber-500/15 border-b border-amber-500/30 px-3 py-1 text-center text-xs text-amber-300 font-mono flex items-center justify-center gap-2 shrink-0">
             <span className="size-1.5 rounded-full bg-amber-400 animate-ping" />
-            <span>Connecting to Render Cloud Backend (https://paypal-y2jk.onrender.com). If inactive, cold spin-up takes ~30s. Auto-reconnecting...</span>
+            <span>Connecting to Cloud Backend ({getApiBaseUrl()}). If inactive, cold spin-up takes ~30s. Auto-reconnecting...</span>
           </div>
         )}
         <DashboardHeader title={getWorkspaceTitle(pathname)} readiness={readiness} />

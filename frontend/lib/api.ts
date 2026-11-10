@@ -4,7 +4,14 @@
 import { getChatIdentity } from "@/lib/session";
 import type { PredictiveNotification } from "@/lib/notifications";
 
+export const RENDER_FALLBACK_URL = "https://paypal-y2jk.onrender.com";
+
+let _activeApiUrl: string | null = null;
+
 export function getApiBaseUrl(): string {
+  if (_activeApiUrl) {
+    return _activeApiUrl;
+  }
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
   if (envUrl && !envUrl.includes("backend:8000")) {
     return envUrl.replace(/\/+$/, "");
@@ -13,17 +20,25 @@ export function getApiBaseUrl(): string {
     const { protocol, hostname } = window.location;
     // Route to live Render backend when deployed on Vercel or any non-localhost domain
     if (hostname.includes("vercel.app") || hostname.includes("paypal-pink") || (hostname !== "localhost" && hostname !== "127.0.0.1")) {
-      return "https://paypal-y2jk.onrender.com";
+      return RENDER_FALLBACK_URL;
     }
     return `${protocol}//${hostname}:8000`;
   }
-  return "https://paypal-y2jk.onrender.com";
+  return RENDER_FALLBACK_URL;
 }
 
-const API_URL = getApiBaseUrl();
+export function setActiveApiUrl(url: string) {
+  _activeApiUrl = url.replace(/\/+$/, "");
+}
+
+// Dynamic API_URL object: its toString() evaluates getApiBaseUrl() on the fly
+// so all 74 template literals `${API_URL}/api/...` adapt dynamically to failovers!
+const API_URL = {
+  toString: () => getApiBaseUrl(),
+};
 
 export function predictiveEventsUrl() {
-  return `${API_URL}/api/events/predictive`;
+  return `${getApiBaseUrl()}/api/events/predictive`;
 }
 
 export interface ReadinessResponse {
@@ -33,10 +48,44 @@ export interface ReadinessResponse {
 }
 
 export async function getReadiness(): Promise<ReadinessResponse> {
-  const base = getApiBaseUrl();
-  const res = await fetch(`${base}/api/health/ready`, { cache: "no-store" });
-  const body = await res.json().catch(() => null);
-  if (body && typeof body.ready === "boolean") return body;
+  const primary = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+  const fallback = RENDER_FALLBACK_URL;
+
+  // 1. If a primary URL is configured (e.g. Railway) and is different from Render fallback:
+  if (primary && primary !== fallback && !primary.includes("backend:8000")) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout for primary
+      const res = await fetch(`${primary}/api/health/ready`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        if (body && typeof body.ready === "boolean") {
+          setActiveApiUrl(primary);
+          return body;
+        }
+      }
+      console.warn(`Primary backend (${primary}) not healthy. Failing over to Render...`);
+    } catch (e) {
+      console.warn(`Primary backend (${primary}) unreachable. Failing over to Render...`, e);
+    }
+  }
+
+  // 2. Active or Fallback: Render Cloud Backend
+  try {
+    const res = await fetch(`${fallback}/api/health/ready`, { cache: "no-store" });
+    const body = await res.json().catch(() => null);
+    if (body && typeof body.ready === "boolean") {
+      setActiveApiUrl(fallback);
+      return body;
+    }
+  } catch (err) {
+    // Both failed or Render is cold waking
+  }
+
   throw new Error("Backend readiness is unavailable.");
 }
 
