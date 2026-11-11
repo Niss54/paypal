@@ -2,8 +2,8 @@
 """
 Pre-submission Secret and Credential Scanner for KinetixRAG.
 Verifies SEC-01 and Task 9.1:
-- Scans source code, config files, and tests for exposed production credentials.
-- Checks git status for any untracked or accidentally tracked .env files.
+- Scans tracked and non-ignored new files for likely exposed credentials.
+- This heuristic scan does not prove credentials were never published in history.
 """
 
 import os
@@ -20,8 +20,20 @@ PATTERNS = {
     "Hardcoded Admin Key Assignment": re.compile(r"(?i)(?:ADMIN_KEY|INVOICE_KEY|PRIVATE_KEY)\s*=\s*['\"][a-f0-9]{32,}['\"]"),
 }
 
+DOCUMENTED_PASSWORD = re.compile(
+    r"(?i)\b(?:sandbox\s+)?(?:account\s+|test\s+)?(?:password|passcode|credential)"
+    r"\s*(?:\*{1,2}|__)?\s*[:|](?!=)\s*(?:\*{1,2}|__)?\s*[`\"']?([^`\"'\s|<>\(\):,;]+)"
+)
+
+EXPOSED_CREDENTIAL_KEYWORDS = re.compile(
+    r"(?i)(?:btn-pwd|copy\s+pass|copyToClipboard\([^)]*pwd\)|a\+\)n46B6)"
+)
+
 EXCLUDE_DIRS = {
     ".git",
+    ".agents",
+    ".cursor",
+    ".vscode",
     "node_modules",
     ".venv",
     "__pycache__",
@@ -34,23 +46,25 @@ EXCLUDE_FILES = {
     "package-lock.json",
     ".env.example",
     ".env.machine-money.example",
+    "secret_scan.py",
 }
 
-def scan_repository():
+def scan_repository(root_dir=None):
     findings = []
-    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    root_dir = os.path.abspath(root_dir or os.path.join(os.path.dirname(__file__), ".."))
 
-    print(f"Scanning git-tracked files at: {root_dir}")
+    print(f"Scanning tracked and non-ignored new files at: {root_dir}")
 
     # 1. Get all git-tracked files (with unzipped archive fallback)
     try:
         git_tracked = subprocess.check_output(
-            ["git", "ls-files"], cwd=root_dir, text=True, stderr=subprocess.DEVNULL
-        ).splitlines()
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=root_dir, text=True, stderr=subprocess.DEVNULL
+        ).split("\0")
+        git_tracked = list(dict.fromkeys(path for path in git_tracked if path))
     except Exception:
         git_tracked = []
 
-    is_git_mode = bool(git_tracked)
     if not git_tracked:
         has_git_dir = os.path.exists(os.path.join(root_dir, ".git"))
         print("Note: git ls-files returned 0 files (e.g. unzipped submission archive). Scanning filesystem tree directly...")
@@ -65,12 +79,13 @@ def scan_repository():
 
     # Verify .env is NOT tracked
     for f in git_tracked:
-        if f == ".env" or f.endswith("/.env"):
+        basename = os.path.basename(f)
+        if (basename == ".env" or basename.startswith(".env.")) and not basename.endswith(".example"):
             findings.append({
                 "type": "TRACKED_ENV_FILE",
                 "file": f,
                 "line": 0,
-                "content": "CRITICAL: Production .env file is tracked in git!"
+                "content": "Environment credential file is tracked or included in submission"
             })
 
     # Verify .gitignore contains .env
@@ -89,7 +104,7 @@ def scan_repository():
     # 2. Scan content of all git-tracked files
     scanned_files = 0
     for relpath in git_tracked:
-        if any(relpath.startswith(ex) for ex in EXCLUDE_DIRS):
+        if any(part in EXCLUDE_DIRS for part in relpath.replace("\\", "/").split("/")):
             continue
         if os.path.basename(relpath) in EXCLUDE_FILES:
             continue
@@ -105,15 +120,41 @@ def scan_repository():
                     for label, pattern in PATTERNS.items():
                         match = pattern.search(line)
                         if match:
-                            snippet = line.strip()
-                            if "placeholder" in snippet.lower() or "example" in snippet.lower():
-                                continue
                             findings.append({
                                 "type": label,
                                 "file": relpath,
                                 "line": line_idx,
-                                "content": snippet[:100]
+                                "content": "Credential-like value detected (redacted)",
                             })
+                    if relpath.lower().endswith((".md", ".txt", ".ts", ".tsx", ".js", ".jsx", ".py", ".json", ".html")):
+                        if "test" not in relpath.lower() and "fixture" not in relpath.lower():
+                            documented = DOCUMENTED_PASSWORD.search(line)
+                            if documented:
+                                value = documented.group(1).strip().lower()
+                                placeholders = {
+                                    "example", "placeholder", "redacted", "unset", "none", "n/a", "***", "[redacted]",
+                                    "string", "str", "required", "true", "false", "null", "undefined", "type",
+                                    "demo_agent_password", "demo_supervisor_password", "demo_buyer_password",
+                                    "demo_tech_password", "demo_finance_password", "demo_auditor_password",
+                                    "demo_operator_password", "demo_payment_password", "private", "configured",
+                                    "operator-configured", "password", "hash", "digest", "salt", "optional[str]",
+                                    "field", "secret", "str]=field", "pass"
+                                }
+                                if value and value not in placeholders and not value.startswith(("your_", "${", "env.", "process.env", "os.environ", "get(", "optional")):
+                                    findings.append({
+                                        "type": "Documented Password",
+                                        "file": relpath,
+                                        "line": line_idx,
+                                        "content": "Password-like value published in repository file",
+                                    })
+                            kw_match = EXPOSED_CREDENTIAL_KEYWORDS.search(line)
+                            if kw_match:
+                                findings.append({
+                                    "type": "Exposed Credential UI Handler",
+                                    "file": relpath,
+                                    "line": line_idx,
+                                    "content": "Credential copy handler detected in source code",
+                                })
         except Exception:
             pass
 
@@ -128,5 +169,5 @@ if __name__ == "__main__":
             print(f" - [{finding['type']}] {finding['file']}:{finding['line']}: {finding['content']}")
         sys.exit(1)
     else:
-        print("\n[PASS] No exposed secrets or tracked credentials found! Clean scan.")
+        print("\n[PASS] No credential patterns found in scanned working files. Git history and credential rotation are NOT verified.")
         sys.exit(0)

@@ -34,10 +34,11 @@ coverage/
 *.macaroon
 
 
-# OS
+# OS / IDE
 .DS_Store
 Thumbs.db
 .claude/
+.vscode/
 
 # Data artifacts (raw synthetic docs are tracked; generated/derived outputs are not)
 data/**/*.tmp

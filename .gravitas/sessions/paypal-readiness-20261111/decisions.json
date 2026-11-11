@@ -1,0 +1,12 @@
+{
+  "planning": "deep",
+  "context_depth": "dependency",
+  "verification_depth": "full",
+  "delegation": "verifier-and-investigator",
+  "reason_codes": ["security-sensitive-payments", "existing-unverified-changes", "submission-claims"],
+  "decisions": [
+    {"action": "Preserve and validate existing working changes", "reason": "Dirty worktree already contains fixes for this request; no evidence ledger exists", "risk": "high", "allowed_by_contract": true},
+    {"action": "Delegate read-only payment adversary review", "reason": "Authentication, evidence, payment capture changes have interdependent security criteria", "spawn_condition_met": "gravitas verifier: high risk and complex criteria", "expected_benefit": "Independent assessment of capture bypass and role escalation", "quota_estimate": "medium"},
+    {"action": "Delegate documentation claim cleanup", "reason": "Claim audit spans historical benchmarks, model card, pitch, README and architecture", "spawn_condition_met": "gravitas investigator: broad unfamiliar claim surface", "expected_benefit": "Reconcile unsupported claims while root validates runtime", "quota_estimate": "medium"}
+  ]
+}

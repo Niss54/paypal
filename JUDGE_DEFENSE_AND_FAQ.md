@@ -1,105 +1,69 @@
-# 🛡️ KinetixRAG — Judge Defense & Adversarial FAQ Guide
-**Target Track:** Best Use of Agentic Commerce ($5,000 Special Prize) & Grand Prize  
-**Document Purpose:** Direct answers and architectural defenses for hackathon judges, technical leads, and evaluators addressing the 4 critical questions and edge-case traps.
+# KinetixRAG: technical questions and honest answers
 
----
+## What is the product?
 
-## 🎯 Quick Navigation: The 4 Core Traps
-1. [Trap 1: The Cloud Cold Sleep (~30s Initial Spin-Up)](#trap-1-the-cloud-cold-sleep-30s-initial-spin-up)
-2. [Trap 2: Real Data vs Replay vs Synthetic Confusion](#trap-2-real-data-vs-replay-vs-synthetic-confusion)
-3. [Trap 3: The "Why Not Just Pay with a Credit Card?" Question](#trap-3-the-why-not-just-pay-with-a-credit-card-question)
-4. [Trap 4: Viewport Scaling & Industrial Control Room Density](#trap-4-viewport-scaling-and-industrial-control-room-density)
+An industrial repair procurement prototype. AI helps investigate a fault, policy checks a proposed purchase, and the application requests PayPal capture only after evidence validation and required supervisor approval. The primary demonstration uses one pump repair.
 
----
+## Why use PayPal?
 
-## Trap 1: The Cloud Cold Sleep (~30s Initial Spin-Up)
+The implementation uses the Orders v2 `AUTHORIZE` intent, buyer approval, authorization, delayed capture and void operations. This allows the application to withhold its capture request while evidence and approval are missing. An authorization is not escrow. PayPal recommends capture in the first 3-day honor period within the authorization's 29-day window; later capture depends on risk and funding availability. [Official documentation](https://developer.paypal.com/payment-methods/auth-honor/)
 
-### ❓ The Skeptical Judge Objection:
-> *"I opened your live Vercel link and for the first 30 seconds I saw an amber badge saying 'Connecting to Backend...' Is your app broken or unstable?"*
+## Does the AI actually generate the procurement screen?
 
-### 💡 The Authoritative Engineering Defense:
-* **The Root Cause:** In accordance with cloud infrastructure economics, free-tier cloud containers (Render Cloud / Railway standby containers) automatically spin down compute resources after 15 minutes of zero inbound traffic.
-* **Why Our Architecture Handles It Gracefully:**
-  1. **Zero UI Crash / Zero Silent Freeze:** Instead of throwing unhandled network exceptions or hanging blank screens, the Next.js frontend has an active health-probe engine in `AppShell.tsx` and `DashboardHeader.tsx`.
-  2. **Real-Time Polling & Visual Transparency:** The UI immediately informs the judge via an amber pulsing banner:
-     `Connecting to Cloud Backend (https://paypal-y2jk.onrender.com). If inactive, cold spin-up takes ~30s. Auto-reconnecting...`
-     It aggressively polls every 4 seconds until the container boots, then relaxes to a 25-second heartbeat.
-  3. **High-Availability Dual-Cloud Option:** The backend repository is configured for both **Render** and **Railway** (`railway.toml`, `Dockerfile`, `Procfile`), allowing instant hot-swapping via Vercel’s `NEXT_PUBLIC_API_URL` environment variable without changing the URL judges visit.
-* **Pro-Tip for Evaluators:** To test a warm instance immediately, visit [https://paypal-y2jk.onrender.com/api/health/ready](https://paypal-y2jk.onrender.com/api/health/ready) once before running the guided simulation.
+The repository has an AI investigation workflow in `agents/`, `retrieval/` and `/investigate`. The procurement cockpit uses a seeded incident, work order, quote narratives, rankings and confidence values, with optional graph lookup for pump context. Those values are not proof of a fresh model call. Demonstrate a fresh investigation answer with citations separately and disclose the handoff into the seeded payment scenario. The current prototype does not establish a fully autonomous incident-to-supplier procurement agent.
 
----
+## Are the sensors and suppliers real?
 
-## Trap 2: Real Data vs Replay vs Synthetic Confusion
+The displayed pump and repair values are fixtures. The repository includes NASA IMS reference/replay material, but the procurement incident is not a live sensor stream from that dataset or an operating customer plant. Quotes are synthetic. A vendor name in a fixture does not imply a commercial partnership, certification or live quote API.
 
-### ❓ The Skeptical Judge Objection:
-> *"Is this Slurry Pump P-101A really breaking right now in a physical factory in Mumbai, or is this entire sensor feed fake?"*
+## Does a hash prove the repair happened?
 
-### 💡 The Authoritative Engineering Defense:
-* **The Truthful Provenance Split:** KinetixRAG strictly adheres to the hackathon's Truthful Disclosure rubric by separating empirical scientific research from operational enterprise simulation:
-  ```mermaid
-  flowchart TD
-      A["Empirical Research Grounding<br/>(NASA IMS Bearing Run-to-Failure 2004)"] -->|20 kHz Accelerometry Baseline| B["Signal Envelope Analysis (BPFO: 148.2 Hz)<br/>Empirical Excursion: 5.42 mm/s RMS"]
-      B -->|Deterministic Mapping| C["Plant Asset Demonstration (P-101A)<br/>Primary Slurry Feed Pump: 4.82 mm/s RMS"]
-      C -->|ISO 10816-3 Threshold Gating| D["Enterprise ERP Action<br/>(SAP S/4HANA PM01 + PayPal Orders v2)"]
-  ```
-  1. **Empirical Scientific Foundation:** The vibration baseline and spectral defect frequencies originate from the **NASA Ames Prognostics Center of Excellence IMS Run-to-Failure Dataset** (Test 2, Bearing 1, 20 kHz sampling frequency, University of Cincinnati Center for Intelligent Maintenance Systems). Outer-race spalling (BPFO: 148.2 Hz) and 5.42 mm/s failure runout are authentic, unedited empirical physics.
-  2. **Operational Enterprise Demonstration:** Because hackathon judges cannot visit a real refinery floor, this empirical degradation curve is mapped to synthetic plant asset `P-101A` (Primary Slurry Feed Pump) operating at 4.82 mm/s RMS.
-  3. **Why This Matters to Judges:** This mirrors how industrial digital twins (e.g., Siemens MindSphere, GE Digital APM) test automated procurement pipelines against historical failure runs without damaging $250,000 physical turbomachinery. Every synthetic quote is clearly badged with `[SYNTHETIC DEMO QUOTE]`.
+No. A SHA-256 digest binds submitted bytes and can detect a mismatch against those bytes. The validator also checks order identifiers, scope, measurement and approval. It does not authenticate independent sensor hardware or establish the truth of a technician's report. Independent signed measurement acquisition and a trustworthy verifier are additional work before industrial deployment.
 
----
+## What does the HTTP 403 prove?
 
-## Trap 3: The "Why Not Just Pay with a Credit Card?" Question
+A correctly authenticated capture request without qualifying evidence is rejected by the application. Verify the returned reason is the evidence gate. An authentication failure with the same HTTP status does not demonstrate that control. This does not block an operator who uses merchant credentials to call PayPal outside the application.
 
-### ❓ The Skeptical Judge Objection:
-> *"Why does an AI procurement agent need PayPal Orders v2 Two-Phase Settlement (`intent: AUTHORIZE`)? Why not just charge a corporate credit card or corporate virtual card via Stripe?"*
+## Is supervisor approval independent?
 
-### 💡 The Authoritative Engineering Defense:
-* **The Fatal Enterprise Flaw of Credit Cards (Immediate Irrevocable Clearing):**
-  - Credit cards and virtual cards execute **immediate clearing at the moment of authorization/settlement**.
-  - If an autonomous AI agent buys a $1,450 replacement bearing or emergency technician dispatch on a corporate card and the contractor disappears, performs substandard work, or installs counterfeit parts:
-    - **The money is already gone from the company's bank account.**
-    - The enterprise is forced into a **60-to-90-day credit card chargeback dispute**, incurring dispute fees, staff overhead, and the risk of dispute loss under merchant rules.
-* **The Fatal Flaw of Crypto Smart Contracts:**
-  - Blockchains force immediate irrevocable settlement. Once tokens leave a multi-sig or smart contract, there is zero legal recourse or chargeback protection. Enterprises cannot carry volatile cryptocurrency on GAAP balance sheets.
-* **Why PayPal Orders v2 Two-Phase Settlement Is The ONLY Enterprise Solution:**
-  1. **29-Day Authorized Hold (Zero Capital Outflow):** When the agent creates the order with `intent: AUTHORIZE`, funds are placed in authorized escrow for up to 29 days (with a 3-day guaranteed honor window). **Zero dollars leave the buyer's operating cash account.**
-  2. **The "No Evidence, No Capture" Hard Gate (HTTP 403):** The backend non-negotiable invariant strictly blocks payment capture until physical vibration drops below the ISO 4.5 mm/s limit and an independent human supervisor signs off.
-  3. **Instant Void Without Fees:** If the contractor fails to deliver or vibration remains abnormal (> 4.5 mm/s), the agent executes `POST /v2/payments/authorizations/{id}/void`. The hold vanishes instantly. **Zero chargeback disputes, zero balance sheet loss, zero legal arbitration.**
-  4. **GAAP Accounting & SAP S/4HANA Reconciliation:** PayPal settles in stable USD fiat, directly posting into General Ledger Account `2100-PAYPAL-CLEARING`.
+The server checks roles and rejects approval by the order requester. The hosted deployment still needs separately controlled identities and credentials. Showing two personas operated by the same presenter demonstrates the code path, not an organization's real separation of duties.
 
----
+## Are Sandbox and simulation the same?
 
-## Trap 4: Viewport Scaling and Industrial Control Room Density
+No. A provider-backed Sandbox request reaches PayPal's test environment. Simulation returns local demonstration identifiers and does not establish a PayPal authorization or capture. Buyer approval and a confirmed authorization are required before a real Sandbox capture. Auto Demo, synthetic evidence and simulated approvals must be labelled in recordings.
 
-### ❓ The Skeptical Judge Objection:
-> *"When I opened the Command Center on my mobile phone screen, the layout looked dense and required horizontal scrolling. Why isn't this designed like a standard mobile consumer app?"*
+## Where does the money go?
 
-### 💡 The Authoritative Engineering Defense:
-* **Industrial Operations vs Consumer Shopping:**
-  - Consumer e-commerce apps (like DoorDash or Amazon) have a single vertical feed of products for a single smartphone user.
-  - **KinetixRAG is an Industrial Operations SCADA/DCS Cockpit.** Real-world control rooms (Honeywell Experion, Siemens PCS 7, Emerson DeltaV, Yokogawa CENTUM) utilize dual-monitor 1080p or 1440p widescreen displays to simultaneously monitor:
-    1. High-frequency accelerometry waveforms.
-    2. Multi-hop Neo4j GraphRAG failure paths.
-    3. Multi-vendor RFQ bidding matrices.
-    4. Two-phase PayPal authorization escrow states.
-    5. Continuous 7-stage cryptographic Merkle audit hashes.
-* **Responsive Hardening Implemented:**
-  - The hero 3-step procurement cockpit (`/procurement`) includes responsive grid wrappers (`grid-cols-1 md:grid-cols-3` and `grid-cols-1 lg:grid-cols-12`) that stack cleanly on tablet/smaller viewports.
-  - Dedicated mobile guidance badges alert evaluators on mobile screens:
-    `🖥️ Industrial Control Cockpit: For full dual-pane telemetry & audit graph, desktop display (1080p+) is recommended.`
-* **Recommendation for Judges:** For the authentic enterprise experience, evaluate KinetixRAG in a desktop browser at **1080p (1920x1080) or 1440p resolution**.
+The Sandbox transaction uses the configured PayPal merchant account. A supplier quote label does not prove vendor onboarding, marketplace eligibility or production disbursement routing. The prototype does not claim approved merchant-of-record or multi-party production operations.
 
----
+## Is the audit immutable?
 
-## 📋 Summary Table for Judging Panels
+No. The code computes stage hashes and a binary Merkle root for the audit snapshot. Changes can be detected by comparing against a previously trusted root. Someone controlling the database and root storage could rewrite both. Root construction is O(N); binary-tree depth is O(log N). A root alone does not implement an independently verified inclusion-proof protocol or a blockchain.
 
-| Question / Objection | Common Assumption | KinetixRAG Reality |
-|---|---|---|
-| **1. Cold Start** | "Site is slow / broken" | Serverless standby spin-up (~30s); UI has active polling & clear status banner; dual-cloud Railway option ready. |
-| **2. Telemetry Grounding** | "Is this live hardware?" | Authentic NASA Ames IMS Run-to-Failure dataset (2004, 20 kHz); mapped to synthetic asset P-101A for ERP demonstration. |
-| **3. Why PayPal?** | "Just use a corporate card" | Cards force upfront spend & 60d chargebacks; PayPal Orders v2 allows 29-day risk-free escrow hold with zero upfront loss. |
-| **4. Mobile Density** | "Why not mobile-first?" | Industrial control room cockpit (SCADA/DCS) designed for 1080p/1440p widescreen; responsive tablet stacking included. |
+## Is GraphSAGE deployed and trained?
 
----
+The repository contains a NumPy research implementation and tests. The service defaults to `ENABLE_GRAPH_RISK_MODEL=false`; enabling it without a compatible checkpoint does not produce a trained model. The current submission excludes it from the core pitch. Previously listed accuracy, latency and memory figures are not supported by a reproducible deployed-model evaluation in this review. See the [model card](docs/GRAPH_RISK_MODEL_CARD.md).
 
-*Authored by Senior Systems Architect & Evaluation Lead — PayPal AI Hackathon 2026.*
+## Do SAP and Maximo receive real ledger entries?
+
+Connector code exists, including simulated operation when external configuration is absent. No live enterprise tenant posting is established by a simulated connector response or an in-memory balanced ledger. Do not narrate these as live integrations without external acknowledgments from the configured tenant.
+
+## Does the cold-chain scenario prove generalization?
+
+It demonstrates an additional fixture. It does not establish live carrier telematics, biologic cargo safety, a real refrigeration repair or a validated temperature-based capture rule. It is excluded from the primary pitch while the pump scenario is evaluated.
+
+## Do all automated tests reach PayPal?
+
+No. Most tests use mocks or local data so failure cases are reproducible. Dedicated live Sandbox tests are credential- and network-dependent, and some cover only OAuth or order creation. Report pass, failure and skip counts from an actual run and identify the commands. See the [test snapshot](docs/CURRENT_TEST_SNAPSHOT.md).
+
+## Is the code production-ready?
+
+It is a substantial prototype with payment controls, tests and deployment configuration. Production readiness needs independent evidence provenance, operational identity management, recovery and reconciliation validation, production-provider onboarding, and observed deployment behavior. Neither a test count nor a polished video establishes these.
+
+## What could lower the judging score?
+
+The weakest point is the handoff from live AI investigation to a seeded procurement scenario. A judge may see two adjacent capabilities rather than a completed agentic workflow. Missing live Sandbox capture proof, inaccessible demo credentials, slow startup, unsupported claims, and a video over three minutes can also hurt. The strongest presentation shows the actual AI contribution, a server-side blocked capture, a valid separate approval and a truthfully labelled final result.
+
+## What are the submission requirements?
+
+The current [official challenge page](https://paypalaihackathon.devpost.com/) lists no prescribed tracks and includes a Best Use of Agentic Commerce prize. It asks for a functioning demo or complete run instructions, public open-source code with a license, AI-tool disclosure and a public YouTube demo under three minutes. Verify the final Devpost entry, repository visibility and video yourself; the presence of local files proves none of those publication states.

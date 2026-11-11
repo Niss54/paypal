@@ -1,0 +1,18 @@
+{
+  "mode": "implement",
+  "objective": "Repair verifiable PayPal hackathon readiness defects and audit submission claims without promising a prize",
+  "acceptance_criteria": [
+    "Judge documentation accurately separates simulation, sandbox integration, optional ML, and unverified external services",
+    "Preflight reports failures and simulations honestly, exits nonzero on required failure, and has regression coverage",
+    "Public credential detection covers documented sandbox passwords; no new credential is disclosed",
+    "Payment evidence and approval controls pass adversarial and affected regression tests",
+    "Frontend builds and tests pass after material changes",
+    "Final readiness report records official requirements, script corrections, test evidence and remaining external blockers"
+  ],
+  "non_goals": ["Guarantee winning", "Fabricate deployed model or physical sensor evidence", "Rewrite git history", "Spend real money"],
+  "risk": "high",
+  "budget": "deep",
+  "allowed_write_scope": ["README.md", "JUDGE_README.md", "JUDGE_DEFENSE_AND_FAQ.md", "ARCHITECTURE.md", "docs/", "scripts/", "backend/", "frontend/", "tests/", "render.yaml", ".env.example", ".gravitas/sessions/paypal-readiness-20261111/"],
+  "verification": "full",
+  "policy": {"planning": "deep", "context_depth": "dependency", "verification_depth": "full", "delegation": "investigator-and-verifier", "reason_codes": ["security-sensitive-payments", "existing-dirty-worktree", "submission-claims", "broad-test-surface"]}
+}

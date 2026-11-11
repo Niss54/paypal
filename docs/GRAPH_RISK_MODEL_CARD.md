@@ -1,101 +1,48 @@
-# Model Card: Selective GraphSAGE Risk Intelligence for KinetixRAG
+# GraphSAGE research module: model card
 
-**Version:** 1.0.0-final
-**Release Date:** 2026-10-17
-**Model Family:** Inductive Graph Neural Network (GraphSAGE with Mean Neighborhood Aggregation)
-**Task:** Impending Industrial Machinery Anomaly & Failure Prediction
-**License:** MIT
-**Maintainer:** KinetixRAG Reliability & Engineering Team
+Reviewed against source on 2026-11-11. This optional module is **disabled by default** and is outside the core PayPal submission claim. The repository does not establish a deployed trained checkpoint or validated industrial failure prediction.
 
----
+## Architecture supported by code
 
-## 1. Model Overview & Architectural Specifications
+[`model.py`](../ml/graph_risk/model.py) implements two mean-aggregation layers in **NumPy**, with separate self and neighbor projections, ReLU in the first layer and sigmoid output in the second. `GraphSAGEConfig` defaults to seven input features and 32 hidden channels. The training smoke test explicitly uses 16 hidden channels. These are configurations, not evidence of a deployed model.
 
-- **Architecture:** 2-Layer Inductive GraphSAGE Net (`GraphSAGE-2L-Mean`).
-- **Input Channels:** $D = 7$ (Canonical Industrial Feature Contract).
-- **Hidden Dimensions:** 16 hidden channels with ReLU activations.
-- **Output Layer:** Single-unit linear projection with logistic sigmoid activation ($\sigma(z) \in [0, 1]$).
-- **Aggregation Operator:** Localized mean neighborhood feature aggregation with self-connection concatenation ($W_{\text{self}} \parallel W_{\text{neigh}}$).
-- **Parameter Size:** 801 trainable parameters (~3.2 KB uncompressed float32).
-- **Inference Latency:** $4.8\text{ ms}$ on single-thread x86_64 CPU.
-- **Memory Footprint:** $\approx 42.6\text{ MB}$ RSS during active CPU inference.
+The previous PyTorch/PyG runtime description, 801-parameter count, measured 4.8 ms inference and 42.6 MB memory usage are withdrawn. The code uses NumPy; no supporting runtime benchmark artifact accompanies those measurements.
 
----
+[`schemas.py`](../ml/graph_risk/schemas.py) defines the ordered input contract:
 
-## 2. Intended Use & Operational Boundaries
+1. `vibration_rms_mm_s`
+2. `vibration_peak_mm_s`
+3. `vibration_crest_factor`
+4. `vibration_kurtosis`
+5. `bearing_temp_c`
+6. `temp_rate_of_change_c_per_hr`
+7. `frequency_dominant_hz`
 
-### 2.1 Intended Use
-- **Primary Function:** Predict imminent equipment failure or ISO 10816-3 Zone C anomaly progression over a designated look-ahead horizon ($\Delta t = 24\text{h}$) from fused vibration, thermal, and kinematic features.
-- **Role in Architecture:** **Strictly Advisory Intelligence**. Provides an auxiliary machine-learning score alongside KinetixRAG's deterministic rules and GraphRAG knowledge evidence.
-- **Intended Users:** Reliability engineers, maintenance operators, and plant monitoring supervisors.
+Feature names and units do not prove values were measured by calibrated sensors or extracted from raw NASA recordings.
 
-### 2.2 Out-of-Scope & Prohibited Uses
-- **No Autonomous Payment Authorization:** The model score MUST NOT autonomously trigger Lightning satoshi settlements or authorize financial disbursements.
-- **No SCADA / Safety Interlock Replacement:** The model is not a SIL-rated safety instrumented system (SIS) and must not be wired to emergency shutdown valves.
-- **No Financial Fraud Detection:** Although GraphSAGE implementation patterns were adapted from GNN fraud architectures, this model is exclusively designed for industrial telemetry and rotating machinery.
+## Data and evaluation limits
 
----
+The checked-in [industrial fixture](../ml/graph_risk/tests/fixtures/industrial_telemetry_fixture.json) contains seven representative observations named after NASA IMS Test 2. Its split contains four training nodes, two validation nodes and one test node. All four training labels are zero; validation and test labels are one. That split cannot establish useful generalization or a comparative industrial benchmark.
 
-## 3. Industrial Data Provenance & Feature Contract
+The metadata names NASA and a 24-hour horizon. It does not supply a reproducible raw-record-to-feature transformation, sensor calibration record or independent labels for every supplied feature. Treat it as a test fixture. Do not claim its temperatures, vibration values or P-101A identity are verified NASA measurements.
 
-### 3.1 Training Data Source
-- **Primary Industrial Dataset:** NASA Prognostics Center of Excellence (PCoE) Run-to-Failure Bearing Dataset (University of Cincinnati IMS Test 2, Bearing 1 Outer Race Failure).
-- **Sampling Parameters:** 20 kHz sampling rate, 2000 RPM speed, 6000 lbs radial load, PCB 353B33 accelerometer.
-- **Progression Ground Truth:** Verified progression from healthy break-in operation ($1.85\text{ mm/s}$) to catastrophic outer raceway failure ($11.75\text{ mm/s}$).
+[`test_train.py`](../ml/graph_risk/tests/test_train.py) checks that training runs and writes a checkpoint. [Baseline tests](../ml/graph_risk/tests/test_baseline.py) use synthetic data. These check software behavior, not the former model comparison.
 
-### 3.2 Canonical Feature Contract (`v1.0.0`)
-Ordered feature vector of dimension $D = 7$:
-1. `vibration_rms_mm_s`: Overall vibration velocity RMS (mm/s) according to ISO 10816-3.
-2. `vibration_peak_mm_s`: Peak vibration amplitude.
-3. `vibration_crest_factor`: Peak-to-RMS ratio indicating impact severity / micro-spalling.
-4. `vibration_kurtosis`: Statistical fourth moment of acceleration signals indicating impulsive faults.
-5. `bearing_temp_c`: Bearing drive-end temperature in Celsius.
-6. `temp_rate_of_change_c_per_hr`: Thermal derivative indicating friction runaway.
-7. `frequency_dominant_hz`: Dominant spectral peak frequency identifying shaft harmonics vs. ball-pass frequencies (BPFO/BPFI).
+The previous accuracy table, including GraphSAGE validation PR-AUC 0.960 and its claimed advantage over Random Forest, is withdrawn. No reproducible evaluation artifact supporting that table was found in the inspected ML directory. No replacement accuracy number is asserted.
 
-### 3.3 Graph Construction & Anti-Leakage Topology
-- **Nodes:** Timestamped sensor telemetry observations ($t_i$).
-- **Edges:** Strictly causal forward chronological edges (`TEMPORAL_PRECEDES`) where $t_{\text{source}} < t_{\text{target}}$.
-- **Anti-Leakage Invariant:** No edges originate from future observations or post-failure states into earlier evaluation windows.
+Future evaluation needs raw-data provenance, preprocessing/split manifests, multiple independent failure runs, both classes in evaluation partitions, a checkpoint digest, baseline results and calibration assessment.
 
----
+## Inference and explanations
 
-## 4. Benchmark Evaluation & Performance Metrics
+[`inference.py`](../ml/graph_risk/inference.py) reports disabled, untrained, incompatible-feature and inference-error states. Available predictions carry `calibrated: false` and `is_advisory: true`. A sigmoid output is an uncalibrated score, not a measured probability of failure.
 
-All models were evaluated on identical temporal holdout splits ($T_{\text{train}} < T_{\text{val}} < T_{\text{test}}$) using class-balanced weighting:
+[`explain.py`](../ml/graph_risk/explain.py) implements bounded predecessor attribution. This describes model sensitivity, not physical causation. The current backend service invokes inference without a graph argument, so hosted neighborhood attribution is not established by the explainer's existence.
 
-| Metric | Tabular Logistic Regression | Tabular Random Forest (100) | GraphSAGE (2-Layer Mean) |
-|---|:---:|:---:|:---:|
-| **Train PR-AUC** | 0.850 | 0.950 | **0.980** |
-| **Validation PR-AUC** | 0.850 | 0.920 | **0.960** |
-| **Validation ROC-AUC** | 0.880 | 0.940 | **0.975** |
-| **F1-Score (Threshold = 0.5)** | 0.800 | 0.880 | **0.933** |
-| **Precision** | 0.800 | 0.890 | **0.920** |
-| **Recall** | 0.800 | 0.880 | **0.950** |
-| **CPU Latency** | 0.8 ms | 3.2 ms | **4.8 ms** |
+## Deployment and use
 
-### 4.1 Calibration Principle
-- **Calibration Status:** `calibrated: false`.
-- **Disclosure:** Raw sigmoid outputs represent uncalibrated relative risk rankings and must not be described as true physical probabilities without empirical calibration.
+[`graph_risk.py`](../backend/app/services/graph_risk.py) defaults `ENABLE_GRAPH_RISK_MODEL` to false and looks for a checkpoint. Enabling the flag alone does not train or validate a model.
 
----
+Scores must not approve purchases, bypass payment gates, certify a repair or replace a safety instrument. No validated 24-hour prediction, ISO certification, memory guarantee or production readiness is claimed.
 
-## 5. Explainability & Provenance Constraints
+See the [claim matrix](CLAIM_EVIDENCE_MATRIX.md) and [current readiness report](HACKATHON_READINESS_REPORT.md).
 
-- **Methodology:** Bounded $k$-hop causal subgraph extraction ($k \le 2$) via `GraphRiskExplainer`.
-- **Attribution Mechanism:** Deterministic leave-one-out counterfactual feature perturbation. For each preceding node $u$ in the $k$-hop neighborhood, its contribution is measured by the score deviation $\Delta \text{score}_u = |\text{score}_{\text{full}} - \text{score}_{\text{without\_}u}|$, normalized across all predecessors.
-- **Dominant Feature Attribution:** Identifies the specific sensor channel (e.g. `vibration_rms_mm_s`, `bearing_temp_c`) with the greatest amplitude deviation on each contributing node.
-- **Safety Semantics & Disclosures:**
-  - Mandatory disclaimer returned with every payload: *"Explanation reflects graph model attribution only; does not prove physical causation."*
-  - Node IDs returned are strictly mapped to verified existing telemetry observations; no synthetic or unmapped entities are ever fabricated.
-- **Degraded Operation:**
-  - Isolated nodes gracefully return `status: "isolated_node"` with an empty predecessor list.
-  - Subgraph extraction or timeout exceptions safely degrade to `status: "insufficient_neighborhood"` or `None` without interrupting core risk scoring or taking down the API service.
-
----
-
-## 6. Operational & Deployment Guardrails
-
-- **Default State:** `ENABLE_GRAPH_RISK_MODEL=false`.
-- **Runtime Isolation:** PyTorch and PyTorch Geometric dependencies are isolated and lazy-loaded to protect memory-constrained environments (e.g. Render free tier 512 MB).
-- **Fallback:** In the event of model loading or inference failure, KinetixRAG falls back gracefully to its verified deterministic ISO 10816-3 risk engine (`telemetry/predictive_intelligence.py`).

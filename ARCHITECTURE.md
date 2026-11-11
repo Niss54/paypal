@@ -29,10 +29,10 @@ flowchart TD
         H --> I["Grounded Evidence Package<br/>(FE-001, WO-1002, PROC-001, ISO-10816-3)"]
     end
 
-    subgraph PROCUREMENT["3. Autonomous Procurement & Policy Escrow"]
+    subgraph PROCUREMENT["3. Autonomous Procurement & Policy Gate"]
         I --> J["Multi-Vendor RFQ Federation<br/>(Apex, Precision, Quantum)"]
         J --> K["Transparent Scoring Engine<br/>(Cost × Latency × SLA)"]
-        K --> L{"Policy Gate Escrow<br/>(Threshold: 500 sats)"}
+        K --> L{"Policy Gate<br/>(Threshold: 500 sats)"}
         L -->|Quote <= 500 sats| M["Autonomous Payment Authorization"]
         L -->|Quote > 500 sats| N["PENDING_APPROVAL<br/>(Human Operator Digital Sign-off)"]
     end
@@ -152,7 +152,7 @@ sequenceDiagram
     participant S as Sensor Stream (NASA IMS)
     participant G as GraphRAG Evidence Engine
     participant RFQ as Vendor RFQ Broker
-    participant P as Policy Gate Escrow
+    participant P as Deterministic Policy Gate
     participant LN as Sovereign Lightning (LNbits / NWC)
     participant N4J as Neo4j Operational Graph
 
@@ -173,7 +173,7 @@ sequenceDiagram
 ### 5.1 Bitcoin Innovations
 1. **NIP-47 Nostr Wallet Connect (BIP-340 Schnorr):** Demonstrates NIP-47-compatible event structures (kind 23194/23195) with NIP-04 ECDH encryption. Real BIP-340 Schnorr signatures implemented using `coincurve` (libsecp256k1) / `secp256k1` (zero HMAC).
 2. **Multi-Hop Sphinx Onion Routing Simulation:** Models 4-hop Lightning Network topologies (`Machine ➔ LSP Core ➔ Routing Hub ➔ Vendor`), simulating channel capacity, base fees, PPM fee rates, and CLTV expiry deltas.
-3. **Zero-Trust Spending Policy Escrow:** Hard backend ceiling at 500 sats. Unilateral client attempts to bypass spending limits via API calls are rejected with HTTP 403.
+3. **Zero-Trust Spending Policy Gate:** Hard backend ceiling at 500 sats. Unilateral client attempts to bypass spending limits via API calls are rejected with HTTP 403.
 4. **Cryptographic Proof Packages:** Every completed transaction yields an immutable cryptographic proof containing the BOLT11 invoice, payment hash, SHA-256 preimage verification, and the operational GraphRAG evidence trail.
 
 ---

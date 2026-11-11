@@ -47,7 +47,9 @@ COPY --chown=kinetix:kinetix data data
 COPY --chown=kinetix:kinetix evaluation evaluation
 COPY --chown=kinetix:kinetix infra infra
 COPY --chown=kinetix:kinetix ingestion ingestion
+COPY --chown=kinetix:kinetix ml ml
 COPY --chown=kinetix:kinetix retrieval retrieval
+COPY --chown=kinetix:kinetix services services
 COPY --chown=kinetix:kinetix telemetry telemetry
 
 RUN mkdir -p /app/data/incoming /app/.runtime/mem0 \

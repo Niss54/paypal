@@ -1,288 +1,49 @@
-<div align="center">
+# KinetixRAG: judge evaluation guide
 
+**Product:** evidence-gated industrial repair procurement using PayPal authorization and capture.
 
+**One sentence:** AI assists the repair investigation; deterministic policy and a separate supervisor control when the application requests PayPal capture.
 
-<img src="./frontend/public/kr.png" alt="KinetixRAG Logo" width="130" style="margin-bottom: 10px;" />
+[Procurement demo](https://paypal-pink.vercel.app/procurement) · [AI investigation](https://paypal-pink.vercel.app/investigate) · [API docs](https://paypal-y2jk.onrender.com/docs) · [Local setup](README.md#run-locally)
 
+## Before evaluation
 
+The backend may need time to start. Check `/api/health/live`, then `/api/health/ready`; review the returned dependency states. The preflight command is `python scripts/verify_sandbox.py`. Its simulation checks and provider-backed checks must be interpreted separately.
 
-# ⚡ KinetixRAG — PayPal AI Hackathon 2026 Judge Evaluation Guide
+Use your own PayPal Sandbox buyer account. Separate requester and supervisor identities must be configured privately for the approval demonstration. The repository does not provide privileged login passwords. Auto Demo is a guided simulation and is not proof that PayPal captured a payment.
 
+## Three-minute path
 
+| Time | Action | What it establishes |
+| --- | --- | --- |
+| 0:00–0:25 | In `/investigate`, ask a pump maintenance question and show the returned answer with citations. | A fresh model response and evidence, if the provider is configured. A stored response or fixture must be labelled accordingly. |
+| 0:25–0:50 | Open `/procurement`, identify the seeded pump incident, and compare the three synthetic quotes. Evaluate the $450 quote against the $500 cap. | Policy checks and a critical-asset approval requirement. The fixture is not a newly generated diagnosis or live vendor bid. |
+| 0:50–1:20 | Create a Sandbox order, complete buyer approval, then authorize it. | A PayPal order and authorization. Show returned identifiers, without credentials. |
+| 1:20–1:40 | Attempt capture before submitting evidence. | HTTP 403 from the server. Confirm the rejection is the evidence gate, not an unrelated login or connectivity error. |
+| 1:40–2:20 | Submit the report and measurement. Attempt self-approval, then use the separate supervisor identity. | Evidence validation and separation of duties. The report is submitted evidence; the application does not attest a physical sensor. |
+| 2:20–2:45 | Request gated capture and inspect its status, capture ID and audit snapshot. | Provider-backed Sandbox capture only if the response is non-simulated and PayPal confirms it. Otherwise describe a simulation. |
 
-</div>
+Do not show an edited or simulated successful result as a live provider call. If checkout takes longer, rehearse it or label time compression while retaining the important steps.
 
+## Exact interpretation of the result
 
+- PayPal authorization is a hold, not escrow. Creating the order does not create the hold. The first three days are the recommended honor period, and later capture depends on PayPal risk checks and funding availability. [PayPal documentation](https://developer.paypal.com/payment-methods/auth-honor/)
+- The control applies to captures through this application. It does not prevent an operator with merchant credentials from calling PayPal independently.
+- The pump scenario, supplier quotes, scores and failure forecast are demonstration inputs. The procurement screen can retrieve graph context but does not itself prove new LLM reasoning.
+- A report digest checks the bytes received. It cannot establish that a technician told the truth or that a sensor is independently authenticated.
+- The audit has a hash chain and a binary Merkle root. A trusted previously saved root can reveal changes. No external append-only anchoring is demonstrated.
+- GraphSAGE is optional and disabled by default. SAP, Maximo and cold chain are outside this demonstration. No trained hosted GraphSAGE or real ERP posting is claimed.
 
-> **Project Identity:** KinetixRAG — Evidence-Gated Industrial Procurement  
-> **Target Track:** Best Use of Agentic Commerce ($5,000 Special Prize) & Grand Prize  
-> **Evaluation Duration:** 3 Minutes  
-> **Signature Innovation:** **"No Evidence, No Capture"** via PayPal Orders v2 Two-Phase Settlement  
-> **🌐 Production Live Route:** [https://paypal-pink.vercel.app/procurement](https://paypal-pink.vercel.app/procurement) *(Hero Demo Cockpit)*  
-> **🚀 Cloud REST API Docs:** [https://paypal-y2jk.onrender.com/docs](https://paypal-y2jk.onrender.com/docs) *(FastAPI OpenAPI Swagger)*  
-> **💳 Sandbox Test Login:** Email `sb-wezex53719890@business.example.com` | Pass `a+)n46B6`  
-> **🔔 Registered Webhook ID:** `6AC51894PA229561H` *(Active on `https://paypal-y2jk.onrender.com/api/paypal/webhook`)*  
-> **Automated Test Suite:** 100% pass rate: 526 automated tests (456 backend + 70 frontend) passing with zero errors + Next.js 16 production build passing with 0 errors across all 15 routes.
-
-
-
----
-
-
-
-## 🏆 30-Second Elevator Pitch
-
-
-
-In industrial manufacturing, AI agents that automatically purchase replacement services risk enterprise catastrophic spend if they pay vendors without verifying physical repairs. Traditional checkout systems either pay upfront or require slow human bureaucratic sign-offs that delay critical asset uptime.
-
-
-
-**KinetixRAG** solves this with **Evidence-Gated Industrial Procurement** powered by **PayPal Orders v2**:
-
-1. **IoT Telemetry & GraphRAG**: Real-world **NASA IMS Bearing Accelerometry** empirical baseline (`REPLAY-ASSET-01`, 5.42 mm/s RMS) informs the operational demonstration on synthetic asset `P-101A` (4.82 mm/s RMS, ISO 10816 Zone C/D threshold). The GraphRAG knowledge engine diagnoses outer-race defect risk (BPFO) and generates Work Order `WO-2026-IMS-001`.
-
-2. **Deterministic Spending Mandate Engine**: Evaluates vendor RFQ quotes against strict hard-coded enterprise policies ($500 cap, non-positive amount blocking, SLA limits, USD currency check, approved vendor registry, Lane B dual-control supervisor routing).
-
-3. **PayPal Orders v2 Authorization & Buyer Approval**: Creates an order with `intent: AUTHORIZE` via PayPal Sandbox (`api-m.sandbox.paypal.com`), confirms buyer approval via HATEOAS approval link, and executes an authorized hold (29-day authorization window with 3-day guaranteed honor period).
-
-4. **"No Evidence, No Capture" Gating Engine (The Hero Moment)**: The AI agent and merchant are **strictly blocked (HTTP 403)** from capturing funds until the vendor submits verifiable physical completion evidence (post-repair vibration $\le$ 4.5 mm/s, SHA-256 report integrity digest) and an authorized supervisor signs off.
-
-5. **Dual-Control Separation of Duties**: The system strictly enforces that the procurement requester cannot approve their own high-stakes payout (`order.requester_user_id != supervisor_id`, HTTP 403 on self-approval).
-
-6. **Deterministic Capture & 7-Stage Continuous Cryptographic Audit**: Upon valid multi-check verification, the backend captures authorized funds (`POST /v2/payments/authorizations/{id}/capture`) and seals an unbroken SHA-256 cryptographic hash chain across all 7 stages from sensor anomaly to PayPal Capture ID.
-
-
-
----
-
-
-
-## 🚀 3-Minute Fast-Track Walkthrough for Evaluators
-
-
-
-### Step 1: Open the Evidence-Gated Procurement Console
-
-Navigate directly to the live deployed cockpit: **[`https://paypal-pink.vercel.app/procurement`](https://paypal-pink.vercel.app/procurement)** (or local: `http://localhost:3000/procurement`).
-
-*(Tip: You can use the **1-Click Auto Demo** button in the header for an instant 10-second guided simulation walkthrough, or follow the step-by-step interactive mode below.)*
-
-
-
-### Step 2: Screen 1 — Incident Intelligence (NASA IMS Telemetry)
-
-- Inspect the live vibration anomaly for **Primary Slurry Pump P-101A** (Bearing 1: 4.82 mm/s RMS).
-
-- Observe the **ISO 10816-3 Zone C/D Alarm** and the grounded **GraphRAG diagnostic finding**.
-
-- Notice the automatically drafted Work Order: `WO-2026-IMS-001` with required scope (`SCOPE-BRG-REPLACE-01`).
-
-
-
-### Step 3: Screen 2 — RFQ & Deterministic Spending Mandate
-
-- Review the 3 vendor comparison quotes (clearly disclosed as `[SYNTHETIC DEMO QUOTE]`).
-
-- Click **"Evaluate Mandate"** on the winning bid (**Motion Industries**, `$450.00 USD`).
-
-- Verify the **Deterministic Spending Mandate Engine** pass/fail matrix:
-
-  - Budget Limit Check ($450.00 $\le$ $500.00 Cap): **PASSED**
-
-  - Currency Check (USD): **PASSED**
-
-  - Vendor Registry Check: **PASSED**
-
-  - SLA Limit Check ($\le$ 48h): **PASSED**
-
-  - Risk Policy: **LANE B (CRITICAL ASSET)** — dual-control supervisor sign-off required prior to capture.
-
-
-
-### Step 4: Screen 3 — PayPal Authorization & The Evidence Gate (Hero Demo)
-
-- Click **"Create PayPal Order"**:
-
-  - PayPal Orders v2 Sandbox creates Order ID with `intent: AUTHORIZE` and HATEOAS `approve_url`.
-
-- Confirm **Buyer Approval**:
-
-  - Either click **"Open Sandbox Checkout"** for the genuine PayPal sandbox experience or click **"Fast Simulated Approval"** for automated demonstration.
-
-- Click **"Authorize Payment Hold"**:
-
-  - PayPal backend executes `POST /v2/checkout/orders/{id}/authorize`.
-
-  - Authorized payment hold is established (`AUTH-...`). Status: **`AUTHORIZED`** (29-day authorization window, 3-day guaranteed honor period).
-
-- 🚨 **Test the Hero Gate ("No Evidence, No Capture")**:
-
-  - Click **"Attempt Early Capture (Should Fail)"**.
-
-  - **Observe HTTP 403 Forbidden**: `Capture rejected: No verified completion evidence on file (NO_EVIDENCE_NO_CAPTURE)`. Funds remain completely safe in the authorized hold.
-
-- 📋 **Submit Vendor Completion Evidence**:
-
-  - Vendor submits physical service report with post-repair vibration reading: `1.25 mm/s RMS` (Passes ISO limit $\le 4.5$ mm/s) + SHA-256 document checksum.
-
-  - Evidence validation status: **`VERIFIED`**.
-
-- ✍️ **Supervisor Dual-Control Sign-Off**:
-
-  - Reliability Supervisor signs off (`SUP-CHIEF-09`).
-
-  - Strict separation of duties verified: Requester cannot sign off as supervisor (HTTP 403 on self-approval).
-
-- 💳 **Execute Gated Capture**:
-
-  - Click **"Execute Gated PayPal Capture"**.
-
-  - Capture succeeds via `POST /v2/payments/authorizations/{id}/capture`! Status: **`COMPLETED`** with real PayPal Capture ID.
-
-
-
-### Step 5: Screen 4 — 7-Stage Cryptographically Chained Audit Ledger
-
-- Inspect the complete unbroken causal chain linking:
-
-  1. Sensor Anomaly (4.82 mm/s RMS)
-
-  2. GraphRAG Knowledge Diagnosis
-
-  3. Work Order `WO-2026-IMS-001`
-
-  4. RFQ Winning Quote ($450.00 USD)
-
-  5. Spending Mandate Decision (`ALLOWED_LANE_B`)
-
-  6. PayPal Authorization (`AUTH-...`)
-
-  7. Verified Completion Evidence + Dual-Control Sign-Off ➔ Final PayPal Capture ID.
-
-- Each stage displays its continuous **`stage_hash`** cryptographically chained from the previous stage (`previous_stage_hash`), culminating in a verifiable **Hash-Chained Audit Snapshot Hash**.
-
-
-
----
-
-
-
-## 🧪 Verified Automated Test Suite
-
-
-
-Every architectural layer is backed by comprehensive, passing automated tests:
-
-
+## Reproduce the controls
 
 ```bash
-
-# 1. Backend PayPal Integration, Evidence Gating & Security Tests (34 passed)
-
-pytest tests/test_paypal_provider.py \
-
-       tests/test_evidence_gating.py \
-
-       tests/test_spending_mandate_v2.py \
-
-       tests/test_paypal_api_endpoints.py \
-
-       tests/test_secret_scan.py -v
-
-
-
-# 2. Live PayPal Sandbox API Tests against api-m.sandbox.paypal.com (2 passed)
-
-pytest tests/test_paypal_sandbox_live.py tests/test_paypal_sandbox_e2e_lifecycle.py -v
-
-
-
-# 3. Frontend Vitest Suite (18 test files, 70 tests passed)
-
-cd frontend && npm test -- --run
-
-
-
-# 4. TypeScript Type Safety Check (Zero compilation errors)
-
-cd frontend && npx tsc --noEmit
-
+python -m pytest tests/test_spending_mandate_v2.py tests/test_evidence_gating.py tests/test_paypal_api_endpoints.py tests/test_adversarial_judge_scenarios.py tests/backend/test_auth_elevation_hardening.py
+python -m pytest tests/test_paypal_sandbox_live.py tests/test_paypal_sandbox_e2e_lifecycle.py
+python scripts/secret_scan.py
+npm --prefix frontend test
+npm --prefix frontend run build
 ```
 
+The live Sandbox files require valid credentials and network access. Read their individual test names: order creation and retrieval are not evidence of completed capture. Current observed results belong in [CURRENT_TEST_SNAPSHOT.md](docs/CURRENT_TEST_SNAPSHOT.md), not permanent pass-count badges.
 
-
----
-
-
-
----
-
-
-
-## 🏛️ Enterprise Payment Architecture & Option A Settlement Routing
-
-
-
-In mission-critical industrial plants, contractor disbursements follow an **Option A Merchant of Record Architecture**:
-
-1. **Merchant of Record**: The industrial facility operator acts as the authorized merchant of record establishing the payment hold via PayPal Orders v2 (`intent: AUTHORIZE`).
-
-2. **Authorized Hold & Payee Routing**: PayPal securely holds the authorized capital for up to 29 days (3-day honor window). The architecture supports multi-party routing (`payee: { email_address: vendor_paypal_email }`).
-
-3. **No Evidence, No Capture**: Funds are never captured until post-repair vibration telemetry is cryptographically verified ($\le$ 4.5 mm/s RMS) and an authorized supervisor signs off under dual-control separation of duties.
-
-4. **Disbursement**: Upon valid multi-point physical verification, `POST /v2/payments/authorizations/{id}/capture` executes, completing the authorized payment under Platform Merchant-of-Record settlement.
-
-
-
----
-
-
-
-## 🔬 Dataset Provenance & Engineering Standards
-
-
-
-- **Research Telemetry Baseline**: NASA IMS Run-to-Failure 2004 bearing accelerometry (`REPLAY-ASSET-01`, 5.42 mm/s baseline RMS) from University of Cincinnati Center for Intelligent Maintenance Systems.
-
-- **Demonstration Plant Asset**: Primary Slurry Pump `P-101A` operating at 4.82 mm/s RMS vibration velocity, exceeding ISO 10816-3 Zone C/D threshold (4.50 mm/s limit).
-
-- **Model-Estimated Diagnostic Confidence**: The 94.2% inner-race defect diagnosis is a model-estimated confidence derived from high-frequency spectral envelope feature analysis citing `ISO-10816-3 Table C.1`, `PROC-001`, `DOC-P101-RCA`, and `NASA-IMS-2004`.
-
-- **Truthful Audit Ledger**: Unbroken causal lineage is cryptographically secured via a **Continuous Hash-Chained Audit Snapshot** (not a public distributed blockchain or Merkle tree).
-
-
-
-## 🏛️ Architectural Integrity & Rubric Alignment
-
-
-
-| Rubric Criterion | Implementation & Evidence |
-
-| :--- | :--- |
-
-| **Technological Implementation** | Full PayPal Orders v2 REST client (`api-m.sandbox.paypal.com`) with async single-flight token manager, 60s expiration buffer, idempotency headers (`PayPal-Request-Id`), typed exceptions, two-phase authorize/capture lifecycle, and webhook signature verification (`/v1/notifications/verify-webhook-signature`). Zero fake ID fallbacks in live mode. |
-
-| **Design & User Experience** | Intuitive 4-stage operator workflow (`/procurement`) with interactive live test bench demonstrating both blocked attempts and successful gated settlements with zero UI flicker, single-line sidebar navigation, and responsive audit ledger. |
-
-| **Potential Impact** | Eliminates autonomous agent spend leakage and supplier non-performance by enforcing the invariant: **"No Evidence, No Capture"** for mission-critical industrial assets. |
-
-| **Innovation & Creativity** | Repurposes PayPal's two-phase `AUTHORIZE` + delayed capture pattern as an empirical evidence-gated safety barrier for autonomous agentic commerce, backed by continuous SHA-256 hash chaining. |
-
-| **Truthful Disclosure** | Real empirical dataset: **NASA IMS Bearing Accelerometry**; vendor quotes clearly disclosed as `[SYNTHETIC DEMO QUOTE]`; simulation mode cleanly demarcated with `is_simulated` flags and badges. |
-
-
-
----
-
-## 🛡️ Judge Defense & Trap Neutralization Guide (FAQ & Objections)
-
-For full detailed architectural breakdowns, see our comprehensive companion document: **[`JUDGE_DEFENSE_AND_FAQ.md`](./JUDGE_DEFENSE_AND_FAQ.md)**.
-
-| Core Evaluator Trap / Objection | Concrete Architectural Defense |
-|:---|:---|
-| **Trap 1: The Cloud Cold Sleep (~30s Delay)** | Free-tier serverless standby automatically spins down after 15m. The frontend features an active health probe, auto-reconnecting amber banner, and 4s polling. Dual-cloud Railway deployment configuration is ready via `railway.toml`. |
-| **Trap 2: Real Data vs Replay vs Synthetic Confusion** | Authentic **NASA IMS Run-to-Failure 2004** 20 kHz vibration baseline (BPFO 148.2 Hz, 5.42 mm/s failure runout) mapped to synthetic plant asset `P-101A` (4.82 mm/s RMS) to demonstrate enterprise ERP reaction without risking physical turbomachinery. |
-| **Trap 3: "Why PayPal Instead of Corporate Credit Cards?"** | Credit cards execute **immediate clearing**; if a contractor fails, enterprises face a 60-day chargeback dispute. **PayPal Orders v2 Two-Phase Settlement (`intent: AUTHORIZE`)** holds funds in risk-free escrow for 29 days with **zero upfront loss**, instantly voidable without fees if sensor evidence fails. |
-| **Trap 4: Viewport Scaling & Density** | KinetixRAG is an industrial SCADA/DCS control room cockpit designed for **1080p/1440p desktop widescreen monitors**, not consumer smartphone feeds. Responsive grid wrappers (`grid-cols-1 md:grid-cols-3`) ensure clean tablet stacking. |
+For code mappings and remaining limitations, read the [claim evidence matrix](docs/CLAIM_EVIDENCE_MATRIX.md) and [technical FAQ](JUDGE_DEFENSE_AND_FAQ.md).
