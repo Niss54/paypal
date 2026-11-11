@@ -3,9 +3,9 @@
 import os
 import sys
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-
+from backend.app.core.auth import UserProfile, get_current_user
 from backend.app.services.health import build_readiness
 
 router = APIRouter()
@@ -126,8 +126,9 @@ def readiness() -> dict:
 
 
 @router.get("/health/debug")
-def debug() -> dict:
+def debug(current_user: UserProfile = Depends(get_current_user)) -> dict:
     import traceback
+    is_dev = "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("DEBUG_VERBOSE") == "1"
     info: dict = {
         "env": {
             k: ("SET" if os.environ.get(k) else "UNSET")
@@ -158,7 +159,10 @@ def debug() -> dict:
             tags = session.run("MATCH (e:Equipment) RETURN e.tag_id AS tag_id LIMIT 3").data()
             info["neo4j"] = {"status": "ok", "tags": tags}
     except Exception as exc:
-        info["neo4j"] = {"status": "error", "error": str(exc), "traceback": traceback.format_exc()}
+        err_info = {"status": "error", "error": str(exc)}
+        if is_dev:
+            err_info["traceback"] = traceback.format_exc()
+        info["neo4j"] = err_info
 
     # Test Groq routing
     try:
@@ -166,7 +170,10 @@ def debug() -> dict:
         intent = classify_intent("Which procedures govern P-101?")
         info["groq_routing"] = {"status": "ok", "intent": intent}
     except Exception as exc:
-        info["groq_routing"] = {"status": "error", "error": str(exc), "traceback": traceback.format_exc()}
+        err_info = {"status": "error", "error": str(exc)}
+        if is_dev:
+            err_info["traceback"] = traceback.format_exc()
+        info["groq_routing"] = err_info
 
     return info
 

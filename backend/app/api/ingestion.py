@@ -2,7 +2,8 @@
 
 import os
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 try:
     from redis import Redis
     from rq import Queue
@@ -10,6 +11,7 @@ except ImportError:
     Redis = None  # type: ignore
     Queue = None  # type: ignore
 
+from backend.app.core.auth import AppRole, UserProfile, require_roles
 from ingestion.workers.storage import get_object_store, safe_filename
 
 router = APIRouter()
@@ -21,12 +23,26 @@ MAX_UPLOAD_BYTES = int(os.environ.get("INGEST_MAX_UPLOAD_BYTES", 50 * 1024 * 102
 async def enqueue_document(
     request: Request,
     filename: str = Query(min_length=1, max_length=200),
+    current_user: Optional[UserProfile] = Depends(require_roles(AppRole.PlantOperator, AppRole.AutomationAdmin, AppRole.ProcurementAgent)),
 ) -> dict:
     if Redis is None or Queue is None:
         raise HTTPException(
             status_code=503,
             detail={"error": "service_unavailable", "detail": "Ingestion queue dependencies (redis/rq) not installed in this environment."},
         )
+    content_length = request.headers.get("content-length") if hasattr(request, "headers") else None
+    if content_length:
+        try:
+            if int(content_length) > MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail={
+                        "error": "document_too_large",
+                        "detail": f"Document exceeds the {MAX_UPLOAD_BYTES}-byte limit.",
+                    },
+                )
+        except (ValueError, TypeError):
+            pass
     content = await request.body()
     if not content:
         raise HTTPException(

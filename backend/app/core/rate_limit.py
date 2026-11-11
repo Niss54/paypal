@@ -31,6 +31,13 @@ class SlidingWindowRateLimiter:
 
         history.append(now)
         self._history[key] = history
+
+        # Periodic cleanup of expired keys to prevent memory leak
+        if len(self._history) > 500:
+            stale_keys = [k for k, timestamps in self._history.items() if not timestamps or timestamps[-1] <= window_start]
+            for sk in stale_keys:
+                del self._history[sk]
+
         return True
 
     def reset(self):
@@ -48,7 +55,13 @@ def check_financial_rate_limit(request: Request):
     if "PYTEST_CURRENT_TEST" in os.environ and not getattr(request.state, "test_rate_limit", False):
         return
 
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    elif request.client and request.client.host:
+        client_ip = request.client.host
+    else:
+        client_ip = "127.0.0.1"
     path = request.url.path
     key = f"{client_ip}:{path}"
 

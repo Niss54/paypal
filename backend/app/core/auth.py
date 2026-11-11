@@ -139,23 +139,27 @@ def fetch_jwks() -> dict:
 
 
 def get_jwt_secret() -> str:
-    """Dynamically retrieve the JWT signing/verification secret from the environment.
-    Avoids stale module-level caching and enforces strong secret requirements.
-    """
+    """Retrieve the JWT secret without silently creating a production credential."""
     for key in ("JWT_SECRET", "TEST_JWT_SECRET", "SECRET_KEY", "AUTH_SECRET"):
         val = os.environ.get(key, "").strip()
         if val:
             return val
-    return "kinetix-enterprise-auth-secret-2026"
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return "kinetix-test-only-jwt-secret-rfc7518-32bytes"
+    raise HTTPException(
+        status_code=500,
+        detail={
+            "error": "auth_configuration_missing",
+            "detail": "JWT_SECRET must be configured for token creation and verification.",
+        },
+    )
 
 
 def is_dev_jwt_allowed() -> bool:
-    """Allow HS256 JWTs in test environments, demo deployments, or when Entra ID is unconfigured."""
+    """Allow local JWTs only in tests or an explicitly configured demo deployment."""
     if "PYTEST_CURRENT_TEST" in os.environ or _get_env_bool("ALLOW_DEV_TEST_JWT", False):
         return True
-    if not get_client_id():
-        return True
-    return not is_auth_enabled()
+    return _get_env_bool("DEMO_AUTH_ENABLED", False)
 
 
 def create_access_token(
@@ -366,14 +370,17 @@ def get_current_user(
             detail={"error": "unauthorized", "detail": "Missing or invalid Authorization Bearer header"},
         )
     else:
-        # Dev / local mode fallback identity
-        dev_user_id = request.headers.get("X-User-ID", "local-operator")
-        dev_site_id = request.headers.get("X-Site-ID", "plant-mumbai-01")
-        if "PYTEST_CURRENT_TEST" in os.environ:
+        # Header identities exist only in the isolated test harness. Disabling
+        # external auth must never let anonymous callers choose privileged roles.
+        is_test_env = "PYTEST_CURRENT_TEST" in os.environ
+        dev_user_id = request.headers.get("X-User-ID", "local-operator") if is_test_env else "local-operator"
+        dev_site_id = request.headers.get("X-Site-ID", "plant-mumbai-01") if is_test_env else "plant-mumbai-01"
+        if is_test_env:
             default_roles = "PlantOperator,ProcurementAgent,Supervisor,Buyer,PaymentService,VendorTechnician,FinanceAdmin"
         else:
             default_roles = "PlantOperator,ProcurementAgent"
-        raw_roles = [r.strip() for r in request.headers.get("X-User-Roles", default_roles).split(",") if r.strip()]
+        role_text = request.headers.get("X-User-Roles", default_roles) if is_test_env else default_roles
+        raw_roles = [r.strip() for r in role_text.split(",") if r.strip()]
         # Whitelist and sanitize roles to prevent arbitrary role injection
         sanitized_roles = [r for r in raw_roles if r in ALL_ROLES]
         if not sanitized_roles:

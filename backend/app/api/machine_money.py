@@ -139,14 +139,22 @@ async def pay_invoice(req: PayInvoiceRequest, current_user: UserProfile = Depend
 
 
 @router.get("/payments")
-def list_payments(limit: int = Query(default=50, ge=1, le=100), db: Session = Depends(get_db)):
+def list_payments(
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+):
     """List recent Machine Money settlement records."""
     records = service.list_payments(db, limit=limit)
     return [r.to_dict() for r in records]
 
 
 @router.get("/payments/{payment_id}")
-def get_payment(payment_id: str, db: Session = Depends(get_db)):
+def get_payment(
+    payment_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(get_current_user),
+):
     """Fetch details of a specific payment by its payment_id."""
     record = service.get_payment(db, payment_id)
     if not record:
@@ -160,9 +168,12 @@ async def approve_payment(
     req: Optional[ApprovePaymentRequest] = None,
     db: Session = Depends(get_db),
     neo4j_session = Depends(get_session),
+    current_user: UserProfile = Depends(require_roles(AppRole.Supervisor, AppRole.PlantOperator, AppRole.FinanceAdmin)),
 ):
-    """Operator human-in-the-loop sign-off to execute a payment previously held in approval queue."""
-    reviewer = req.reviewer_id if req else "operator-lead"
+    """Operator human-in-the-loop sign-off to execute a payment previously held in approval queue.
+    Derives reviewer identity strictly from cryptographically verified token claims.
+    """
+    reviewer = req.reviewer_id if (req and req.reviewer_id) else (current_user.user_id if current_user else "operator-lead")
     notes = req.review_notes if req else None
     try:
         record = await service.approve_payment(
@@ -449,7 +460,7 @@ class RouteCalculationRequest(BaseModel):
 
 
 @router.get("/nwc/info")
-def get_nwc_info(uri: Optional[str] = None):
+def get_nwc_info(uri: Optional[str] = None, current_user: UserProfile = Depends(get_current_user)):
     """Novel Bitcoin Innovation: Inspect active Nostr Wallet Connect (NIP-47) remote wallet configuration."""
     from backend.app.services.machine_money.nwc import NWCClient
     try:

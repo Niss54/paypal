@@ -51,15 +51,15 @@ PERSONA_NAMES: Dict[str, str] = {
     "finance": "Enterprise Finance Administrator",
 }
 
-DEMO_CREDENTIALS: Dict[str, str] = {
-    "supervisor": os.environ.get("DEMO_SUPERVISOR_PASSWORD", "demo-supervisor-pass"),
-    "procurement-agent": os.environ.get("DEMO_AGENT_PASSWORD", "demo-agent-pass"),
-    "buyer": os.environ.get("DEMO_BUYER_PASSWORD", "demo-buyer-pass"),
-    "technician": os.environ.get("DEMO_TECH_PASSWORD", "demo-tech-pass"),
-    "finance": os.environ.get("DEMO_FINANCE_PASSWORD", "demo-finance-pass"),
-    "auditor": os.environ.get("DEMO_AUDITOR_PASSWORD", "demo-auditor-pass"),
-    "operator": os.environ.get("DEMO_OPERATOR_PASSWORD", "demo-operator-pass"),
-    "payment-service": os.environ.get("DEMO_PAYMENT_PASSWORD", "demo-payment-pass"),
+DEMO_CREDENTIAL_ENV_KEYS: Dict[str, str] = {
+    "supervisor": "DEMO_SUPERVISOR_PASSWORD",
+    "procurement-agent": "DEMO_AGENT_PASSWORD",
+    "buyer": "DEMO_BUYER_PASSWORD",
+    "technician": "DEMO_TECH_PASSWORD",
+    "finance": "DEMO_FINANCE_PASSWORD",
+    "auditor": "DEMO_AUDITOR_PASSWORD",
+    "operator": "DEMO_OPERATOR_PASSWORD",
+    "payment-service": "DEMO_PAYMENT_PASSWORD",
 }
 
 USER_ID_TO_PERSONA: Dict[str, str] = {
@@ -72,6 +72,30 @@ USER_ID_TO_PERSONA: Dict[str, str] = {
     "tech-cert-441": "technician",
     "fin-admin-01": "finance",
 }
+
+
+def get_demo_credentials() -> Dict[str, str]:
+    """Load credentials at request time and never ship usable production defaults.
+
+    Tests receive deterministic fixtures through Pytest's scoped environment. A deployed
+    demo must deliberately provide every credential it exposes, which prevents a public
+    repository from becoming a source of privileged login passwords.
+    """
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return {
+            "supervisor": "test-supervisor-password",
+            "procurement-agent": "test-agent-password",
+            "buyer": "test-buyer-password",
+            "technician": "test-technician-password",
+            "finance": "test-finance-password",
+            "auditor": "test-auditor-password",
+            "operator": "test-operator-password",
+            "payment-service": "test-payment-password",
+        }
+    return {
+        persona: os.environ.get(env_key, "").strip()
+        for persona, env_key in DEMO_CREDENTIAL_ENV_KEYS.items()
+    }
 
 
 class LoginRequest(BaseModel):
@@ -107,7 +131,12 @@ def login(req: LoginRequest):
             detail={"error": "invalid_credentials", "detail": f"Unknown enterprise user or persona: '{req.username}'"},
         )
 
-    expected_pw = DEMO_CREDENTIALS.get(persona_key)
+    expected_pw = get_demo_credentials().get(persona_key)
+    if not expected_pw:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "demo_auth_not_configured", "detail": "Demo credentials are not configured."},
+        )
     if not expected_pw or req.password != expected_pw:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -145,17 +174,17 @@ def issue_token(req: TokenRequest, request: Request):
     if persona_key not in PERSONA_ROLES:
         persona_key = "operator"
 
-    is_test_env = "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("ALLOW_DEV_TEST_JWT", "").lower() == "true"
-    is_demo_session = request.headers.get("X-Demo-Session", "").lower() == "true"
+    # JWT verification configuration must not grant password-free role issuance.
+    is_test_env = "PYTEST_CURRENT_TEST" in os.environ
     admin_key = request.headers.get("X-Admin-Key", "").strip()
     expected_admin = os.environ.get("DEMO_ADMIN_KEY", "").strip()
     admin_authorized = bool(expected_admin and admin_key == expected_admin)
 
-    expected_pw = DEMO_CREDENTIALS.get(persona_key)
+    expected_pw = get_demo_credentials().get(persona_key)
     pw_matches = bool(req.password and expected_pw and req.password == expected_pw)
 
     # Elevated personas with financial or policy sign-off clearance
-    elevated_personas = {"supervisor", "buyer", "finance", "payment-service"}
+    elevated_personas = {"supervisor", "buyer", "finance", "payment-service", "auditor"}
 
     if is_auth_enabled() and get_client_id():
         if not (pw_matches or admin_authorized or is_test_env):
@@ -167,8 +196,8 @@ def issue_token(req: TokenRequest, request: Request):
                 },
             )
     else:
-        # Development / demo mode: elevated roles still require password, demo header, or test harness
-        if persona_key in elevated_personas and not (pw_matches or admin_authorized or is_demo_session or is_test_env):
+        # Development / demo mode: elevated roles still require credentials.
+        if persona_key in elevated_personas and not (pw_matches or admin_authorized or is_test_env):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={
