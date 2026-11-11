@@ -331,7 +331,7 @@ export function PaymentProofDrawer({
                   <div>
                     <h4 className="text-sm font-bold">Audit Ledger &amp; Policy Governance</h4>
                     <p className="text-xs text-muted-foreground">
-                      Immutable record committed to SQL database and verified against spending policies.
+                      Audit record stored in SQL and checked against spending policies. Database access controls remain part of the trust boundary.
                     </p>
                   </div>
 

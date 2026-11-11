@@ -32,17 +32,31 @@ def get_checkpoint_path() -> Optional[Path]:
     """Resolve configured model checkpoint path if present."""
     custom_path = os.environ.get("GRAPH_RISK_CHECKPOINT_PATH")
     if custom_path:
-        return Path(custom_path)
+        p = Path(custom_path)
+        if p.exists():
+            return p
 
-    # Default checkpoint location
+    # Default checkpoint location (repo_root/ml/graph_risk/checkpoints/...)
+    repo_root = Path(__file__).resolve().parents[3]
     default_path = (
+        repo_root
+        / "ml"
+        / "graph_risk"
+        / "checkpoints"
+        / "graphsage_best_checkpoint.json"
+    )
+    if default_path.exists():
+        return default_path
+
+    # Fallback if executed from backend subdir
+    backend_path = (
         Path(__file__).resolve().parents[2]
         / "ml"
         / "graph_risk"
         / "checkpoints"
         / "graphsage_best_checkpoint.json"
     )
-    return default_path if default_path.exists() else None
+    return backend_path if backend_path.exists() else None
 
 
 def get_inference_engine(force_reload: bool = False) -> GraphRiskInferenceEngine:

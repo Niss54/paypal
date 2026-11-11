@@ -195,20 +195,17 @@ def _score_direct_llm(user_query: str, agent_response: str, context_texts: list[
 Calculate the fraction of factual claims in the Agent Response that are supported by the Retrieved Context:
 - Extract verifiable factual statements regarding equipment, events, causes, tags, work orders, and standards.
 - Substantiate against the retrieved context passages.
-- For lessons learned or prescriptive recommendations requested by the query, verify that the underlying failure premises, root causes, and equipment tags are grounded in the retrieved context (do not penalize valid operational lessons or advice as hallucinations).
-- Good, well-grounded answers with natural synthesis realistically score between 0.86 and 0.96. Reserve 1.00 for completely literal factual extractions. Deduct only for unsupported factual claims or contradictions.
+- Deduct for unsupported factual claims or contradictions.
 
 2. context_precision (0.0 to 1.0):
 Calculate rank-weighted context precision (Average Precision@k) of the retrieved context items:
-- Evaluate whether each retrieved context chunk [1], [2], ... directly contributed relevant signal to answer the User Query.
+- Evaluate whether each retrieved context chunk directly contributed relevant signal to answer the User Query.
 - Calculate: Sum(Precision@k * relevance_k) / (Total relevant chunks).
-- Because industrial hybrid retrieval brings in surrounding equipment docs alongside core failure records, realistic context precision typically ranges between 0.76 and 0.92 depending on chunk selectivity.
 
 3. answer_relevancy (0.0 to 1.0):
-Evaluate how directly, concisely, and specifically the response answers the user's operational question without extraneous padding or boilerplate:
-- Highly relevant, direct operational answers realistically score between 0.84 and 0.95.
+Evaluate how directly, concisely, and specifically the response answers the user's operational question without extraneous padding or boilerplate.
 
-Return realistic floating point scores reflecting genuine mathematical evaluation with natural decimal variance (e.g., 0.92, 0.84, 0.89).
+Return objective floating point scores between 0.0 and 1.0 reflecting genuine mathematical evaluation.
 
 Return JSON only in this exact format:
 {

@@ -1144,73 +1144,30 @@ export async function approveMachineMoneyPayment(
   reviewerId: string = "lead-operator-mumbai",
   reviewNotes: string = "Operator approved high-value maintenance dispatch."
 ): Promise<any> {
-  try {
-    const res = await fetchWithTimeout(
-      `${API_URL}/api/machine-money/payments/${paymentId}/approve`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewer_id: reviewerId, review_notes: reviewNotes }),
-      },
-      3500
-    );
-    if (res.ok) return await res.json();
-  } catch {}
-
-  return {
-    payment_id: paymentId,
-    status: "SETTLED",
-    reviewer_id: reviewerId,
-    review_notes: reviewNotes,
-    approved_at: new Date().toISOString(),
-    paid_at: new Date().toISOString(),
-    amount_sats: 1200,
-  };
+  const res = await fetchWithTimeout(
+    `${API_URL}/api/machine-money/payments/${paymentId}/approve`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewer_id: reviewerId, review_notes: reviewNotes }),
+    },
+    12000
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Payment approval failed with status HTTP ${res.status}`);
+  }
+  return await res.json();
 }
 
 export async function getPaymentGraphTrail(paymentId: string): Promise<PaymentTrailResponse> {
-  try {
-    const res = await fetchWithTimeout(`${API_URL}/api/machine-money/payments/${paymentId}/trail`, { cache: "no-store" }, 3500);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.payment_id) return data;
-    }
-  } catch {}
-
-  return {
-    payment_id: paymentId,
-    found: true,
-    status: "SETTLED",
-    amount_sats: 250,
-    payment_hash: "3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
-    preimage: "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
-    service_provider: "Apex Diagnostics",
-    work_order: {
-      id: "WO-2026-P101",
-      description: "Bearing vibration excursion inspection and FFT spectral diagnosis on pump P-101A",
-    },
-    predictive_trigger: {
-      event_id: "NASA-IMS-T2-REC-042",
-      event_type: "VIBRATION_EXCURSION",
-      confidence: 0.94,
-    },
-    failure_signature: {
-      failure_id: "FE-001",
-      title: "Outer Race Spalling & Bearing Defect Signature",
-    },
-    equipment: {
-      tag_id: "P-101A",
-      name: "Slurry Feed Centrifugal Pump P-101A",
-    },
-    graph_story: [
-      "1. NASA IMS 20 kHz telemetry sample triggered PredictiveEvent (NASA-IMS-T2-REC-042)",
-      "2. GraphRAG traversed similarity edge to HistoricalFailureEvent (FE-001) at 94% confidence",
-      "3. Governed procedure PROC-001 linked intervention WorkOrder (WO-2026-P101)",
-      "4. Autonomous spending policy verified $450 USD <= $1,000 cap without requiring human delay",
-      "5. PayPal payment captured with cryptographic evidence Merkle root recorded in Neo4j audit trail",
-    ],
-    explanation: "Complete cryptographically verifiable GraphRAG audit trail linking empirical telemetry excursion to Lightning settlement and work order execution.",
-  };
+  const res = await fetchWithTimeout(`${API_URL}/api/machine-money/payments/${paymentId}/trail`, { cache: "no-store" }, 12000);
+  if (!res.ok) {
+    throw new Error(`Payment audit trail unavailable for ${paymentId}`);
+  }
+  const data = await res.json();
+  if (data && data.payment_id) return data;
+  throw new Error(`Incomplete payment trail record received for ${paymentId}`);
 }
 
 export async function listMachineMoneyPayments(limit: number = 20): Promise<any[]> {
@@ -1398,7 +1355,7 @@ export async function executeJudgeMode(
       stage: "INVOICE_GENERATED",
       status: "SUCCESS",
       elapsed_ms: 790,
-      message: `PayPal Orders v2 authorized escrow cryptographically binding evidence root to Work Order WO-2026-P101.`,
+      message: `PayPal Orders v2 authorization hold binding evidence root to Work Order WO-2026-P101.`,
       evidence_refs: [hash.slice(0, 12)],
       data: { bolt11, payment_hash: hash },
       timestamp: new Date().toISOString(),
@@ -1700,7 +1657,7 @@ const DEMO_RFQ_CANDIDATES: VendorQuoteCandidate[] = [
     vendor_name: "Quantum Reliability",
     node_pubkey: "02" + "c3".repeat(32),
     service_id: "bearing-inspection",
-    service_name: "Multi-Sensor Cross-Coherence & Guaranteed Standby SLA",
+    service_name: "Multi-Sensor Cross-Coherence & Committed Standby SLA",
     amount_sats: 450,
     sla_hours: 2.5,
     reliability_score: 0.975,
@@ -2297,103 +2254,44 @@ export async function executeNWCPayment(payload: {
   connection_uri?: string;
   memo?: string;
 }): Promise<NWCPayResponse> {
-  try {
-    const res = await fetchWithTimeout(
-      `${API_URL}/api/machine-money/nwc/pay`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      },
-      3500
-    );
-    if (res.ok) {
-      const data = await res.json();
-      if (typeof window !== "undefined") {
-        try {
-          const stored = JSON.parse(localStorage.getItem("kinetix_m2m_payments") || "[]");
-          stored.unshift({
-            payment_id: `PAY-NWC-${Date.now().toString(36).toUpperCase()}`,
-            amount_sats: data.amount_sats || payload.amount_sats || 250,
-            amount_msat: (data.amount_sats || payload.amount_sats || 250) * 1000,
-            fee_sats: data.fee_sats || 1,
-            status: "SETTLED",
-            bolt11: payload.bolt11 || `lnbc${(payload.amount_sats || 250) * 10}n1pj9k9x...`,
-            payment_hash: data.payment_hash || "3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
-            preimage: data.preimage || "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
-            work_order_id: "WO-2026-P101",
-            event_id: "NWC-NIP47-AUTONOMOUS",
-            equipment_id: "P-101A",
-            service_id: "bearing-inspection",
-            vendor_name: "Apex Diagnostics (NWC)",
-            created_at: data.settled_at || new Date().toISOString(),
-            paid_at: data.settled_at || new Date().toISOString(),
-          });
-          localStorage.setItem("kinetix_m2m_payments", JSON.stringify(stored.slice(0, 30)));
-        } catch {}
-      }
-      return data;
-    }
-  } catch {}
-
-  const amt = payload.amount_sats || 250;
-  const hash = "3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b";
-  const preimage = "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20";
-  const paymentId = `PAY-NWC-${Date.now().toString(36).toUpperCase()}`;
-
+  const res = await fetchWithTimeout(
+    `${API_URL}/api/machine-money/nwc/pay`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    12000
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `NWC payment dispatch failed with HTTP ${res.status}`);
+  }
+  const data = await res.json();
   if (typeof window !== "undefined") {
     try {
       const stored = JSON.parse(localStorage.getItem("kinetix_m2m_payments") || "[]");
       stored.unshift({
-        payment_id: paymentId,
-        amount_sats: amt,
-        amount_msat: amt * 1000,
-        fee_sats: 1,
+        payment_id: `PAY-NWC-${Date.now().toString(36).toUpperCase()}`,
+        amount_sats: data.amount_sats || payload.amount_sats || 250,
+        amount_msat: (data.amount_sats || payload.amount_sats || 250) * 1000,
+        fee_sats: data.fee_sats || 1,
         status: "SETTLED",
-        bolt11: `lnbc${amt * 10}n1pj9k9x...`,
-        payment_hash: hash,
-        preimage,
+        bolt11: payload.bolt11 || `lnbc${(payload.amount_sats || 250) * 10}n1pj9k9x...`,
+        payment_hash: data.payment_hash || "3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b",
+        preimage: data.preimage || "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
         work_order_id: "WO-2026-P101",
         event_id: "NWC-NIP47-AUTONOMOUS",
         equipment_id: "P-101A",
         service_id: "bearing-inspection",
         vendor_name: "Apex Diagnostics (NWC)",
-        created_at: new Date().toISOString(),
-        paid_at: new Date().toISOString(),
+        created_at: data.settled_at || new Date().toISOString(),
+        paid_at: data.settled_at || new Date().toISOString(),
       });
       localStorage.setItem("kinetix_m2m_payments", JSON.stringify(stored.slice(0, 30)));
     } catch {}
   }
-
-  return {
-    status: "SUCCESS",
-    method: "pay_invoice",
-    amount_sats: amt,
-    fee_sats: 1,
-    preimage: preimage,
-    payment_hash: hash,
-    request_event: {
-      id: "note1req" + Date.now().toString(16),
-      pubkey: "03" + "c2".repeat(32),
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 23194,
-      tags: [["p", "02" + "e1".repeat(32)]],
-      content: "encrypted_nip04_content_payload",
-      sig: "sig_nwc_request_event",
-    },
-    response_event: {
-      id: "note1res" + Date.now().toString(16),
-      pubkey: "02" + "e1".repeat(32),
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 23195,
-      tags: [["p", "03" + "c2".repeat(32)]],
-      content: "encrypted_nip04_response_payload",
-      sig: "sig_nwc_response_event",
-    },
-    relay: "wss://relay.damus.io",
-    preimage_verified: true,
-    settled_at: new Date().toISOString(),
-  };
+  return data;
 }
 
 export async function getRoutingTopology(): Promise<RoutingTopologyResponse> {
@@ -2806,17 +2704,6 @@ export interface AuthTokenResponse {
   name: string;
 }
 
-const DEMO_PERSONA_PASSWORDS: Record<string, string> = {
-  "supervisor": "demo-supervisor-pass",
-  "procurement-agent": "demo-agent-pass",
-  "buyer": "demo-buyer-pass",
-  "technician": "demo-tech-pass",
-  "finance": "demo-finance-pass",
-  "auditor": "demo-auditor-pass",
-  "operator": "demo-operator-pass",
-  "payment-service": "demo-payment-pass",
-};
-
 export async function computeSha256(content: string): Promise<string> {
   if (typeof window !== "undefined" && window.crypto && window.crypto.subtle) {
     const enc = new TextEncoder();
@@ -2825,31 +2712,19 @@ export async function computeSha256(content: string): Promise<string> {
     const hashArr = Array.from(new Uint8Array(hashBuf));
     return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
   }
-  return "5316f8f37a31793b32f24d349d7deab14f48654ba5416295d8209b3ce7250119";
+  throw new Error("SHA-256 requires a secure browser context (HTTPS or localhost). No evidence was submitted.");
 }
 
-export async function getAuthToken(persona: string = "procurement-agent", userId?: string): Promise<AuthTokenResponse> {
+export async function getAuthToken(persona: string = "procurement-agent", userId?: string, password?: string): Promise<AuthTokenResponse> {
   const normPersona = persona.toLowerCase().trim();
-  const password = DEMO_PERSONA_PASSWORDS[normPersona] || "demo-agent-pass";
-  try {
-    const loginRes = await fetch(`${API_URL}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: normPersona, password }),
-    });
-    if (loginRes.ok) {
-      return await loginRes.json();
-    }
-  } catch (e) {
-    // Fall back to token endpoint
-  }
-
   const res = await fetch(`${API_URL}/api/auth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ persona: normPersona, user_id: userId, password }),
   });
-  if (!res.ok) throw new Error("Failed to obtain authentication token");
+  if (!res.ok) {
+    throw new Error("Authentication failed. Elevated roles require the operator-configured credential.");
+  }
   return res.json();
 }
 

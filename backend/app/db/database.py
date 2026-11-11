@@ -86,10 +86,11 @@ def init_db(target_engine=None):
     Base.metadata.create_all(bind=eng)
 
     try:
-        with eng.connect() as conn:
-            res = conn.execute(text("PRAGMA table_info(paypal_order_records)")).fetchall()
-            existing_cols = {row[1] for row in res}
-            if existing_cols:
+        from sqlalchemy import inspect
+        inspector = inspect(eng)
+        if inspector.has_table("paypal_order_records"):
+            existing_cols = {c["name"] for c in inspector.get_columns("paypal_order_records")}
+            with eng.connect() as conn:
                 if "requester_user_id" not in existing_cols:
                     conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN requester_user_id VARCHAR(128) DEFAULT 'kinetix-procurement-agent'"))
                 if "approve_url" not in existing_cols:
@@ -101,20 +102,19 @@ def init_db(target_engine=None):
                 if "organization_id" not in existing_cols:
                     conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN organization_id VARCHAR(64) DEFAULT 'kinetix-industrial'"))
 
-            res_ev = conn.execute(text("PRAGMA table_info(completion_evidence_records)")).fetchall()
-            ev_cols = {row[1] for row in res_ev}
-            if ev_cols:
-                if "order_id" not in ev_cols:
-                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN order_id VARCHAR(64)"))
-                if "file_content" not in ev_cols:
-                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN file_content TEXT"))
-                if "file_size_bytes" not in ev_cols:
-                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN file_size_bytes INTEGER DEFAULT 0"))
-                if "submitted_by" not in ev_cols:
-                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN submitted_by VARCHAR(128)"))
-                if "provenance_classification" not in ev_cols:
-                    conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN provenance_classification VARCHAR(64) DEFAULT 'SYNTHETIC_DEMO_FIXTURE'"))
+                if inspector.has_table("completion_evidence_records"):
+                    ev_cols = {c["name"] for c in inspector.get_columns("completion_evidence_records")}
+                    if "order_id" not in ev_cols:
+                        conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN order_id VARCHAR(64)"))
+                    if "file_content" not in ev_cols:
+                        conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN file_content TEXT"))
+                    if "file_size_bytes" not in ev_cols:
+                        conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN file_size_bytes INTEGER DEFAULT 0"))
+                    if "submitted_by" not in ev_cols:
+                        conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN submitted_by VARCHAR(128)"))
+                    if "provenance_classification" not in ev_cols:
+                        conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN provenance_classification VARCHAR(64) DEFAULT 'SYNTHETIC_DEMO_FIXTURE'"))
 
-            conn.commit()
-    except Exception as e:
+                conn.commit()
+    except Exception:
         pass

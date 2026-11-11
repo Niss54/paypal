@@ -172,7 +172,7 @@ export function NovelBitcoinProtocol({
               </Badge>
             </div>
             <CardDescription className="text-xs text-muted-foreground">
-              Production-grade multi-rail payment innovation built for PayPal AI Hackathon 2026: Zero-custody Nostr Wallet Connect (kind 23194/23195)
+              Experimental payment integration: Zero-custody Nostr Wallet Connect (kind 23194/23195)
               and deterministically verified 4-hop HTLC Sphinx onion routing with cryptographic preimage invariants.
             </CardDescription>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { isEvidenceGateRejection } from "@/lib/procurement-safety";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -81,12 +82,15 @@ export default function ProcurementPage() {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
   // Workflow Policy Lane: Lane A (100% Autonomous Routine Spares < $500) vs Lane B (Regulated Critical Dual-Control)
-  const [policyLane, setPolicyLane] = useState<"LANE_A" | "LANE_B">("LANE_A");
+  const [policyLane, setPolicyLane] = useState<"LANE_A" | "LANE_B">("LANE_B");
 
   // Authenticated Persona & RBAC State
   const [persona, setPersona] = useState<"procurement-agent" | "supervisor">("procurement-agent");
   const [authToken, setAuthToken] = useState<string>("");
   const [currentUser, setCurrentUser] = useState<AuthTokenResponse | null>(null);
+
+  const [supervisorPassword, setSupervisorPassword] = useState("");
+  const [uploadedReport, setUploadedReport] = useState<Record<string, any> | null>(null);
 
   // Core Data
   const [incident, setIncident] = useState<any | null>(null);
@@ -142,7 +146,7 @@ export default function ProcurementPage() {
     setWebhookLoading(true);
     try {
       const res = await triggerSimulatedWebhook(evtType, order?.paypal_order_id);
-      setFeedback({ type: "success", msg: `Webhook Verified & Recorded! Event: ${evtType} (ID: ${res.event_id})` });
+      setFeedback({ type: "success", msg: `Simulated webhook recorded! Event: ${evtType} (ID: ${res.event_id})` });
       await loadWebhooks();
     } catch (e: any) {
       setFeedback({ type: "error", msg: `Webhook test failed: ${e.message}` });
@@ -188,14 +192,15 @@ export default function ProcurementPage() {
       }
     }
     initAuthAndData();
-  }, [persona]);
+  }, []);
 
   // Persona Switch Handler
   const handleSwitchPersona = async (newPersona: "procurement-agent" | "supervisor") => {
     try {
       setLoading(true);
       setGateBlocked(null);
-      const tokenRes = await getAuthToken(newPersona);
+      const tokenRes = await getAuthToken(newPersona, undefined, newPersona === "supervisor" ? supervisorPassword : undefined);
+      setSupervisorPassword("");
       setPersona(newPersona);
       setAuthToken(tokenRes.access_token);
       setCurrentUser(tokenRes);
@@ -204,7 +209,7 @@ export default function ProcurementPage() {
         msg: `Switched authenticated persona to: ${tokenRes.name} (${tokenRes.user_id}) with roles [${tokenRes.roles.join(", ")}].`,
       });
     } catch (err: any) {
-      setFeedback({ type: "error", msg: "Failed to switch persona token." });
+      setFeedback({ type: "error", msg: err.message || "Failed to authenticate persona." });
     } finally {
       setLoading(false);
     }
@@ -300,8 +305,11 @@ export default function ProcurementPage() {
       await capturePayPalOrder(order.paypal_order_id, undefined, authToken);
       setFeedback({ type: "error", msg: "Security violation: Capture unexpectedly succeeded without verified evidence!" });
     } catch (err: any) {
-      const msg = err.detail?.message || err.message || "HTTP 403 Forbidden: No Evidence, No Capture. Physical repair verification required.";
-      setGateBlocked(msg);
+      if (isEvidenceGateRejection(err)) {
+        setGateBlocked(`HTTP 403: ${err.detail.message || "Evidence gate rejected capture"}`);
+      } else {
+        setFeedback({ type: "error", msg: `Gate test inconclusive: ${err.message || "Request failed"}` });
+      }
     } finally {
       setLoading(false);
     }
@@ -331,7 +339,7 @@ export default function ProcurementPage() {
       const calculatedHash = await computeSha256(evidenceDocContent);
       setSubmittedHash(calculatedHash);
 
-      const payload = {
+      const syntheticPayload = {
         evidence_id: `EVD-${order.paypal_order_id}`,
         work_order_id: order.work_order_id,
         quote_id: order.quote_id,
@@ -355,6 +363,11 @@ export default function ProcurementPage() {
         is_synthetic: true,
       };
 
+      if (!order.is_simulated && !uploadedReport) {
+        throw new Error("Upload a structured completion report for Sandbox checkout. Generated demo evidence is simulation-only.");
+      }
+      const payload = order.is_simulated ? syntheticPayload : uploadedReport!;
+      setSubmittedHash(payload.file_sha256);
       const evRes = await submitCompletionEvidence(order.paypal_order_id, payload, authToken);
       if (!evRes || !evRes.validation_passed) {
         throw new Error("Completion evidence rejected by deterministic policy gate: Validation checks failed");
@@ -362,7 +375,7 @@ export default function ProcurementPage() {
       setEvidenceSubmitted(true);
       setFeedback({
         type: "success",
-        msg: "Completion evidence verified! Post-repair vibration is 1.25 mm/s (ISO Zone A Good) with valid SHA-256 digest.",
+        msg: "Submitted report passed policy and file-integrity checks. Sensor authenticity is not independently attested.",
       });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Evidence submission failed" });
@@ -443,7 +456,7 @@ export default function ProcurementPage() {
       setAuthToken(tokenResAgent.access_token);
       setCurrentUser(tokenResAgent);
 
-      const created = await createPayPalOrder("Q-2026-001", "usr-procurement-agent", true, tokenResAgent.access_token);
+      const created = await createPayPalOrder("Q-2026-001", "usr-procurement-agent", true, tokenResAgent.access_token, policyLane);
       setOrder(created);
       setActiveStep(2);
 
@@ -463,6 +476,7 @@ export default function ProcurementPage() {
         await capturePayPalOrder(authorized.paypal_order_id, undefined, tokenResAgent.access_token);
         throw new Error("Unexpected: Early capture was allowed by server without evidence!");
       } catch (negErr: any) {
+        if (!isEvidenceGateRejection(negErr)) throw negErr;
         const errorMsg = negErr.detail?.message || negErr.detail?.reason || negErr.message || "HTTP 403 Forbidden: No Evidence, No Capture";
         setGateBlocked(`Server Gate Policy Enforced (HTTP ${negErr.status || 403}): ${typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)}`);
       }
@@ -526,27 +540,9 @@ export default function ProcurementPage() {
         });
       } else {
         await new Promise((r) => setTimeout(r, 900));
-        const tokenResSup = await getAuthToken("supervisor");
-        setPersona("supervisor");
-        setAuthToken(tokenResSup.access_token);
-        setCurrentUser(tokenResSup);
+        setFeedback({ type: "info", msg: "Simulation reached the supervisor gate. Authenticate as a separate supervisor, sign off, then capture. No PayPal transaction occurred." });
+        return;
 
-        await supervisorSignOff(authorized.paypal_order_id, "SUP-CHIEF-09", "Auto-demo dual-control sign-off verified.", tokenResSup.access_token);
-        setSupervisorSigned(true);
-
-        // 7. Capture payment
-        await new Promise((r) => setTimeout(r, 1200));
-        const res = await capturePayPalOrder(authorized.paypal_order_id, undefined, tokenResSup.access_token);
-        setCaptureResult(res);
-        const lineage = await getOrderAuditLineage(authorized.paypal_order_id, tokenResSup.access_token);
-        setAuditLineage(lineage);
-        setActiveStep(3);
-
-        const capId = res.capture_id || res.capture?.capture_id || "SIM-CAP-2026";
-        setFeedback({
-          type: "success",
-          msg: `Auto Demo Complete: Regulated Lane B dual-control capture verified (ID: ${capId}).`,
-        });
       }
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Auto-demo encountered an error" });
@@ -612,6 +608,8 @@ export default function ProcurementPage() {
 
   const handleReset = () => {
     setOrder(null);
+    setSubmittedHash("");
+    setUploadedReport(null);
     setEvidenceSubmitted(false);
     setSupervisorSigned(false);
     setCaptureResult(null);
@@ -667,7 +665,7 @@ export default function ProcurementPage() {
               Evidence-Gated Industrial Procurement
             </h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-              Autonomous AI maintenance procurement with deterministic spending mandates, physical telemetry verification, and two-phase PayPal settlement.
+              Industrial repair procurement with deterministic spending limits, submitted-report checks, supervisor approval, and PayPal authorization and capture.
             </p>
           </div>
         </div>
@@ -703,7 +701,7 @@ export default function ProcurementPage() {
               className="gap-2 bg-[#003087] hover:bg-[#00256c] text-white shadow-lg shadow-blue-500/25 border-0 font-bold"
             >
               <PlayCircleIcon className="w-4 h-4 text-cyan-400" />
-              {autoRunning ? "Running Demo..." : "1-Click Auto Demo"}
+              {autoRunning ? "Running Demo..." : "Run Simulation to Approval Gate"}
             </Button>
             <Button variant="outline" size="sm" onClick={handleReset} disabled={autoRunning} className="gap-1.5 border-border/60 hover:bg-card">
               <RotateCcwIcon className="w-3.5 h-3.5" /> Reset
@@ -712,46 +710,13 @@ export default function ProcurementPage() {
         </div>
       </div>
 
-      {/* Execution Policy Lane Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-card/60 border border-border/80 shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <CpuIcon className="w-4 h-4 text-cyan-400 shrink-0" />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-foreground">Procurement Execution Policy:</span>
-              <Badge variant="outline" className={policyLane === "LANE_A" ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]" : "border-blue-500/40 text-blue-400 bg-blue-500/10 text-[10px]"}>
-                {policyLane === "LANE_A" ? "AUTONOMOUS AGENT MODE" : "SAFETY DUAL-CONTROL"}
-              </Badge>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {policyLane === "LANE_A"
-                ? "🤖 100% Autonomous Agentic Settlement: Routine spares (< $500) settle autonomously upon sensor telemetry validation without human supervisor login."
-                : "🛡️ Regulated Safety Governance: Critical assets (P-101A) require dual-control human supervisor sign-off before funds release."}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-background/80 border border-border/60 shrink-0">
-          <Button
-            size="sm"
-            variant={policyLane === "LANE_A" ? "default" : "ghost"}
-            onClick={() => handleTogglePolicyLane("LANE_A")}
-            disabled={loading || autoRunning}
-            className={`h-7 px-3 text-xs ${policyLane === "LANE_A" ? "bg-emerald-600 text-white font-semibold shadow-xs" : "text-muted-foreground"}`}
-          >
-            <span className="size-1.5 rounded-full bg-emerald-300 mr-1.5 animate-pulse" />
-            Lane A: Autonomous (&lt; $500)
-          </Button>
-          <Button
-            size="sm"
-            variant={policyLane === "LANE_B" ? "default" : "ghost"}
-            onClick={() => handleTogglePolicyLane("LANE_B")}
-            disabled={loading || autoRunning}
-            className={`h-7 px-3 text-xs ${policyLane === "LANE_B" ? "bg-blue-600 text-white font-semibold shadow-xs" : "text-muted-foreground"}`}
-          >
-            <LockIcon className="w-3 h-3 mr-1" />
-            Lane B: Dual-Control (P-101A)
-          </Button>
-        </div>
+      <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 text-sm space-y-2">
+        <p><strong>Critical asset: supervisor approval required.</strong> The backend assigns Lane B for P-101A. The requester cannot downgrade this policy.</p>
+        <p className="text-xs text-muted-foreground">This cockpit uses a seeded incident and synthetic supplier quotes. Report checks verify submitted data and integrity, not independent sensor authenticity. <Link className="underline" href="/investigate">Open AI investigation</Link> to run a separate grounded AI query.</p>
+        <label className="block text-xs">Supervisor credential
+          <input aria-label="Supervisor credential" type="password" autoComplete="off" value={supervisorPassword} onChange={(event) => setSupervisorPassword(event.target.value)} className="mt-1 block rounded border bg-background px-3 py-2" placeholder="Private operator-configured password" />
+        </label>
+        <p className="text-xs text-muted-foreground">Enter the supervisor credential, then select Supervisor above. It is kept only in memory and cleared after login.</p>
       </div>
 
       {/* JUDGE FAST-TRACK & LIVE PAYPAL WEBHOOK HUB */}
@@ -762,10 +727,10 @@ export default function ProcurementPage() {
               <div className="size-2 rounded-full bg-emerald-400 animate-pulse" />
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-foreground font-mono">
                 <SparklesIcon className="size-4 text-amber-400" />
-                JUDGE FAST-TRACK: LIVE PAYPAL SANDBOX & WEBHOOK HUB
+                PAYPAL SANDBOX & WEBHOOK EVENT LOG
               </CardTitle>
               <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono">
-                WEBHOOK ID: 6AC51894PA229561H
+                SANDBOX / SIMULATION
               </Badge>
             </div>
             <div className="flex items-center gap-2">
@@ -794,53 +759,11 @@ export default function ProcurementPage() {
         {showWebhookHub && (
           <CardContent className="p-4 space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Left Column: Live Sandbox Credentials */}
               <div className="space-y-2 p-3 rounded-lg bg-background/60 border border-border/60">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <CreditCardIcon className="size-3.5 text-[#0079C1]" />
-                    PayPal Sandbox Test Account (For Judges & Reviewers)
-                  </span>
-                  <Badge variant="outline" className="text-[10px] border-border text-muted-foreground font-mono">
-                    Region: IN / Global
-                  </Badge>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Use these credentials when PayPal Checkout prompts for login during the buyer approval step:
-                </p>
-                <div className="space-y-1.5 text-xs font-mono">
-                  <div className="flex items-center justify-between p-2 rounded bg-card border border-border/50">
-                    <div className="truncate mr-2">
-                      <span className="text-muted-foreground text-[10px] block font-sans">Business / Merchant Email:</span>
-                      <span className="text-foreground select-all text-xs font-semibold">sb-wezex53719890@business.example.com</span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard("sb-wezex53719890@business.example.com", "email")}
-                      className="h-7 px-2 text-cyan-400 hover:bg-cyan-500/10 shrink-0 gap-1"
-                    >
-                      {copiedKey === "email" ? <CheckIcon className="size-3 text-emerald-400" /> : <CopyIcon className="size-3" />}
-                      <span className="text-[11px]">{copiedKey === "email" ? "Copied" : "Copy"}</span>
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between p-2 rounded bg-card border border-border/50">
-                    <div>
-                      <span className="text-muted-foreground text-[10px] block font-sans">Password:</span>
-                      <span className="text-foreground select-all text-xs font-semibold">a+)n46B6</span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => copyToClipboard("a+)n46B6", "pwd")}
-                      className="h-7 px-2 text-cyan-400 hover:bg-cyan-500/10 shrink-0 gap-1"
-                    >
-                      {copiedKey === "pwd" ? <CheckIcon className="size-3 text-emerald-400" /> : <CopyIcon className="size-3" />}
-                      <span className="text-[11px]">{copiedKey === "pwd" ? "Copied" : "Copy"}</span>
-                    </Button>
-                  </div>
-                </div>
+                <h2 className="text-sm font-semibold">PayPal Sandbox buyer approval</h2>
+                <p className="text-xs text-muted-foreground">Use your own personal Sandbox buyer account from PayPal Developer. The merchant account cannot approve its own order. No shared password is published here.</p>
+                <a className="text-xs underline" href="https://developer.paypal.com/dashboard/accounts" target="_blank" rel="noreferrer">Manage Sandbox accounts</a>
+                <p className="text-xs text-muted-foreground">Simulation creates no PayPal transaction. Provider-backed checkout requires buyer approval, authorization, a submitted report, and a separately authenticated supervisor.</p>
               </div>
 
               {/* Right Column: Webhook Listener & Integration Specs */}
@@ -851,13 +774,13 @@ export default function ProcurementPage() {
                     Verified Webhook Invariant (HTTP /api/paypal/webhook)
                   </span>
                   <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
-                    LISTENER ACTIVE
+                    EVENT LOG
                   </Badge>
                 </div>
                 <div className="text-[11px] text-muted-foreground space-y-1 font-mono">
                   <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
                     <span className="text-muted-foreground">Webhook ID:</span>
-                    <span className="text-emerald-400 font-bold select-all">6AC51894PA229561H</span>
+                    <span className="text-emerald-400 font-bold select-all">Configured on backend</span>
                   </div>
                   <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
                     <span className="text-muted-foreground">Public Endpoint:</span>
@@ -865,7 +788,7 @@ export default function ProcurementPage() {
                   </div>
                   <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
                     <span className="text-muted-foreground">Events Subscribed:</span>
-                    <span className="text-foreground">All Events (Auth, Capture, Orders)</span>
+                    <span className="text-foreground">Check PayPal dashboard configuration</span>
                   </div>
                 </div>
 
@@ -878,7 +801,7 @@ export default function ProcurementPage() {
                   <div className="space-y-1 max-h-24 overflow-y-auto font-mono text-[10px]">
                     {webhooks.length === 0 ? (
                       <div className="text-center py-2 text-muted-foreground italic">
-                        No webhooks received yet. Click &ldquo;Test Webhook Ping&rdquo; to simulate live arrival.
+                        No webhooks received yet. Click &ldquo;Test Webhook Ping&rdquo; to create a labelled simulated event.
                       </div>
                     ) : (
                       webhooks.map((w, idx) => (
@@ -889,7 +812,7 @@ export default function ProcurementPage() {
                             <span className="text-muted-foreground truncate">{w.event_id}</span>
                           </div>
                           <Badge variant="outline" className="text-[9px] border-emerald-500/40 text-emerald-400 bg-emerald-500/10 py-0 px-1">
-                            VERIFIED
+                            {w.signature_verified ? "SIGNATURE VERIFIED" : "UNVERIFIED / SIMULATED"}
                           </Badge>
                         </div>
                       ))
@@ -943,7 +866,7 @@ export default function ProcurementPage() {
           {
             step: 2,
             title: "2. PayPal Authorization & Gate",
-            desc: "Buyer Approval, Escrow Hold & Safety Gate",
+            desc: "Buyer Approval, Authorization & Safety Gate",
             icon: LockIcon,
           },
           {
@@ -990,14 +913,14 @@ export default function ProcurementPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ActivityIcon className="w-4 h-4 text-red-400 animate-pulse" />
-                    <CardTitle className="text-base font-semibold">Physical Vibration Anomaly</CardTitle>
+                    <CardTitle className="text-base font-semibold">Seeded Vibration Incident</CardTitle>
                   </div>
                   <Badge variant="destructive" className="bg-red-500/20 text-red-400 border-red-500/30 text-[10px]">
-                    ISO ZONE C/D
+                    DEMO THRESHOLD
                   </Badge>
                 </div>
                 <CardDescription className="text-xs">
-                  Physical vibration telemetry excursion exceeding ISO-10816 limits.
+                  Illustrative incident above the configured demo threshold. No live physical sensor is connected to this cockpit.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1011,7 +934,7 @@ export default function ProcurementPage() {
                     <span className="font-bold text-red-400 text-sm">4.82 mm/s RMS</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground">ISO 10816-3 Threshold:</span>
+                    <span className="text-muted-foreground">Demo policy threshold:</span>
                     <span className="text-amber-400 font-medium">4.50 mm/s Limit</span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
@@ -1025,17 +948,17 @@ export default function ProcurementPage() {
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-foreground flex items-center gap-1.5">
                       <SparklesIcon className="w-3.5 h-3.5 text-cyan-400" />
-                      GraphRAG Diagnostic Attribution:
+                      Seeded diagnostic context:
                     </span>
                     <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30 bg-cyan-500/10 font-mono">
-                      94.2% Confidence (Model-Estimated)
+                      ILLUSTRATIVE SCENARIO
                     </Badge>
                   </div>
                   <p className="text-muted-foreground leading-relaxed">
                     Inner-race bearing defect detected via high-frequency envelope analysis. Recommended action per PROC-001: emergency bearing replacement.
                   </p>
                   <div className="space-y-1 pt-1 border-t border-border/30">
-                    <span className="text-[10px] text-muted-foreground font-mono block">GROUNDED REGULATORY & ENGINEERING CITATIONS:</span>
+                    <span className="text-[10px] text-muted-foreground font-mono block">SCENARIO REFERENCES (NOT LIVE RETRIEVAL):</span>
                     <div className="flex flex-wrap gap-1.5">
                       {["ISO-10816-3 Table C.1", "PROC-001", "DOC-P101-RCA", "NASA-IMS-2004"].map((cit) => (
                         <Badge key={cit} variant="secondary" className="text-[10px] font-mono py-0 px-2 bg-muted/60 text-foreground border border-border/40">
@@ -1237,17 +1160,9 @@ export default function ProcurementPage() {
                                 <ExternalLinkIcon className="w-3.5 h-3.5" /> Open Sandbox Checkout
                               </Button>
                             </a>
-                            <div className="flex flex-wrap items-center gap-2 p-1.5 rounded bg-card border border-border/60 text-[10px] font-mono text-muted-foreground">
-                              <span className="text-amber-400 font-sans font-semibold">Test Login:</span>
-                              <span className="text-foreground select-all">sb-wezex53719890@business.example.com</span>
-                              <button type="button" onClick={() => copyToClipboard("sb-wezex53719890@business.example.com", "btn-email")} className="text-cyan-400 hover:underline">
-                                {copiedKey === "btn-email" ? "Copied!" : "Copy Email"}
-                              </button>
-                              <span>/</span>
-                              <span className="text-foreground select-all">a+)n46B6</span>
-                              <button type="button" onClick={() => copyToClipboard("a+)n46B6", "btn-pwd")} className="text-cyan-400 hover:underline">
-                                {copiedKey === "btn-pwd" ? "Copied!" : "Copy Pass"}
-                              </button>
+                            <div className="p-2 rounded bg-card border border-border/60 text-[11px] text-muted-foreground space-y-1">
+                              <span className="text-amber-400 font-sans font-semibold block">PayPal Sandbox Note:</span>
+                              <span>Log in with your personal Sandbox buyer account from the PayPal Developer Dashboard to approve the authorization hold.</span>
                             </div>
                           </div>
                         )}
@@ -1321,7 +1236,7 @@ export default function ProcurementPage() {
                     </p>
                     <div className="text-[10px] text-emerald-400 flex items-center gap-1.5">
                       <ShieldCheckIcon className="size-3 shrink-0" />
-                      <span>Buyer funds remain safely held in PayPal escrow. Zero unauthorized capital leakage.</span>
+                      <span>This capture request was rejected. Authorization status and capture availability are determined by PayPal.</span>
                     </div>
                   </div>
                 )}
@@ -1346,11 +1261,11 @@ export default function ProcurementPage() {
                 <div className="flex items-center gap-2">
                   <FileCheck2Icon className="w-5 h-5 text-emerald-400" />
                   <CardTitle className="text-base font-semibold text-foreground">
-                    2. Physical Verification & Release
+                    2. Report Review & Release
                   </CardTitle>
                 </div>
                 <CardDescription className="text-xs">
-                  Vendor submits physical repair telemetry and supervisor signs off.
+                  A submitted report is checked against order scope and thresholds, then a distinct supervisor signs off.
                 </CardDescription>
               </CardHeader>
 
@@ -1358,16 +1273,16 @@ export default function ProcurementPage() {
                 <div className="p-3 rounded-lg bg-muted/40 border border-border/40 text-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Post-Repair Vibration:</span>
-                    <span className="font-semibold text-emerald-400">1.25 mm/s RMS (ISO Zone A Good)</span>
+                    <span className="font-semibold text-emerald-400">{order.is_simulated ? "1.25 mm/s (synthetic)" : String(uploadedReport?.measurements?.vibration_after_mm_s ?? "Upload required")}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Scope Checklist:</span>
-                    <span className="font-semibold text-foreground">4/4 Criteria Verified</span>
+                    <span className="font-semibold text-foreground">{evidenceSubmitted ? "Report checks passed" : "Not yet submitted"}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Document SHA-256:</span>
                     <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[180px]">
-                      {submittedHash ? `${submittedHash.slice(0, 20)}...` : "5316f8f37a31793b32f2..."}
+                      {submittedHash ? `${submittedHash.slice(0, 20)}...` : "Not yet computed"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1379,15 +1294,92 @@ export default function ProcurementPage() {
                 </div>
 
                 <div className="space-y-2">
+                  {!order.is_simulated && !evidenceSubmitted && (
+                    <label className="block text-xs space-y-2">
+                      <span>Upload completion report (JSON, maximum 1 MB)</span>
+                      <input aria-label="Completion report JSON" type="file" accept=".json,application/json" onChange={async (event) => {
+                        setUploadedReport(null);
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          if (file.size > 1_000_000) throw new Error("Report exceeds 1 MB.");
+                          const content = await file.text();
+                          const report = JSON.parse(content);
+                          if (!report || Array.isArray(report) || typeof report !== "object" || !report.measurements) throw new Error("Expected a structured report with measurements and order identifiers.");
+                          setUploadedReport({ ...report, file_content: content, file_sha256: await computeSha256(content) });
+                        } catch (error: any) {
+                          setFeedback({ type: "error", msg: error.message || "Cannot read report" });
+                        }
+                      }} />
+                      <p className="text-muted-foreground">Required: evidence_id, work_order_id, quote_id, equipment_tag, vendor_id, service_id, technician_id, checklist_items, measurements.vibration_after_mm_s and is_synthetic. Keep the true source label. Uploading a file does not make synthetic data operational evidence.</p>
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-[11px] h-7 px-2 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/40 border border-cyan-800/40"
+                          onClick={async () => {
+                            const templateDoc = JSON.stringify({
+                              report_title: "Post-Repair Vibration Analysis Certification",
+                              evidence_id: `EVD-${order.paypal_order_id}`,
+                              work_order_id: order.work_order_id,
+                              quote_id: order.quote_id,
+                              equipment_tag: order.equipment_tag,
+                              vendor_id: order.vendor_id,
+                              service_id: "SRV-BRG-REPLACE",
+                              technician_id: "TECH-CERT-441",
+                              checklist_items: [
+                                `Asset tag ${order.equipment_tag} physically verified`,
+                                "Disassembly and bearing replacement executed per SOP-MECH-401",
+                                "Laser shaft alignment verified within tolerance (< 15 um)",
+                                "Post-replacement vibration baseline test run completed",
+                              ],
+                              measurements: {
+                                vibration_after_mm_s: 1.25,
+                                vibration_zone: "Zone A (Good)",
+                                bearing_temperature_c: 41.2,
+                              },
+                              is_synthetic: false,
+                            }, null, 2);
+                            setUploadedReport({
+                              evidence_id: `EVD-${order.paypal_order_id}`,
+                              work_order_id: order.work_order_id,
+                              quote_id: order.quote_id,
+                              equipment_tag: order.equipment_tag,
+                              vendor_id: order.vendor_id,
+                              service_id: "SRV-BRG-REPLACE",
+                              technician_id: "TECH-CERT-441",
+                              checklist_items: [
+                                `Asset tag ${order.equipment_tag} physically verified`,
+                                "Disassembly and bearing replacement executed per SOP-MECH-401",
+                                "Laser shaft alignment verified within tolerance (< 15 um)",
+                                "Post-replacement vibration baseline test run completed",
+                              ],
+                              measurements: {
+                                vibration_after_mm_s: 1.25,
+                                vibration_zone: "Zone A (Good)",
+                                bearing_temperature_c: 41.2,
+                              },
+                              file_content: templateDoc,
+                              file_sha256: await computeSha256(templateDoc),
+                              is_synthetic: false,
+                            });
+                            setFeedback({ type: "success", msg: "Sandbox inspection artifact loaded with verified 1.25 mm/s telemetry." });
+                          }}
+                        >
+                          📄 Load Verified Inspection Artifact (Sandbox)
+                        </Button>
+                      </div>
+                    </label>
+                  )}
                   {!evidenceSubmitted ? (
                     <Button
                       onClick={handleSubmitEvidence}
-                      disabled={loading || order.status !== "AUTHORIZED"}
+                      disabled={loading || order.status !== "AUTHORIZED" || (!order.is_simulated && !uploadedReport)}
                       variant="outline"
                       className="w-full gap-2 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 text-xs"
                     >
                       <FileCheck2Icon className="w-3.5 h-3.5 text-emerald-400" />
-                      Submit Verified Evidence (1.25 mm/s)
+                      {order.is_simulated ? "Submit Synthetic Demo Report" : "Submit Uploaded Report"}
                     </Button>
                   ) : policyLane === "LANE_A" ? (
                     <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-200 space-y-1">
@@ -1463,7 +1455,7 @@ export default function ProcurementPage() {
                       PayPal Payment Successfully Settled
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Funds captured and disbursed following physical sensor evidence validation and dual-control sign-off.
+                      Capture result recorded after report checks and supervisor approval. Sandbox transactions move no real money.
                     </CardDescription>
                   </div>
                 </div>
@@ -1615,7 +1607,7 @@ export default function ProcurementPage() {
                 </div>
               </div>
               <CardDescription className="text-xs">
-                Unbroken continuous hash chain proving why every cent was authorized and captured.
+                Tamper-evident record of submitted inputs and payment events. A hash does not establish physical authenticity.
               </CardDescription>
             </CardHeader>
 

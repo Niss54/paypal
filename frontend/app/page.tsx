@@ -30,7 +30,7 @@ const coverage = [
   {
     label: "Two-Phase Settlement",
     value: "29 Days",
-    detail: "PayPal Orders v2 authorized escrow hold (intent: AUTHORIZE)",
+    detail: "PayPal Orders v2 authorization hold (intent: AUTHORIZE)",
     icon: CreditCardIcon,
   },
   {
@@ -138,7 +138,7 @@ export default function CommandCenterPage() {
               When industrial IoT sensors detect imminent equipment failure, autonomous AI agents cannot make blind upfront payments.
               <strong> KinetixRAG</strong> combines empirical NASA IMS vibration telemetry, GraphRAG root-cause diagnosis,
               deterministic spending mandates, and <strong>PayPal Orders v2 Two-Phase Settlement (<code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-foreground">intent: AUTHORIZE</code>)</strong>.
-              Contractor payment is placed on a 29-day authorized escrow hold and strictly blocked (HTTP 403) until post-repair vibration telemetry verifies physical asset restoration.
+              Contractor payment is placed on a 29-day authorization hold and capture is blocked (HTTP 403) until submitted repair evidence passes validation and a separate supervisor approves.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -319,7 +319,7 @@ export default function CommandCenterPage() {
               { step: "3", name: "Work Order", desc: "WO-2026-IMS-001 with scope SCOPE-BRG-REPLACE-01" },
               { step: "4", name: "Vendor RFQ", desc: "Apex Rotating Equipment bid: $450.00 USD" },
               { step: "5", name: "Spending Mandate", desc: "Cap Check, USD Check, Lane B Dual-Control" },
-              { step: "6", name: "PayPal Orders v2 Auth", desc: "29-Day Escrow Hold (intent: AUTHORIZE)" },
+              { step: "6", name: "PayPal Orders v2 Auth", desc: "29-Day Authorization Hold (intent: AUTHORIZE)" },
               { step: "7", name: "Evidence-Gated Capture", desc: "Post-repair 2.15 mm/s + Supervisor sign-off" },
             ].map((s) => (
               <div key={s.step} className="flex items-center gap-2.5 p-1.5 rounded-lg bg-muted/30 border border-border/40">

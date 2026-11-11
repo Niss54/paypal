@@ -49,7 +49,7 @@ export default function PredictiveWatchPage() {
                 </Badge>
               </span>
               <p className="text-muted-foreground text-[11px] mt-1 leading-relaxed">
-                A PLC threshold only detects physical symptoms (5.42 mm/s vibration); GraphRAG justifies financial expenditures by verifying active OEM warranty, historical work orders (WO-1002), and plant SOPs before authorizing autonomous PayPal escrow funds.
+                Graph retrieval supplies maintenance context for an investigation. The procurement demonstration uses seeded inputs and server-side spending rules; diagnostic text cannot authorize or capture PayPal funds.
               </p>
             </div>
           </div>

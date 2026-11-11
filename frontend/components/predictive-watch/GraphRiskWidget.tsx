@@ -232,7 +232,7 @@ export default function GraphRiskWidget({
             <div>
               <span className="font-semibold text-amber-200">Optional ML Intelligence Layer:</span>
               <p className="mt-0.5 text-amber-300/90">
-                GraphSAGE is lazy-loaded and disabled by default (<code>ENABLE_GRAPH_RISK_MODEL=false</code>) to protect deployment memory budgets on free-tier infrastructure. KinetixRAG operates safely using its verified deterministic ISO 10816 rules and GraphRAG context.
+                GraphSAGE is lazy-loaded and disabled by default (<code>ENABLE_GRAPH_RISK_MODEL=false</code>) to protect deployment memory budgets on free-tier infrastructure. The procurement policy gate is independent of this optional model. Demo thresholds are illustrative, not an ISO certification.
               </p>
             </div>
           </div>

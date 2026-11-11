@@ -10,8 +10,11 @@ inside an agent's own reasoning call propagates all the way up). Every CLI
 self-check so far just crashed and that was fine for a terminal; this is the
 first place it's exposed to a live UI, so it needs to fail as a clean 503,
 not a stack trace on someone's screen."""
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from threading import Thread
 from uuid import uuid4
+
+_CHAT_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="kinetix-chat")
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -52,13 +55,12 @@ def answer_query(
             session_id=session_id,
         )
 
-    # Render's reverse proxy hard-kills at 30s; we must respond before that.
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        future = pool.submit(_run)
-        try:
-            return future.result(timeout=25.0)
-        except TimeoutError:
-            raise TimeoutError("Agent pipeline exceeded 25s budget")
+    # Render's reverse proxy hard-kills at 30s; bounded timeout on shared pool without shutdown blocking.
+    future = _CHAT_EXECUTOR.submit(_run)
+    try:
+        return future.result(timeout=25.0)
+    except TimeoutError:
+        raise TimeoutError("Agent pipeline exceeded 25s budget")
 
 
 import logging
