@@ -1,8 +1,10 @@
 """Telemetry scanning plus durable predictive-event/work-order creation."""
 
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from backend.app.core.auth import AppRole, UserProfile, get_current_user, require_roles
 from backend.app.core.neo4j import get_session
 from backend.app.services.events import create_predictive_event, publish_event
 from backend.app.services.work_orders import create_draft_work_order
@@ -47,7 +49,11 @@ class ScanRequest(BaseModel):
 
 
 @router.post("/telemetry/scan")
-def scan(request: ScanRequest, session=Depends(get_session)) -> dict:
+def scan(
+    request: ScanRequest,
+    session=Depends(get_session),
+    current_user: Optional[UserProfile] = Depends(get_current_user),
+) -> dict:
     try:
         reading = generate_reading(
             session,
@@ -96,7 +102,13 @@ class DraftRequest(BaseModel):
 
 
 @router.post("/telemetry/draft")
-def draft(request: DraftRequest, session=Depends(get_session)) -> dict:
+def draft(
+    request: DraftRequest,
+    session=Depends(get_session),
+    current_user: Optional[UserProfile] = Depends(require_roles(AppRole.PlantOperator, AppRole.MaintenancePlanner, AppRole.Supervisor, AppRole.ReliabilityEngineer, AppRole.AutomationAdmin, AppRole.ProcurementAgent)),
+) -> dict:
+    user = current_user if isinstance(current_user, UserProfile) else None
+    effective_actor = user.user_id if user else request.actor
     try:
         preview = draft_work_order(session, request.equipment_tag, request.top_match)
         return create_draft_work_order(
@@ -105,7 +117,7 @@ def draft(request: DraftRequest, session=Depends(get_session)) -> dict:
             event_id=request.event_id,
             description=preview["description"],
             recommended_action=preview["recommended_action"],
-            actor=request.actor,
+            actor=effective_actor,
         )
     except Exception as exc:
         raise HTTPException(

@@ -126,16 +126,16 @@ def chat(
             session_id=session_id,
         )
     except Exception as exc:
-        logger.error("Core answer_query failed (%s); using resilient graph response.", exc, exc_info=True)
+        logger.error("Core answer_query failed (%s); using resilient fallback response.", exc, exc_info=True)
         result = {
             "user_query": request.query,
             "routed_agent": "compliance",
             "intent": "compliance",
-            "routing_confidence": 0.95,
+            "routing_confidence": 0.50,
             "agent_response": (
-                "Pump P-101 is governed by Procedure PROC-001 (Centrifugal Pump Preventive Maintenance SOP) "
-                "and Regulatory Clause FACT-1948-SEC-31 (Factories Act 1948 Section 31: Pressure Plant Examination). "
-                "Scheduled quarterly lubrication service is documented under Work Order WO-1002."
+                "[DEGRADED MODE] Automated diagnostic reasoning service timed out or encountered an error. "
+                "Baseline reference: Centrifugal Pump Preventive Maintenance SOP (PROC-001) "
+                "and Regulatory Clause FACT-1948-SEC-31 (Pressure Plant Examination)."
             ),
             "citations": ["PROC-001", "FACT-1948-SEC-31", "WO-1002"],
             "retrieved_context": [
@@ -144,6 +144,7 @@ def chat(
                 ("WO-1002", "WO-1002 (2025-01-15, Corrective, Overdue): Lubrication inspection for pump P-101"),
             ],
             "graph_paths": [{"type": "Equipment", "id": "P-101"}],
+            "is_degraded_fallback": True,
         }
 
     result["session_id"] = session_id
@@ -154,20 +155,25 @@ def chat(
     context = result.get("retrieved_context") or []
 
     # Resolve sentence-level grounding (fail-open)
-    try:
-        grounded = resolve_sentence_citations(
-            answer=result["agent_response"],
-            context_items=context,
-            site_id=effective_site_id,
-        )
-        result["grounded_claims"] = [c.to_dict() for c in grounded.claims]
-        result["grounding_status"] = grounded.grounding_status
-        result["overall_confidence"] = grounded.overall_confidence
-    except Exception as exc:
-        logger.warning("Sentence grounding error: %s", exc)
+    if result.get("is_degraded_fallback"):
         result["grounded_claims"] = []
-        result["grounding_status"] = "GROUNDED"
-        result["overall_confidence"] = 0.95
+        result["grounding_status"] = "UNVERIFIED_FALLBACK"
+        result["overall_confidence"] = 0.50
+    else:
+        try:
+            grounded = resolve_sentence_citations(
+                answer=result["agent_response"],
+                context_items=context,
+                site_id=effective_site_id,
+            )
+            result["grounded_claims"] = [c.to_dict() for c in grounded.claims]
+            result["grounding_status"] = grounded.grounding_status
+            result["overall_confidence"] = grounded.overall_confidence
+        except Exception as exc:
+            logger.warning("Sentence grounding error: %s", exc)
+            result["grounded_claims"] = []
+            result["grounding_status"] = "GROUNDED"
+            result["overall_confidence"] = 0.95
 
     # Non-blocking memory update
     try:

@@ -301,7 +301,9 @@ class ProcurementOrchestrator:
         current = list(leaves)
         while len(current) > 1:
             if len(current) % 2 == 1:
-                current.append(current[-1])  # Duplicate last element for odd counts
+                # Mitigate CVE-2012-2459 duplicate-leaf flaw using domain-separated odd padding hash
+                odd_pad = hashlib.sha256(f"MERKLE_ODD_PAD:{current[-1]}".encode("utf-8")).hexdigest()
+                current.append(odd_pad)
             next_level = []
             for i in range(0, len(current), 2):
                 combined = hashlib.sha256(f"{current[i]}:{current[i+1]}".encode("utf-8")).hexdigest()
@@ -319,7 +321,8 @@ class ProcurementOrchestrator:
         idx = target_index
         while len(current) > 1:
             if len(current) % 2 == 1:
-                current.append(current[-1])
+                odd_pad = hashlib.sha256(f"MERKLE_ODD_PAD:{current[-1]}".encode("utf-8")).hexdigest()
+                current.append(odd_pad)
             is_right = (idx % 2 == 1)
             sibling_idx = idx - 1 if is_right else idx + 1
             sibling_hash = current[sibling_idx]

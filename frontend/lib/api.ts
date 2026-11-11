@@ -330,25 +330,38 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   }
 }
 
-export async function getWorkOrders(status?: string): Promise<WorkOrderRecord[]> {
+function getStoredAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("kinetix_auth_token") || sessionStorage.getItem("kinetix_auth_token");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export async function getWorkOrders(status?: string, token?: string): Promise<WorkOrderRecord[]> {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  const headers = { ...getStoredAuthHeaders() };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
-    const res = await fetchWithTimeout(`${API_URL}/api/work-orders${query}`, {}, 3500);
+    const res = await fetchWithTimeout(`${API_URL}/api/work-orders${query}`, { headers }, 3500);
     if (res.ok) {
       const body = await res.json();
       const list = Array.isArray(body?.items) ? body.items : Array.isArray(body) ? body : [];
       if (list.length > 0) return list;
     }
   } catch {}
-  const all = Object.values(getLocalWorkOrders());
+  const all = Object.values(getLocalWorkOrders()).map(w => ({ ...w, source: "offline_cache" }));
   if (!status || status.toLowerCase() === "all") return all;
   return all.filter((w) => w.status.toLowerCase() === status.toLowerCase());
 }
 
-export async function getWorkOrder(workOrderId: string): Promise<WorkOrderRecord> {
+export async function getWorkOrder(workOrderId: string, token?: string): Promise<WorkOrderRecord> {
   const normId = decodeURIComponent(workOrderId).trim().replace(/\s+/g, "-");
+  const headers = { ...getStoredAuthHeaders() };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
-    const res = await fetchWithTimeout(`${API_URL}/api/work-orders/${encodeURIComponent(normId)}`, {}, 3500);
+    const res = await fetchWithTimeout(`${API_URL}/api/work-orders/${encodeURIComponent(normId)}`, { headers }, 3500);
     if (res.ok) {
       const data = await res.json();
       if (data && data.id) return data;
@@ -361,8 +374,8 @@ export async function getWorkOrder(workOrderId: string): Promise<WorkOrderRecord
     Object.values(all).find(
       (w) => w.id.replace(/-/g, "").toUpperCase() === normId.replace(/-/g, "").toUpperCase()
     );
-  if (found) return found;
-  return SEED_WORK_ORDERS["WO-2026-003"];
+  if (found) return { ...found, source: "offline_cache" };
+  return { ...SEED_WORK_ORDERS["WO-2026-003"], source: "offline_cache" };
 }
 
 export async function updateWorkOrder(
@@ -372,15 +385,18 @@ export async function updateWorkOrder(
     description: string;
     recommended_action: string;
   },
+  token?: string,
 ): Promise<WorkOrderRecord> {
   const identity = getChatIdentity();
   const normId = decodeURIComponent(workOrderId).trim().replace(/\s+/g, "-");
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...getStoredAuthHeaders() };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
     const res = await fetchWithTimeout(
       `${API_URL}/api/work-orders/${encodeURIComponent(normId)}`,
       {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ ...patch, actor: identity.userId }),
       },
       3500
@@ -412,15 +428,18 @@ export async function decideWorkOrder(
     expected_version: number;
     reason?: string | null;
   },
+  token?: string,
 ): Promise<WorkOrderRecord> {
   const identity = getChatIdentity();
   const normId = decodeURIComponent(workOrderId).trim().replace(/\s+/g, "-");
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...getStoredAuthHeaders() };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
     const res = await fetchWithTimeout(
       `${API_URL}/api/work-orders/${encodeURIComponent(normId)}/decisions`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ ...decision, actor: identity.userId }),
       },
       3500

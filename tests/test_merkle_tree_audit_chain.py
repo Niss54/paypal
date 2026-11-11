@@ -69,3 +69,15 @@ def test_merkle_inclusion_proof_verification():
     proof_0 = ProcurementOrchestrator.generate_merkle_proof(leaves, 0)
     fake_leaf = hashlib.sha256(b"fake-stage-0").hexdigest()
     assert ProcurementOrchestrator.verify_merkle_proof(fake_leaf, proof_0, root) is False
+
+
+def test_merkle_cve_2012_2459_duplicate_leaf_mitigation():
+    """Verify that [A, B, C] and [A, B, C, C] do NOT produce the same Merkle root."""
+    hA = hashlib.sha256(b"leaf-A").hexdigest()
+    hB = hashlib.sha256(b"leaf-B").hexdigest()
+    hC = hashlib.sha256(b"leaf-C").hexdigest()
+
+    root_3, _ = ProcurementOrchestrator.compute_merkle_root([hA, hB, hC])
+    root_4_dup, _ = ProcurementOrchestrator.compute_merkle_root([hA, hB, hC, hC])
+
+    assert root_3 != root_4_dup, "CVE-2012-2459 duplicate leaf collision must be prevented by domain-separated odd padding!"

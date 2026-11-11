@@ -56,8 +56,14 @@ services:
     dockerContext: .
     healthCheckPath: /api/health/live
     autoDeployTrigger: checksPass
+    disk:
+      name: kinetix-data
+      mountPath: /app/.runtime
+      sizeGB: 1
     envVars:
       - fromGroup: kinetix-runtime
+      - key: DATABASE_URL
+        sync: false
       - key: NEO4J_URI
         sync: false
       - key: NEO4J_USERNAME

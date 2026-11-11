@@ -415,16 +415,16 @@ export default function CommandCenterPage() {
         </Card>
       </section>
 
-      {/* Modular Multi-Rail Footnote */}
-      <div className="p-3.5 rounded-xl border border-border/40 bg-muted/15 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <ZapIcon className="size-4 text-amber-500 shrink-0" />
+      {/* PayPal Hackathon Flagship Banner */}
+      <div className="p-4 rounded-xl border border-[#003087]/30 bg-[#003087]/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-foreground">
+        <div className="flex items-center gap-2.5">
+          <CreditCardIcon className="size-5 text-[#0079C1] dark:text-cyan-400 shrink-0" />
           <span>
-            <strong>Modular Multi-Rail Architecture:</strong> KinetixRAG specializes in enterprise PayPal Orders v2 two-phase authorized hold settlement with deterministic evidence gating and multi-rail adapters for specialized machinery.
+            <strong className="text-[#003087] dark:text-cyan-300">PayPal AI Hackathon 2026 Core Integration:</strong> KinetixRAG enforces &quot;No Evidence, No Capture&quot; via PayPal Orders v2 two-phase authorization holds, physical diagnostic sensor evidence gating, and deterministic spending mandates.
           </span>
         </div>
-        <Button size="sm" variant="ghost" className="text-xs shrink-0 text-amber-500 hover:text-amber-400" nativeButton={false} render={<Link href="/machine-money" />}>
-          View Modular Workspace <ArrowRightIcon className="size-3 ml-1" />
+        <Button size="sm" className="text-xs shrink-0 bg-[#003087] hover:bg-[#00246B] text-white font-semibold" nativeButton={false} render={<Link href="/procurement" />}>
+          Open PayPal Procurement <ArrowRightIcon className="size-3 ml-1" />
         </Button>
       </div>
     </div>

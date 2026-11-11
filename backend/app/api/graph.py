@@ -135,8 +135,19 @@ def _path_projection() -> str:
     """
 
 
+MAX_GRAPH_NODES = 25
+
+
 @router.post("/graph")
 def fetch_graph(request: GraphRequest, session=Depends(get_session)) -> dict:
+    if len(request.graph_paths) > MAX_GRAPH_NODES:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "too_many_graph_nodes",
+                "detail": f"Maximum allowable graph_paths nodes is {MAX_GRAPH_NODES} to prevent combinatorial graph expansion.",
+            },
+        )
     try:
         nodes_by_eid: dict[str, dict] = {}
         for graph_node in request.graph_paths:

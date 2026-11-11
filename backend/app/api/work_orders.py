@@ -5,6 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from backend.app.core.auth import AppRole, UserProfile, get_current_user, require_roles
 from backend.app.core.neo4j import get_session
 from backend.app.services.work_orders import (
     InvalidWorkOrderTransition,
@@ -69,6 +70,7 @@ def work_order_list(
     status: str | None = None,
     limit: int = 100,
     session=Depends(get_session),
+    current_user: UserProfile = Depends(get_current_user),
 ) -> dict:
     if limit < 1 or limit > 200:
         raise HTTPException(
@@ -85,7 +87,10 @@ def work_order_list(
 def create_draft(
     request: WorkOrderDraftRequest,
     session=Depends(get_session),
+    current_user: UserProfile = Depends(require_roles(AppRole.PlantOperator, AppRole.MaintenancePlanner, AppRole.Supervisor, AppRole.ReliabilityEngineer, AppRole.ProcurementAgent, AppRole.AutomationAdmin)),
 ) -> dict:
+    user = current_user if isinstance(current_user, UserProfile) else None
+    effective_actor = user.user_id if user else request.actor
     try:
         return create_draft_work_order(
             session,
@@ -93,14 +98,18 @@ def create_draft(
             event_id=request.event_id,
             description=request.description.strip(),
             recommended_action=request.recommended_action.strip(),
-            actor=request.actor,
+            actor=effective_actor,
         )
     except Exception as exc:
         raise _map_domain_error(exc) from exc
 
 
 @router.get("/work-orders/{work_order_id}")
-def work_order_detail(work_order_id: str, session=Depends(get_session)) -> dict:
+def work_order_detail(
+    work_order_id: str,
+    session=Depends(get_session),
+    current_user: UserProfile = Depends(get_current_user),
+) -> dict:
     try:
         result = get_work_order(session, work_order_id)
         if result is None:
@@ -115,7 +124,10 @@ def edit_work_order(
     work_order_id: str,
     request: WorkOrderEditRequest,
     session=Depends(get_session),
+    current_user: UserProfile = Depends(require_roles(AppRole.PlantOperator, AppRole.MaintenancePlanner, AppRole.Supervisor, AppRole.ReliabilityEngineer, AppRole.ProcurementAgent, AppRole.AutomationAdmin)),
 ) -> dict:
+    user = current_user if isinstance(current_user, UserProfile) else None
+    effective_actor = user.user_id if user else request.actor
     try:
         return update_work_order(
             session,
@@ -123,7 +135,7 @@ def edit_work_order(
             expected_version=request.expected_version,
             description=request.description.strip(),
             recommended_action=request.recommended_action.strip(),
-            actor=request.actor,
+            actor=effective_actor,
         )
     except Exception as exc:
         raise _map_domain_error(exc) from exc
@@ -134,13 +146,16 @@ def decide(
     work_order_id: str,
     request: WorkOrderDecisionRequest,
     session=Depends(get_session),
+    current_user: UserProfile = Depends(require_roles(AppRole.Supervisor, AppRole.PlantOperator, AppRole.MaintenancePlanner, AppRole.AutomationAdmin)),
 ) -> dict:
+    user = current_user if isinstance(current_user, UserProfile) else None
+    effective_actor = user.user_id if user else request.actor
     try:
         return decide_work_order(
             session,
             work_order_id,
             decision=request.decision,
-            actor=request.actor,
+            actor=effective_actor,
             expected_version=request.expected_version,
             reason=request.reason,
         )

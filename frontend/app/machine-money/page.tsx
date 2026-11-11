@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ActivityIcon,
   AlertCircleIcon,
@@ -10,6 +11,7 @@ import {
   ClockIcon,
   CopyIcon,
   CpuIcon,
+  CreditCardIcon,
   DatabaseIcon,
   ExternalLinkIcon,
   FileCheck2Icon,
@@ -270,20 +272,29 @@ export default function MachineMoneyPage() {
               <ZapIcon className="size-5 fill-amber-500" />
             </div>
             <h1 className="font-heading text-2xl font-bold tracking-tight">
-              Machine Money Operator Workspace
+              Machine Money Research Workspace
             </h1>
-            <Badge variant="warning" className="uppercase font-semibold tracking-wider text-[10px]">
-              PayPal AI Hackathon 2026
-            </Badge>
-            <Badge variant="outline" className="text-[10px] font-mono border-amber-500/40 text-amber-500">
-              Agentic Commerce
+            <Badge variant="outline" className="text-[10px] font-mono border-blue-500/40 text-blue-400">
+              Auxiliary Multi-Rail Adapter
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground max-w-3xl">
-            Autonomous Lightning micro-settlement protocol for industrial telemetry excursions.
+            Autonomous multi-rail telemetry-triggered settlement sandbox.
             Primary evaluation benchmark powered by the <strong>NASA IMS Bearing Run-to-Failure Open Science dataset</strong> (20 kHz empirical accelerometry).
-            Governed by deterministic GraphRAG evidence, automated spending policies, and human-in-the-loop oversight.
           </p>
+        </div>
+
+        {/* PayPal Flagship Notice for Judges */}
+        <div className="w-full lg:w-auto p-2.5 rounded-lg border border-[#003087]/40 bg-[#003087]/15 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <CreditCardIcon className="size-4 text-[#0079C1] dark:text-cyan-400 shrink-0" />
+            <span>
+              <strong>Primary Hackathon Rail:</strong> PayPal Orders v2 with Two-Phase Authorization Hold
+            </span>
+          </div>
+          <Button size="sm" className="h-7 text-xs bg-[#003087] hover:bg-[#00246B] text-white font-semibold" nativeButton={false} render={<Link href="/procurement" />}>
+            Open PayPal Procurement
+          </Button>
         </div>
 
         {/* Live Subsystem Health Strip */}

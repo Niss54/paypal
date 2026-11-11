@@ -85,17 +85,30 @@ def root():
 import logging
 logger = logging.getLogger(__name__)
 
+def _cors_headers_for_request(request: Request) -> dict[str, str]:
+    origin = request.headers.get("origin")
+    allowed = cors_origins()
+    headers = {
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+    if "*" in allowed or not allowed:
+        headers["Access-Control-Allow-Origin"] = "*"
+    elif origin and (origin in allowed or origin.endswith(".vercel.app") or "localhost" in origin):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Vary"] = "Origin"
+    elif allowed:
+        headers["Access-Control-Allow-Origin"] = allowed[0]
+    return headers
+
+
 @app.exception_handler(HTTPException)
 def flat_http_exception_handler(request: Request, exc: HTTPException):
     if isinstance(exc.detail, dict):
         content = exc.detail
     else:
         content = {"error": str(exc.detail), "detail": str(exc.detail)}
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "*",
-        "Access-Control-Allow-Headers": "*",
-    }
+    headers = _cors_headers_for_request(request)
     if exc.status_code >= 500:
         logger.error(f"HTTPException {exc.status_code} at {request.url.path}: {exc.detail}")
     return JSONResponse(status_code=exc.status_code, content=content, headers=headers)
@@ -106,11 +119,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     import uuid
     error_id = f"err-{uuid.uuid4().hex[:8]}"
     logger.exception(f"Unhandled server exception [{error_id}] at {request.url.path}: {exc}")
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "*",
-        "Access-Control-Allow-Headers": "*",
-    }
+    headers = _cors_headers_for_request(request)
     return JSONResponse(
         status_code=500,
         content={

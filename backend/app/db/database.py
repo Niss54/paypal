@@ -88,6 +88,9 @@ def init_db(target_engine=None):
     try:
         from sqlalchemy import inspect
         inspector = inspect(eng)
+        is_pg = getattr(eng, "dialect", None) and eng.dialect.name == "postgresql"
+        bool_default = "FALSE" if is_pg else "0"
+
         if inspector.has_table("paypal_order_records"):
             existing_cols = {c["name"] for c in inspector.get_columns("paypal_order_records")}
             with eng.connect() as conn:
@@ -96,7 +99,7 @@ def init_db(target_engine=None):
                 if "approve_url" not in existing_cols:
                     conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN approve_url VARCHAR(512)"))
                 if "is_simulated" not in existing_cols:
-                    conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN is_simulated BOOLEAN DEFAULT 0"))
+                    conn.execute(text(f"ALTER TABLE paypal_order_records ADD COLUMN is_simulated BOOLEAN DEFAULT {bool_default}"))
                 if "site_id" not in existing_cols:
                     conn.execute(text("ALTER TABLE paypal_order_records ADD COLUMN site_id VARCHAR(64) DEFAULT 'plant-mumbai-01'"))
                 if "organization_id" not in existing_cols:
@@ -116,5 +119,6 @@ def init_db(target_engine=None):
                         conn.execute(text("ALTER TABLE completion_evidence_records ADD COLUMN provenance_classification VARCHAR(64) DEFAULT 'SYNTHETIC_DEMO_FIXTURE'"))
 
                 conn.commit()
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Non-critical schema migration check encountered: %s", exc)

@@ -247,7 +247,7 @@ async def trigger_from_telemetry(
             failure_event_id=req.failure_event_id,
             confidence=req.confidence,
             work_order_id=req.work_order_id,
-            bypass_policy=req.bypass_policy,
+            bypass_policy=False,
             neo4j_session=neo4j_session,
             data_source_type=req.data_source_type,
             dataset_name=req.dataset_name,

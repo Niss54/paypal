@@ -1,8 +1,9 @@
 """Shared Gemini call wrapper with quota spacing and transient retries."""
 
+import os
 import time
 
-_MIN_INTERVAL = 13.0
+_MIN_INTERVAL = float(os.environ.get("GEMINI_CALL_INTERVAL_SECONDS", "2.0"))
 _RETRY_DELAYS = (5.0, 15.0, 30.0)
 _last_call = 0.0
 

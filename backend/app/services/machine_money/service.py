@@ -212,12 +212,12 @@ class MachineMoneyService:
         )
 
         # Task 6.1: Backend policy is authoritative.
-        # A caller cannot unilaterally bypass the spending limit cap. If amount exceeds max_autopay,
-        # human approval is unconditionally required.
+        # A caller cannot bypass the spending limit cap or authorization policy. If amount exceeds max_autopay
+        # or policy is not authorized, human approval is unconditionally required.
         if amount_sats > max_autopay:
             requires_human_approval = True
         elif not policy_decision["authorized"]:
-            requires_human_approval = not bypass_policy
+            requires_human_approval = True
         else:
             requires_human_approval = False
 
