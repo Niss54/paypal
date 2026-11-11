@@ -4,6 +4,7 @@ Complies with Master PRD V2 Section 0.3, Section 10, and Section 12.1.
 import hashlib
 import json
 import logging
+import math
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -25,7 +26,7 @@ class EvidenceDecision(str, Enum):
 
 
 class EvidenceSubmission(BaseModel):
-    """Structured report submitted by service vendor to prove physical completion.
+    """Structured, self-reported completion evidence submitted by a service vendor.
     No automatic default passing values are injected — callers must supply real evidence.
     """
     evidence_id: str = Field(..., description="Unique evidence tracking identifier")
@@ -125,21 +126,39 @@ class EvidenceValidator:
             service_scope_match = False
             reasons.append("EVD-SCOPE-INCOMPLETE: Checklist must attest at least two distinct operational maintenance stages (bearing replacement, laser alignment, or vibration baseline)")
 
-        # 7. Physical measurements check (Mandatory post-service vibration <= 4.50 mm/s per ISO 10816 Zone A/B)
+        # 7. Scenario policy threshold, not universal ISO compliance or sensor attestation.
         measurements_valid = True
+        is_cold_chain = "COLD" in (evidence.quote_id or "") or "REEFER" in (evidence.equipment_tag or "")
+        temp_delta = evidence.measurements.get("temperature_delta_c", evidence.measurements.get("discharge_temp_delta_c"))
         vib_after = evidence.measurements.get("vibration_after_mm_s")
-        if vib_after is None:
+
+        if is_cold_chain and temp_delta is not None:
+            try:
+                t_val = float(temp_delta)
+                if isinstance(temp_delta, bool) or not math.isfinite(t_val):
+                    measurements_valid = False
+                    reasons.append("EVD-MEASUREMENT-INVALID: Temperature delta must be a finite numeric measurement")
+                elif t_val < 0.0 or t_val > 5.0:
+                    measurements_valid = False
+                    reasons.append(f"EVD-MEASUREMENT-EXCURSION: Post-service temperature delta {t_val:.1f}°C exceeds scenario policy limit (5.0°C)")
+            except (ValueError, TypeError):
+                measurements_valid = False
+                reasons.append("EVD-MEASUREMENT-INVALID: Post-service temperature delta is malformed")
+        elif vib_after is None:
             measurements_valid = False
-            reasons.append("EVD-MEASUREMENT-MISSING: Post-service vibration measurement ('vibration_after_mm_s') is required")
+            reasons.append("EVD-MEASUREMENT-MISSING: Post-service measurement is required")
         else:
             try:
                 vib_val = float(vib_after)
-                if vib_val <= 0.0:
+                if isinstance(vib_after, bool) or not math.isfinite(vib_val):
+                    measurements_valid = False
+                    reasons.append("EVD-MEASUREMENT-INVALID: Vibration must be a finite numeric measurement")
+                elif vib_val <= 0.0:
                     measurements_valid = False
                     reasons.append("EVD-MEASUREMENT-INVALID: Post-service vibration must be greater than 0 mm/s")
                 elif vib_val > 4.50:  # ISO Zone C/D threshold
                     measurements_valid = False
-                    reasons.append(f"EVD-MEASUREMENT-EXCURSION: Post-service vibration {vib_val:.2f} mm/s exceeds ISO Zone A/B limit (4.50 mm/s)")
+                    reasons.append(f"EVD-MEASUREMENT-EXCURSION: Post-service vibration {vib_val:.2f} mm/s exceeds scenario policy limit (4.50 mm/s)")
             except (ValueError, TypeError):
                 measurements_valid = False
                 reasons.append("EVD-MEASUREMENT-INVALID: Post-service vibration measurement is malformed")
@@ -197,7 +216,8 @@ class EvidenceValidator:
         if is_order_simulated or evidence.is_synthetic or not (evidence.file_bytes or getattr(evidence, "file_content", None)):
             derived_provenance = "SYNTHETIC_DEMO_FIXTURE"
         elif all_passed and not is_order_simulated:
-            derived_provenance = "VERIFIED_OPERATIONAL"
+            # Upload integrity does not independently establish physical truth.
+            derived_provenance = "SUBMITTED_REPORT"
         else:
             derived_provenance = "SYNTHETIC_DEMO_FIXTURE"
 
@@ -239,23 +259,43 @@ class EvidenceGatedCaptureController:
         if not order_record.authorization_id:
             return False, "Missing valid PayPal Authorization ID"
 
+        # 2b. Check Authorization Expiry (29-day honor window)
+        exp = getattr(order_record, "authorization_expires_at", None)
+        if isinstance(exp, datetime):
+            now_utc = datetime.now(timezone.utc)
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            if now_utc > exp:
+                return False, "PayPal Authorization has expired; capture cannot be executed on expired hold"
+
         # 3. 'No Evidence, No Capture' Gate
         if evidence_result is None or evidence_result.decision != EvidenceDecision.PASS:
             return False, "No Evidence, No Capture: Service completion evidence is missing or failed validation"
 
-        # 4. Provenance check: live orders strictly require VERIFIED_OPERATIONAL provenance
+        if not all((evidence_result.work_order_match, evidence_result.quote_match,
+                    evidence_result.equipment_match, evidence_result.vendor_match,
+                    evidence_result.service_scope_match, evidence_result.required_fields_complete,
+                    evidence_result.measurements_valid, evidence_result.file_integrity_valid)):
+            return False, "No Evidence, No Capture: An evidence validation check failed"
+
+        # Provider-backed sandbox orders require an uploaded, self-reported artifact.
+        # The orchestrator separately blocks production-money capture for this prototype.
         if getattr(order_record, "is_simulated", None) is False:
-            if evidence_result.evidence_provenance != "VERIFIED_OPERATIONAL":
-                return False, "Evidence Provenance Violation: Live order capture strictly requires VERIFIED_OPERATIONAL evidence"
+            if evidence_result.evidence_provenance != "SUBMITTED_REPORT":
+                return False, "Evidence Provenance Violation: Sandbox capture requires an uploaded SUBMITTED_REPORT"
 
         # 4. Risk Lane B Check (Human Supervisor Dual-Signature)
         try:
             mandate_snapshot = json.loads(order_record.mandate_snapshot_json) if order_record.mandate_snapshot_json else {}
-        except Exception:
-            mandate_snapshot = {}
+        except (ValueError, TypeError):
+            return False, "Spending mandate snapshot is invalid; capture blocked"
 
-        risk_lane = mandate_snapshot.get("risk_lane", "LANE_A_ROUTINE")
-        human_required = mandate_snapshot.get("human_approval_required", False)
+        if not isinstance(mandate_snapshot, dict):
+            return False, "Spending mandate snapshot is invalid; capture blocked"
+        risk_lane = mandate_snapshot.get("risk_lane")
+        human_required = mandate_snapshot.get("human_approval_required")
+        if risk_lane not in ("LANE_A_ROUTINE", "LANE_B_EXCEPTION") or not isinstance(human_required, bool):
+            return False, "Spending mandate snapshot is incomplete; capture blocked"
 
         if risk_lane == "LANE_B_EXCEPTION" or human_required:
             supervisor_id = None

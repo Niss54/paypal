@@ -52,3 +52,20 @@ def test_merkle_root_deterministic():
     root2, depth2 = ProcurementOrchestrator.compute_merkle_root(leaves)
     assert root1 == root2
     assert depth1 == depth2
+
+
+def test_merkle_inclusion_proof_verification():
+    leaves = [hashlib.sha256(f"stage-{i}".encode()).hexdigest() for i in range(7)]
+    root, depth = ProcurementOrchestrator.compute_merkle_root(leaves)
+
+    # Generate and verify proof for each leaf
+    for i, leaf in enumerate(leaves):
+        proof = ProcurementOrchestrator.generate_merkle_proof(leaves, i)
+        assert len(proof) == depth
+        is_valid = ProcurementOrchestrator.verify_merkle_proof(leaf, proof, root)
+        assert is_valid is True
+
+    # Tampered leaf must fail verification
+    proof_0 = ProcurementOrchestrator.generate_merkle_proof(leaves, 0)
+    fake_leaf = hashlib.sha256(b"fake-stage-0").hexdigest()
+    assert ProcurementOrchestrator.verify_merkle_proof(fake_leaf, proof_0, root) is False

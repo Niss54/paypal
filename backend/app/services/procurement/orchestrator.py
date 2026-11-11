@@ -6,10 +6,11 @@ Complies with Master PRD V2 Sections 0.2, 0.3, 6.1, 6.2, 8.4, 9.4, 9.5, and 10.
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -308,6 +309,44 @@ class ProcurementOrchestrator:
             current = next_level
         return current[0], depth
 
+    @staticmethod
+    def generate_merkle_proof(leaves: List[str], target_index: int) -> List[Dict[str, str]]:
+        """Generate Merkle audit proof path (siblings) for leaf at target_index."""
+        if not leaves or target_index < 0 or target_index >= len(leaves):
+            return []
+        proof = []
+        current = list(leaves)
+        idx = target_index
+        while len(current) > 1:
+            if len(current) % 2 == 1:
+                current.append(current[-1])
+            is_right = (idx % 2 == 1)
+            sibling_idx = idx - 1 if is_right else idx + 1
+            sibling_hash = current[sibling_idx]
+            proof.append({
+                "position": "left" if is_right else "right",
+                "hash": sibling_hash,
+            })
+            next_level = []
+            for i in range(0, len(current), 2):
+                combined = hashlib.sha256(f"{current[i]}:{current[i+1]}".encode("utf-8")).hexdigest()
+                next_level.append(combined)
+            current = next_level
+            idx = idx // 2
+        return proof
+
+    @staticmethod
+    def verify_merkle_proof(leaf_hash: str, proof: List[Dict[str, str]], expected_root: str) -> bool:
+        """Verify an inclusion proof against the expected root."""
+        current = leaf_hash
+        for step in proof:
+            sibling = step.get("hash", "")
+            if step.get("position") == "left":
+                current = hashlib.sha256(f"{sibling}:{current}".encode("utf-8")).hexdigest()
+            else:
+                current = hashlib.sha256(f"{current}:{sibling}".encode("utf-8")).hexdigest()
+        return current == expected_root
+
     def get_incident(self, scenario_id: Optional[str] = None) -> Dict[str, Any]:
         """Returns the grounded incident details (NASA IMS or Reefer Cold-Chain) with live GraphRAG knowledge graph retrieval."""
         if scenario_id and scenario_id.lower() in ("cold-chain", "reefer", "scn-2026-cold-01"):
@@ -537,12 +576,18 @@ class ProcurementOrchestrator:
         idempotency_key = f"order:{active_incident['work_order_id']}:{quote_id}"
         approve_url = None
 
-        if is_simulation or not self.order_service.client.is_configured:
-            # Explicit simulation mode or unconfigured client in offline testing
+        if is_simulation:
+            # Explicit simulation mode
             paypal_order_id = f"SIM-ORD-{uuid.uuid4().hex[:12].upper()}"
             order_status = "SIMULATED_ORDER_CREATED"
             approve_url = f"https://www.sandbox.paypal.com/checkoutnow?token={paypal_order_id}"
             is_sim_flag = True
+        elif not self.order_service.client.is_configured:
+            # Live/Sandbox order requested but credentials are not configured
+            raise ValueError(
+                "PayPal Sandbox credentials (PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET) are not configured. "
+                "Enable Simulation Mode or configure sandbox credentials."
+            )
         else:
             # LIVE SANDBOX MODE: real PayPal Orders v2 API call.
             # Exceptions are propagated directly without fake ID substitution.
@@ -553,7 +598,7 @@ class ProcurementOrchestrator:
                 quote_id=quote_id,
                 description=f"Emergency repair {active_incident['equipment_id']} - {quote['vendor_name']}",
                 idempotency_key=idempotency_key,
-                payee_email=os.environ.get("PAYPAL_DEMO_RECIPIENT", "sb-wezex53719890@business.example.com"),
+                payee_email=os.environ.get("PAYPAL_DEMO_RECIPIENT", "").strip() or None,
             )
             paypal_order_id = order_resp.id
             order_status = "ORDER_CREATED"
@@ -565,8 +610,9 @@ class ProcurementOrchestrator:
 
         existing = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == paypal_order_id).first()
         if existing:
-            if actor:
-                existing.requester_user_id = actor
+            # Replaying create must not rewrite the identity used for separation of duties.
+            if existing.requester_user_id != actor:
+                raise ValueError("Existing order belongs to another requester")
             if approve_url:
                 existing.approve_url = approve_url
             db.commit()
@@ -700,6 +746,7 @@ class ProcurementOrchestrator:
         else:
             order.status = "AUTHORIZED"
         order.authorized_at = utcnow()
+        order.authorization_expires_at = order.authorized_at + timedelta(days=29)
         order.authorize_request_id = f"auth-req-{order_id}"
         db.commit()
         db.refresh(order)
@@ -740,6 +787,12 @@ class ProcurementOrchestrator:
         order = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
         if not order:
             raise ValueError(f"Order {order_id} not found")
+        if order.status not in ("AUTHORIZED", "EVIDENCE_VERIFIED"):
+            raise ValueError("Evidence can only be submitted against an authorized, uncaptured order")
+        if db.query(CompletionEvidenceRecord).filter(
+            CompletionEvidenceRecord.evidence_record_id == submission.evidence_id
+        ).first():
+            raise ValueError("Evidence identifier already exists; submit a new evidence identifier")
 
         val_res = self.evidence_validator.validate(submission, order)
 
@@ -776,7 +829,8 @@ class ProcurementOrchestrator:
         if file_bytes:
             storage_dir = os.path.abspath(".runtime/evidence")
             os.makedirs(storage_dir, exist_ok=True)
-            artifact_file = os.path.abspath(os.path.join(storage_dir, f"{safe_evidence_id}{ext}"))
+            # Content-addressed names prevent sanitized-ID collisions from overwriting artifacts.
+            artifact_file = os.path.abspath(os.path.join(storage_dir, f"{hashlib.sha256(file_bytes).hexdigest()}.bin"))
             if os.path.commonpath([storage_dir, artifact_file]) != storage_dir:
                 raise ValueError("Path traversal attempt detected in evidence identifier")
             try:
@@ -810,6 +864,9 @@ class ProcurementOrchestrator:
         # Update order with evidence linkage
         order.evidence_record_id = submission.evidence_id
         order.evidence_hash = file_hash
+        # Approval applies to the report that was reviewed, not future replacements.
+        order.reviewer_user_id = None
+        order.reviewer_notes = None
         if val_res.decision == EvidenceDecision.PASS:
             order.evidence_status = "VERIFIED"
             if order.status == "AUTHORIZED":
@@ -854,6 +911,7 @@ class ProcurementOrchestrator:
             db.query(CompletionEvidenceRecord)
             .filter(
                 CompletionEvidenceRecord.evidence_record_id == order.evidence_record_id,
+                CompletionEvidenceRecord.order_id == order.paypal_order_id,
                 CompletionEvidenceRecord.work_order_id == order.work_order_id,
                 CompletionEvidenceRecord.quote_id == order.quote_id,
             )
@@ -883,16 +941,50 @@ class ProcurementOrchestrator:
         vib_val = meas.get("vibration_after_mm_s")
         measurements_valid = False
         try:
-            if vib_val is not None and 0.0 < float(vib_val) <= 4.50:
+            if not isinstance(vib_val, bool) and vib_val is not None and math.isfinite(float(vib_val)) and 0.0 < float(vib_val) <= 4.50:
                 measurements_valid = True
         except (ValueError, TypeError):
             measurements_valid = False
 
-        file_integrity_valid = bool(evidence_rec.file_sha256 and (evidence_rec.is_synthetic or evidence_rec.file_sha256 != EvidenceValidator.EMPTY_SHA256))
+        file_integrity_valid = bool(
+            evidence_rec.file_sha256
+            and evidence_rec.file_sha256 == order.evidence_hash
+            and (evidence_rec.is_synthetic or evidence_rec.file_sha256 != EvidenceValidator.EMPTY_SHA256)
+        )
+        if evidence_rec.file_size_bytes:
+            # Recheck the persisted artifact at the payment boundary. A stored PASS flag
+            # or nonempty digest cannot establish that bytes have remained unchanged.
+            digest = evidence_rec.file_sha256 or ""
+            if re.fullmatch(r"[a-f0-9]{64}", digest):
+                artifact_file = os.path.join(".runtime", "evidence", f"{digest}.bin")
+                try:
+                    with open(artifact_file, "rb") as artifact:
+                        artifact_bytes = artifact.read(5 * 1024 * 1024 + 1)
+                    file_integrity_valid = file_integrity_valid and (
+                        len(artifact_bytes) == evidence_rec.file_size_bytes
+                        and hashlib.sha256(artifact_bytes).hexdigest() == digest
+                        and artifact_bytes.decode("utf-8", errors="ignore") == evidence_rec.file_content
+                    )
+                except OSError:
+                    # In ephemeral container/serverless environments (Render, Fly, Vercel), local disk is ephemeral.
+                    # Fallback to verifying against persisted database file_content if available.
+                    if evidence_rec.file_content:
+                        content_bytes = evidence_rec.file_content.encode("utf-8")
+                        file_integrity_valid = file_integrity_valid and (
+                            len(content_bytes) == evidence_rec.file_size_bytes
+                            and hashlib.sha256(content_bytes).hexdigest() == digest
+                        )
+                    else:
+                        file_integrity_valid = False
+            else:
+                file_integrity_valid = False
+        elif not evidence_rec.is_synthetic:
+            file_integrity_valid = False
         fields_complete = bool(evidence_rec.evidence_record_id and checklist and meas)
 
         reconstructed_pass = (
             evidence_rec.validation_passed
+            and evidence_rec.equipment_tag == order.equipment_tag
             and vendor_match
             and scope_match
             and measurements_valid
@@ -935,11 +1027,15 @@ class ProcurementOrchestrator:
             return False, f"Evidence gate blocked capture: {reason}", None
 
         # Execute PayPal capture
-        capture_idempotency = idempotency_key or f"cap:{order.authorization_id}"
+        # A caller-supplied key must not create a second provider operation for the
+        # same authorization when requests overlap or are retried after a timeout.
+        capture_idempotency = f"cap:{order.authorization_id}"
         if order.is_simulated:
             capture_id = f"SIM-CAP-{uuid.uuid4().hex[:12].upper()}"
             cap_status = "COMPLETED"
         else:
+            if self.capture_service.client.base_url != "https://api-m.sandbox.paypal.com":
+                return False, "Sandbox-only prototype: production capture requires trusted physical attestation", None
             # LIVE SANDBOX: Real capture API call
             cap_resp = await self.capture_service.capture_authorization(
                 authorization_id=order.authorization_id,

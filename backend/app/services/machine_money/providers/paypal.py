@@ -419,7 +419,7 @@ class PayPalProvider(LightningProvider):
                 "Unconfigured providers cannot settle payments."
             )
 
-        recipient = os.environ.get("PAYPAL_DEMO_RECIPIENT", "sb-wezex53719890@business.example.com")
+        recipient = os.environ.get("PAYPAL_DEMO_RECIPIENT", "depot-pilot@kinetixpay-sandbox.com")
         result = await self.execute_payout(
             recipient=recipient,
             amount_usd=450.00,

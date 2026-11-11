@@ -93,13 +93,11 @@ class IBMMaximoConnector:
                             oslc_payload_preview=oslc_payload,
                         )
                     else:
-                        logger.warning(
-                            "IBM Maximo live call returned HTTP %s: %s; falling back to enterprise sandbox.",
-                            res.status_code,
-                            res.text,
-                        )
+                        logger.error("IBM Maximo live call returned HTTP %s: %s", res.status_code, res.text)
+                        raise RuntimeError(f"IBM Maximo live dispatch failed with HTTP {res.status_code}: {res.text}")
             except Exception as exc:
-                logger.warning("IBM Maximo live dispatch error: %s; falling back to enterprise sandbox.", exc)
+                logger.error("IBM Maximo live dispatch error: %s", exc)
+                raise RuntimeError(f"IBM Maximo live dispatch error: {exc}") from exc
 
         return IBMMaximoWorkOrderResponse(
             success=True,

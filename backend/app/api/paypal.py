@@ -178,19 +178,15 @@ def evaluate_quote(req: EvaluateQuoteRequest, current_user: UserProfile = Depend
 
 
 @router.get("/procurement/{work_order_id}")
-
 def get_procurement_by_work_order(work_order_id: str, db: Session = Depends(get_db), current_user: UserProfile = Depends(get_current_user)):
-
-    """Looks up procurement orders associated with a work order."""
-
-    orders = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.work_order_id == work_order_id).all()
-
+    """Looks up procurement orders associated with a work order scoped to tenant."""
+    query = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.work_order_id == work_order_id)
+    if current_user and current_user.organization_id and not any(r in current_user.roles for r in ("Auditor", "FinanceAdmin", "AutomationAdmin")):
+        query = query.filter(PayPalOrderRecord.organization_id == current_user.organization_id)
+    orders = query.all()
     return {
-
         "work_order_id": work_order_id,
-
         "orders": [o.to_dict() for o in orders],
-
     }
 
 
@@ -225,7 +221,7 @@ async def create_paypal_order(
 
         actor = current_user.user_id
 
-        if req.actor and (not is_auth_enabled() or "PYTEST_CURRENT_TEST" in os.environ):
+        if req.actor and "PYTEST_CURRENT_TEST" in os.environ:
 
             actor = req.actor
 
@@ -264,17 +260,14 @@ async def create_paypal_order(
 
 
 @router.get("/paypal/orders/{order_id}")
-
 def get_paypal_order(order_id: str, db: Session = Depends(get_db), current_user: UserProfile = Depends(get_current_user)):
-
-    """Retrieves order record by PayPal order ID."""
-
+    """Retrieves order record by PayPal order ID with tenant boundary validation."""
     order = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
-
     if not order:
-
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order '{order_id}' not found")
-
+    if current_user and current_user.organization_id and order.organization_id:
+        if order.organization_id != current_user.organization_id and not any(r in current_user.roles for r in ("Auditor", "FinanceAdmin", "AutomationAdmin")):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: Cross-organization order lookup prohibited")
     return order.to_dict()
 
 
@@ -403,7 +396,7 @@ def supervisor_sign_off(
 
     supervisor_id = current_user.user_id
 
-    if req.supervisor_id and (not is_auth_enabled() or "PYTEST_CURRENT_TEST" in os.environ):
+    if req.supervisor_id and "PYTEST_CURRENT_TEST" in os.environ:
 
         supervisor_id = req.supervisor_id
 
@@ -726,12 +719,10 @@ async def handle_paypal_webhook(
     )
 
     if not is_valid:
-        if os.environ.get("PAYPAL_MODE", "sandbox").lower() == "sandbox":
-            logger.info("Sandbox / simulator webhook received for transmission ID %s (accepting in sandbox mode)", paypal_transmission_id)
-            is_valid = True
-        else:
-            logger.warning(f"Webhook signature rejected for transmission ID {paypal_transmission_id}")
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
+        # Sandbox events affect the same order/audit state as provider captures.
+        # An unsigned request must never become trusted because of its environment.
+        logger.warning("Webhook signature rejected for transmission ID %s", paypal_transmission_id)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook signature")
 
 
 
@@ -774,9 +765,12 @@ async def simulate_test_webhook(
     event_type: str = Query("PAYMENT.AUTHORIZATION.CREATED"),
     order_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
+    current_user: UserProfile = Depends(require_roles(AppRole.ProcurementAgent, AppRole.AutomationAdmin, AppRole.ProcurementLead, AppRole.PlantOperator)),
 ):
-    """Simulates an incoming PayPal Webhook event with the active Webhook ID (6AC51894PA229561H).
-    Allows judges to verify the end-to-end webhook listener, signature pipeline, and state updates.
+    """Record a labelled UI simulation, never a verified provider notification.
+
+    Simulation receipts do not establish signature verification and cannot alter
+    order state, including when the caller supplies a real order or capture ID.
     """
     sim_event_id = f"WH-SIM-{uuid.uuid4().hex[:12].upper()}"
     res_id = order_id or f"ORD-SIM-{uuid.uuid4().hex[:8].upper()}"
@@ -786,16 +780,31 @@ async def simulate_test_webhook(
         "create_time": datetime.now(timezone.utc).isoformat(),
         "resource_type": "authorization" if "AUTHORIZATION" in event_type else "capture" if "CAPTURE" in event_type else "checkout-order",
         "event_type": event_type,
-        "summary": f"Simulated {event_type} event verified by Webhook ID 6AC51894PA229561H",
+        "summary": f"Simulated {event_type}; no PayPal signature verification or order state update",
         "resource": {
             "id": res_id,
             "status": "CREATED" if "CREATED" in event_type else "COMPLETED",
             "amount": {"currency_code": "USD", "value": "450.00"},
         },
     }
-    result = webhook_service.process_event(db=db, event_data=payload, signature_verified=True)
+    receipt = PayPalWebhookEvent(
+        event_id=sim_event_id,
+        event_type=event_type,
+        resource_id=res_id,
+        signature_verified=False,
+        status="SIMULATED",
+        payload_summary_json=json.dumps({
+            "event_type": event_type,
+            "resource_id": res_id,
+            "summary": payload["summary"],
+            "is_simulated": True,
+        }),
+    )
+    db.add(receipt)
+    db.commit()
+    result = {"status": "SIMULATED", "event_id": sim_event_id, "event_type": event_type}
     return {
-        "message": f"Webhook event {event_type} successfully processed and recorded",
+        "message": "Simulated receipt recorded. PayPal signature verification and order updates were not performed.",
         "webhook_id": webhook_service.webhook_id,
         "event_id": sim_event_id,
         "result": result,

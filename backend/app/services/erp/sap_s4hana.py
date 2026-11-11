@@ -125,13 +125,11 @@ class SAPS4HANAConnector:
                             odata_payload_preview=odata_payload,
                         )
                     else:
-                        logger.warning(
-                            "SAP S/4HANA live call returned HTTP %s: %s; falling back to enterprise sandbox.",
-                            res.status_code,
-                            res.text,
-                        )
+                        logger.error("SAP S/4HANA live call returned HTTP %s: %s", res.status_code, res.text)
+                        raise RuntimeError(f"SAP S/4HANA live dispatch failed with HTTP {res.status_code}: {res.text}")
             except Exception as exc:
-                logger.warning("SAP S/4HANA live dispatch error: %s; falling back to enterprise sandbox.", exc)
+                logger.error("SAP S/4HANA live dispatch error: %s", exc)
+                raise RuntimeError(f"SAP S/4HANA live dispatch error: {exc}") from exc
 
         # Standard deterministic sandbox mode
         # Deterministically derive SAP order ID from equipment and vendor
@@ -159,7 +157,7 @@ class SAPS4HANAConnector:
         total_cleared = sum(float(p.amount) for p in self._ledger_postings if p.cleared)
         return {
             "gl_account": "2100-PAYPAL-CLEARING",
-            "description": "PayPal Agentic Pre-Authorized Escrow Liability Clearing",
+            "description": "PayPal Agentic Pre-Authorized Liability Clearing",
             "currency": "USD",
             "active_commitments_usd": round(total_committed, 2),
             "settled_cleared_usd": round(total_cleared, 2),

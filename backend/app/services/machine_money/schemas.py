@@ -1,7 +1,8 @@
 """Pydantic schemas for Machine Money entities, invoices, quotes, and payment proofs."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
+import uuid
 from pydantic import BaseModel, Field
 
 
@@ -54,12 +55,12 @@ class BOLT11Invoice(BaseModel):
     amount_sats: int
     memo: str
     created_at: datetime = Field(default_factory=utcnow)
-    expires_at: datetime
+    expires_at: datetime = Field(default_factory=lambda: utcnow() + timedelta(seconds=3600))
     status: PaymentStatus = PaymentStatus.PENDING
 
 
 class PaymentReceipt(BaseModel):
-    receipt_id: str
+    receipt_id: str = Field(default_factory=lambda: f"rcpt-{uuid.uuid4().hex[:12]}")
     payment_hash: str
     preimage: Optional[str] = None
     amount_sats: int
@@ -349,7 +350,7 @@ class HumanApprovalEvidencePackage(BaseModel):
 class VendorTier(str, Enum):
     TIER_1_REDN = "TIER_1_REDN"  # Registered Emergency Depot Network (Direct PayPal Business API)
     TIER_2_HYPERWALLET = "TIER_2_HYPERWALLET"  # PayPal Hyperwallet Direct to Local Bank / Card
-    TIER_3_FLEET_ESCROW = "TIER_3_FLEET_ESCROW"  # Fleet Escrow Relay Single-Use Authorization
+    TIER_3_FLEET_AUTH = "TIER_3_FLEET_AUTH"  # Fleet Authorization Relay Single-Use Authorization
 
 
 class PayPalPayoutRequest(BaseModel):

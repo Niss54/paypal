@@ -24,7 +24,7 @@ class PayPalWebhookService:
 
     def __init__(self, client: Optional[PayPalClient] = None, webhook_id: Optional[str] = None):
         self.client = client or PayPalClient()
-        self.webhook_id = (webhook_id or os.environ.get("PAYPAL_WEBHOOK_ID", "6AC51894PA229561H")).strip()
+        self.webhook_id = (webhook_id or os.environ.get("PAYPAL_WEBHOOK_ID", "")).strip()
 
     async def verify_signature(
         self,
@@ -42,6 +42,10 @@ class PayPalWebhookService:
 
         if not all([auth_algo, cert_url, transmission_id, transmission_sig, transmission_time]):
             logger.warning("Missing required PayPal webhook signature headers")
+            return False
+
+        if not self.webhook_id:
+            logger.warning("Missing PAYPAL_WEBHOOK_ID configuration; rejecting webhook verification")
             return False
 
         verify_payload = {
@@ -180,6 +184,15 @@ class PayPalWebhookService:
                         "PAYPAL WEBHOOK: Capture event %s for order %s omitted amount object; falling back to order record amount %s %s",
                         event_id, order_record.paypal_order_id, order_record.amount_value, order_record.currency_code
                     )
+
+                if not order_record.evidence_record_id:
+                    logger.error(
+                        "POLICY VIOLATION DETECTED: Capture completed webhook received for order %s without verified completion evidence!",
+                        order_record.paypal_order_id,
+                    )
+                    order_record.reviewer_notes = (
+                        (order_record.reviewer_notes or "") + " [AUDIT ALERT: External capture completed without evidence verification!]"
+                    ).strip()
 
                 order_record.status = "CAPTURED"
                 order_record.capture_id = capture_id
