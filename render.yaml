@@ -110,6 +110,12 @@ services:
         sync: false
       - key: SAP_API_KEY
         sync: false
+      - key: GOOGLE_SHEETS_ERP_WEBAPP_URL
+        sync: false
+      - key: GOOGLE_SHEETS_ERP_SECRET
+        sync: false
+      - key: GOOGLE_SHEETS_ID
+        sync: false
       - key: AUTH_ENABLED
         sync: false
       - key: JWT_SECRET

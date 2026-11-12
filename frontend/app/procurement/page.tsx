@@ -49,6 +49,7 @@ import {
 import {
   syncOrderToSAP,
   syncOrderToMaximo,
+  syncOrderToGoogleSheets,
   getERPStatus,
   type SAPSyncResponse,
   type MaximoSyncResponse,
@@ -111,6 +112,7 @@ export default function ProcurementPage() {
   // ERP & Mode State
   const [isSimulationMode, setIsSimulationMode] = useState<boolean>(false);
   const [sapSyncResult, setSapSyncResult] = useState<SAPSyncResponse | null>(null);
+  const [sheetsSyncResult, setSheetsSyncResult] = useState<any>(null);
 
   // Judge Sandbox & Webhook State
   const [webhooks, setWebhooks] = useState<PayPalWebhookRecord[]>([]);
@@ -602,6 +604,36 @@ export default function ProcurementPage() {
       });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "IBM Maximo synchronization failed" });
+    } finally {
+      setSyncingERP(false);
+    }
+  };
+
+  const handleSyncToGoogleSheets = async () => {
+    try {
+      setSyncingERP(true);
+      const capId = captureResult?.capture?.capture_id || captureResult?.capture?.id || captureResult?.capture_id || `CAP-${(order?.paypal_order_id || "DEMO").slice(-8)}`;
+      const res = await syncOrderToGoogleSheets({
+        paypal_order_id: order?.paypal_order_id || "ORD-DEMO-001",
+        capture_id: capId,
+        amount: Number(order?.amount_value || 450.0),
+        currency: order?.currency_code || "USD",
+        status: "COMPLETED",
+      }, authToken);
+      setSheetsSyncResult(res);
+      if (res.success) {
+        setFeedback({
+          type: "success",
+          msg: `Synced to Live Google Sheets ERP Ledger! Row added to 'ERP Ledger' under GL 2100-PAYPAL-CLEARING.`,
+        });
+      } else {
+        setFeedback({
+          type: "error",
+          msg: res.message || "Google Sheets sync returned an error.",
+        });
+      }
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: err.message || "Google Sheets sync failed" });
     } finally {
       setSyncingERP(false);
     }
@@ -1518,14 +1550,14 @@ export default function ProcurementPage() {
                   <CpuIcon className="w-5 h-5 text-indigo-400" />
                   <div>
                     <CardTitle className="text-base font-semibold">
-                      Enterprise ERP Bridge (SAP S/4HANA & IBM Maximo)
+                      Enterprise ERP Bridge (SAP S/4HANA, IBM Maximo & Google Sheets)
                     </CardTitle>
                     <CardDescription className="text-xs">
                       Two-way synchronization for maintenance orders, purchase orders, and GL clearing account (2100-PAYPAL-CLEARING).
                     </CardDescription>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
                     variant="outline"
@@ -1544,11 +1576,20 @@ export default function ProcurementPage() {
                   >
                     Sync IBM Maximo (OSLC)
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSyncToGoogleSheets}
+                    disabled={syncingERP}
+                    className="h-7 px-2.5 text-xs border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/10"
+                  >
+                    Sync Google Sheets (GL-2100)
+                  </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                 {/* SAP Status Box */}
                 <div className="p-3.5 rounded-lg border border-border/40 bg-card/60 space-y-2">
                   <div className="flex items-center justify-between">
@@ -1587,9 +1628,9 @@ export default function ProcurementPage() {
                 <div className="p-3.5 rounded-lg border border-border/40 bg-card/60 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span> IBM Maximo Asset Management
+                      <span className="w-2 h-2 rounded-full bg-indigo-400"></span> IBM Maximo Asset Mgmt
                     </span>
-                    <Badge variant="outline" className="text-[10px] border-emerald-400/40 text-emerald-300">
+                    <Badge variant="outline" className="text-[10px] border-indigo-400/40 text-indigo-300">
                       {maximoSyncResult ? `WONUM: ${maximoSyncResult.wonum}` : "READY FOR SYNC"}
                     </Badge>
                   </div>
@@ -1603,6 +1644,37 @@ export default function ProcurementPage() {
                       Evidence Hash Verified: {maximoSyncResult.evidence_validated ? "YES (Gate Settled)" : "PENDING"}
                     </div>
                   )}
+                </div>
+
+                {/* Google Sheets ERP Ledger Box */}
+                <div className="p-3.5 rounded-lg border border-border/40 bg-card/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Google Sheets ERP Ledger
+                    </span>
+                    <Badge variant="outline" className="text-[9px] border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono font-semibold">
+                      LIVE CLOUD SHEET
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Status: <span className="text-foreground font-mono font-medium">{sheetsSyncResult?.success ? "SYNCED" : "READY"}</span></span>
+                      <span className="text-[10px] font-mono text-muted-foreground">Sheet: <span className="text-emerald-400 font-semibold">ERP Ledger</span></span>
+                    </div>
+                    <div>GL Liability: <span className="text-emerald-400 font-mono">2100-PAYPAL-CLEARING</span></div>
+                    <div>Sync Engine: <span className="text-foreground font-mono">Apps Script Web App</span></div>
+                  </div>
+                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[10px]">
+                    <span className="text-muted-foreground">Live Public Audit:</span>
+                    <a
+                      href="https://docs.google.com/spreadsheets/d/1CPZ5D3DbkFrBbJdoFPgSvKJyHhO9no2mWWq9EKvv_zI/edit"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1"
+                    >
+                      <span>Open Google Sheet ↗</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </CardContent>

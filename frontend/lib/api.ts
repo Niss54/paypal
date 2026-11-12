@@ -3010,6 +3010,22 @@ export async function syncOrderToMaximo(payload: any, token?: string): Promise<M
   return res.json();
 }
 
+export async function syncOrderToGoogleSheets(payload: any, token?: string): Promise<any> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_URL}/api/erp/sheets/sync`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || "Failed to sync to Google Sheets ERP Ledger");
+  }
+  return res.json();
+}
+
 export async function getERPStatus(token?: string): Promise<ERPStatus> {
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;

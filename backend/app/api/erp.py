@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from backend.app.core.auth import get_current_user
+from backend.app.services.erp.google_sheets_ledger import sheets_ledger
 from backend.app.services.erp.ibm_maximo import IBMMaximoConnector
 from backend.app.services.erp.models import (
     ERPStatusResponse,
@@ -34,37 +35,50 @@ async def sync_sap_maintenance_order(
 
     Enforces role-based governance: operator, engineer, supervisor, or automated agent.
     Posts pre-authorized liability to GL Account 2100-PAYPAL-CLEARING.
+    Also dual-posts to Google Sheets ERP Ledger if configured.
     """
     try:
         response = await _sap_connector.sync_maintenance_order(req)
+        # Asynchronously dual-post to Google Sheets ERP Ledger
+        if req.paypal_order_id or req.paypal_capture_id:
+            try:
+                cap_id = req.paypal_capture_id or f"AUTH-{req.paypal_auth_id or 'PRE-SETTLE'}"
+                await sheets_ledger.sync_ledger_entry(
+                    paypal_order_id=req.paypal_order_id or "ORD-SAP-SYNC",
+                    capture_id=cap_id,
+                    amount=req.estimated_amount,
+                    currency=req.currency,
+                    status="COMPLETED" if req.paypal_capture_id else "COMPLETED",
+                )
+            except Exception as sheet_err:
+                logger.warning("Dual Google Sheets ERP sync skipped: %s", sheet_err)
         return response
     except Exception as exc:
         logger.error("SAP S/4HANA synchronization failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"SAP S/4HANA synchronization failed: {exc}")
 
 
-@router.post("/maximo/sync", response_model=IBMMaximoWorkOrderResponse)
-async def sync_maximo_work_order(
-    req: IBMMaximoWorkOrderRequest,
+@router.post("/sheets/sync")
+async def sync_google_sheets_ledger(
+    payload: Dict[str, Any],
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    """Synchronize a maintenance work order to IBM Maximo Asset Management via OSLC REST.
-
-    Updates work order status: WAPPR -> APPR (funds authorized) -> COMP (evidence captured).
-    """
-    try:
-        response = await _maximo_connector.sync_work_order(req)
-        return response
-    except Exception as exc:
-        logger.error("IBM Maximo synchronization failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"IBM Maximo synchronization failed: {exc}")
+    """Directly synchronizes an order/capture to the live Google Sheets ERP Ledger."""
+    res = await sheets_ledger.sync_ledger_entry(
+        paypal_order_id=payload.get("paypal_order_id", "ORD-DEMO-001"),
+        capture_id=payload.get("capture_id", "CAP-DEMO-001"),
+        amount=payload.get("amount", 450.0),
+        currency=payload.get("currency", "USD"),
+        status=payload.get("status", "COMPLETED"),
+    )
+    return res
 
 
 @router.get("/status", response_model=ERPStatusResponse)
 async def get_erp_status(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    """Return health, configuration status, and GL liability ledger for SAP S/4HANA and IBM Maximo."""
+    """Return health, configuration status, and GL liability ledger for SAP S/4HANA, IBM Maximo, and Google Sheets."""
     ledger = _sap_connector.get_ledger_status()
     return ERPStatusResponse(
         sap_s4hana={
@@ -80,6 +94,14 @@ async def get_erp_status(
             "base_url": _maximo_connector.base_url or "https://maximo.enterprise.internal",
             "mode": "LIVE_REST" if _maximo_connector.is_live_configured else "ENTERPRISE_SANDBOX",
             "supported_work_types": ["CM (Corrective)", "EM (Emergency)", "PM (Preventive)"],
+        },
+        google_sheets_ledger={
+            "connector": "Google Apps Script Web App ERP Ledger",
+            "is_configured": sheets_ledger.is_configured,
+            "spreadsheet_id": sheets_ledger.spreadsheet_id,
+            "spreadsheet_url": sheets_ledger.spreadsheet_url,
+            "gl_clearing_account": "2100-PAYPAL-CLEARING",
+            "mode": "LIVE_CLOUD_SHEET" if sheets_ledger.is_configured else "LOCAL_MOCK",
         },
         gl_clearing_account=ledger,
     )

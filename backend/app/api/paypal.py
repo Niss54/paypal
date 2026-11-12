@@ -564,6 +564,28 @@ async def capture_paypal_order(
 
         )
 
+    # Trigger live Google Sheets ERP Ledger synchronization (2100-PAYPAL-CLEARING)
+    try:
+        from backend.app.services.erp.google_sheets_ledger import sheets_ledger
+        cap_id = None
+        amt = 450.0
+        curr = "USD"
+        if isinstance(capture_details, dict):
+            cap_id = capture_details.get("id") or capture_details.get("capture_id")
+            if "amount" in capture_details and isinstance(capture_details["amount"], dict):
+                amt = capture_details["amount"].get("value", 450.0)
+                curr = capture_details["amount"].get("currency_code", "USD")
+        cap_id = cap_id or f"CAP-{order_id[-8:] if len(order_id) >= 8 else order_id}"
+        await sheets_ledger.sync_ledger_entry(
+            paypal_order_id=order_id,
+            capture_id=str(cap_id),
+            amount=amt,
+            currency=curr,
+            status="COMPLETED",
+        )
+    except Exception as g_err:
+        logger.warning("Google Sheets auto-ledger sync skipped: %s", g_err)
+
     return {
 
         "success": True,

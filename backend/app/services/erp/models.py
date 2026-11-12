@@ -122,5 +122,6 @@ class IBMMaximoWorkOrderResponse(BaseModel):
 class ERPStatusResponse(BaseModel):
     sap_s4hana: Dict[str, Any]
     ibm_maximo: Dict[str, Any]
+    google_sheets_ledger: Optional[Dict[str, Any]] = None
     gl_clearing_account: Dict[str, Any]
     timestamp: str = Field(default_factory=utcnow_str)
