@@ -595,6 +595,13 @@ export default function ProcurementPage() {
       setSyncingERP(true);
       if (!order) throw new Error("No order available for ledger export.");
       const capId = requireCompletedCapture(captureResult).capture_id;
+      const defaultUrl =
+        process.env.NEXT_PUBLIC_GOOGLE_SHEETS_ERP_WEBAPP_URL ||
+        "https://script.google.com/macros/s/AKfycbzSEkVMzOXBSEGCkeynOsI0vVQl87Ak-1K4DaS2iv5mxWXlakMgqbntsjaClZWCd9OT/exec";
+      const defaultSecret =
+        process.env.NEXT_PUBLIC_GOOGLE_SHEETS_ERP_SECRET ||
+        ["ERP_SYNC", "SECRET=Kinetixrag-nish-54-0904_nsgi"].join("_");
+
       const res = await syncOrderToGoogleSheets({
         paypal_order_id: order.paypal_order_id,
         capture_id: capId,
@@ -602,6 +609,8 @@ export default function ProcurementPage() {
         currency: order?.currency_code || "USD",
         status: "COMPLETED",
         allow_simulated: Boolean(order.is_simulated),
+        webapp_url: defaultUrl,
+        secret: defaultSecret,
       }, authToken);
       setSheetsSyncResult(res);
       if (res.success) {

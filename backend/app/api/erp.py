@@ -10,7 +10,7 @@ from backend.app.core.auth import get_current_user, require_roles, AppRole
 from backend.app.db.database import get_db
 from backend.app.db.models import PayPalOrderRecord
 from sqlalchemy.orm import Session
-from backend.app.services.erp.google_sheets_ledger import sheets_ledger
+from backend.app.services.erp.google_sheets_ledger import GoogleSheetsERPLedger, sheets_ledger
 from backend.app.services.erp.ibm_maximo import IBMMaximoConnector
 from backend.app.services.erp.models import (
     ERPStatusResponse,
@@ -77,7 +77,14 @@ async def sync_google_sheets_ledger(
         raise HTTPException(status_code=409, detail="Only confirmed captures can be exported")
     if order.is_simulated and not payload.get("allow_simulated", False):
         raise HTTPException(status_code=409, detail="Only confirmed non-simulated captures can be exported")
-    return await sheets_ledger.sync_ledger_entry(
+    # Use server-configured ledger, or fallback to client-supplied URL/secret if unconfigured on server
+    ledger = sheets_ledger
+    client_url = payload.get("webapp_url")
+    client_secret = payload.get("secret")
+    if not ledger.is_configured and client_url and client_secret:
+        ledger = GoogleSheetsERPLedger(webapp_url=client_url, secret=client_secret)
+
+    return await ledger.sync_ledger_entry(
         paypal_order_id=order.paypal_order_id, capture_id=order.capture_id,
         amount=order.amount_value, currency=order.currency_code, status="COMPLETED",
     )

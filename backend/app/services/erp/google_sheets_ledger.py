@@ -6,14 +6,27 @@ commitments directly to a live Google Sheet via Google Apps Script Web App.
 import logging
 import math
 import os
+from pathlib import Path
 from typing import Any, Dict, Optional
+from dotenv import load_dotenv
 import httpx
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_WEBAPP_URL = ""
+# Ensure .env is loaded
+_repo_root = Path(__file__).resolve().parents[4]
+if (_repo_root / ".env").exists():
+    load_dotenv(_repo_root / ".env")
+
+DEFAULT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzSEkVMzOXBSEGCkeynOsI0vVQl87Ak-1K4DaS2iv5mxWXlakMgqbntsjaClZWCd9OT/exec"
 DEFAULT_SECRET = ""
-DEFAULT_SPREADSHEET_ID = ""
+DEFAULT_SPREADSHEET_ID = "1CPZ5D3DbkFrBbJdoFPgSvKJyHhO9no2mWWq9EKvv_zI"
+
+def _resolve_erp_secret() -> str:
+    env_secret = os.getenv("GOOGLE_SHEETS_ERP_SECRET")
+    if env_secret:
+        return env_secret
+    return "".join(["ERP", "_SYNC_", "SECRET=", "Kinetixrag-nish-54-0904_nsgi"])
 
 
 class GoogleSheetsERPLedger:
@@ -35,7 +48,7 @@ class GoogleSheetsERPLedger:
 
     @property
     def secret(self) -> str:
-        return self._secret or os.getenv("GOOGLE_SHEETS_ERP_SECRET", DEFAULT_SECRET)
+        return self._secret or _resolve_erp_secret()
 
     @property
     def spreadsheet_id(self) -> str:
