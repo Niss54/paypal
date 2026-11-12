@@ -328,6 +328,14 @@ stateDiagram-v2
 <img src="./docs/screenshots/platform/04_settled_receipt_merkle_lineage.png" alt="Settled Receipt & Merkle Lineage" width="900" style="border: 1px solid #10b981; border-radius: 8px; margin: 12px 0;" />
 <p align="center"><i>Phase 3 finalized: Confirmed PayPal capture ID, binary Merkle tree audit root, and Google Sheets GL 2100 accounting sync.</i></p>
 
+### 7. Hybrid GraphRAG Multi-Hop Investigation & Citations
+<img src="./docs/screenshots/platform/07_graphrag_investigation.png" alt="GraphRAG Investigation & Citations" width="900" style="border: 1px solid #a855f7; border-radius: 8px; margin: 12px 0;" />
+<p align="center"><i>Multi-agent GraphRAG reasoning traversing Neo4j asset-component-procedure graphs with verifiable OEM manual citations.</i></p>
+
+### 8. Programmatic Spending Mandates & Enterprise Governance
+<img src="./docs/screenshots/platform/08_spending_mandates_policy.png" alt="Spending Mandates & Policy Configuration" width="900" style="border: 1px solid #38bdf8; border-radius: 8px; margin: 12px 0;" />
+<p align="center"><i>Deterministic spending mandate policy controls: $500 hard cap, USD currency gate, allowlisted vendors, and Lane B dual-control isolation.</i></p>
+
 </div>
 
 ---
