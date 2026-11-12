@@ -481,4 +481,4 @@ This project is licensed under the **MIT License** — see the [LICENSE](./LICEN
 
 **Lead Architect & Developer**: Nishant Maurya ([@Niss54](https://github.com/Niss54))  
 **Competition**: PayPal AI Hackathon 2026 (Devpost)  
-**Submission Date**: November 2026  
+**Submission Date**: November 12, 2026 (12th Nov 2026)  
