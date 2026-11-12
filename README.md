@@ -168,13 +168,63 @@ Large language models are increasingly granted corporate card access and autonom
 
 ### High-Level Architectural Flow
 
-```
-[ Predictive Sensor Telemetry ] ──> [ ISO 10816 Severity Trip ] ──> [ Neo4j GraphRAG Diagnostic Swarm ]
-                                                                                   │
-[ Confirmed PayPal Capture ] <── [ Supervisor Sign-Off ] <── [ Evidence Gate ] <── [ Spending Mandate Cap: $500 ]
-             │                                (Dual Control)          (HTTP 403)                   │
-             ▼                                                                                     ▼
-[ Google Sheets GL 2100 Clearing ] <─────────────────────────── [ PayPal Orders v2 (intent: AUTHORIZE) ]
+```mermaid
+flowchart TD
+    subgraph S1["📡 1. PHYSICAL IOT & SENSORS"]
+        NASA["NASA IMS Bearing Dataset<br/>20 kHz Empirical Replay"]
+        MEMS["Mobile Device MEMS Sensor<br/>HTML5 DeviceMotionEvent"]
+        ISO["ISO 10816 Severity Trip<br/>Zone C/D > 4.50 mm/s RMS"]
+        NASA --> ISO
+        MEMS --> ISO
+    end
+
+    subgraph S2["🧠 2. KNOWLEDGE & AI ORCHESTRATION"]
+        GraphRAG["Neo4j Hybrid GraphRAG<br/>36 Nodes • OEM Specs • SOPs"]
+        LLM["Llama 3.3 70B & Gemini 2.0<br/>Root-Cause & Quote Reasoning"]
+        Mandate["Spending Mandate Engine<br/>Deterministic $500 Cap • 24h SLA"]
+        ISO --> GraphRAG
+        GraphRAG --> LLM
+        LLM --> Mandate
+    end
+
+    subgraph S3["💳 3. PAYPAL TWO-PHASE ESCROW"]
+        Hold["PayPal Orders v2 Two-Phase Hold<br/>intent: AUTHORIZE • $450 Held in Escrow"]
+        EarlyTrap{"Premature Capture Attempt?"}
+        Reject["⛔ HTTP 403 Forbidden<br/>NO_EVIDENCE_NO_CAPTURE"]
+        Mandate --> Hold
+        Hold --> EarlyTrap
+        EarlyTrap -- "No Evidence / Rogue AI" --> Reject
+    end
+
+    subgraph S4["🛡️ 4. DUAL-CONTROL EVIDENCE GATE"]
+        Tech["Technician Post-Repair Evidence<br/>Vibration Dropped to Zone A < 2.30 mm/s"]
+        Supervisor["Dual-Control Supervisor Sign-Off<br/>Independent Human-in-the-Loop"]
+        Merkle["Binary Merkle Tree Audit Root<br/>O(log N) Cryptographic Lineage"]
+        Tech --> Supervisor
+        Supervisor --> Merkle
+    end
+
+    subgraph S5["🏛️ 5. SETTLED CAPTURE & ERP CLEARING"]
+        Capture["PayPal Capture Settled<br/>POST /v2/payments/authorizations/{id}/capture"]
+        Sheets["Live Google Sheets ERP Ledger<br/>GL 2100-PAYPAL-CLEARING Entry"]
+        ERP["SAP S/4HANA & IBM Maximo<br/>PM01 & OSLC Work Order Closure"]
+        Merkle --> Capture
+        EarlyTrap -- "Verified Physical Evidence" --> Capture
+        Capture --> Sheets
+        Capture --> ERP
+    end
+
+    classDef physical fill:#091e3a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef intelligence fill:#1e1035,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
+    classDef escrow fill:#002244,stroke:#0070ba,stroke-width:2px,color:#f8fafc;
+    classDef verification fill:#3b0712,stroke:#f43f5e,stroke-width:2px,color:#f8fafc;
+    classDef settlement fill:#062817,stroke:#22c55e,stroke-width:2px,color:#f8fafc;
+
+    class NASA,MEMS,ISO physical;
+    class GraphRAG,LLM,Mandate intelligence;
+    class Hold,EarlyTrap,Reject escrow;
+    class Tech,Supervisor,Merkle verification;
+    class Capture,Sheets,ERP settlement;
 ```
 
 ### Deep Architecture Blueprints Index
