@@ -71,3 +71,5 @@ ml/graph_risk/reports/*.pdf
 
 
 .neon
+
+keep_render_awake.py
