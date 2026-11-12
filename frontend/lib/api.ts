@@ -55,7 +55,7 @@ export async function getReadiness(): Promise<ReadinessResponse> {
   if (primary && primary !== fallback && !primary.includes("backend:8000")) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout for primary
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout for primary dependencies
       const res = await fetch(`${primary}/api/health/ready`, {
         cache: "no-store",
         signal: controller.signal,

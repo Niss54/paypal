@@ -784,7 +784,7 @@ export default function ProcurementPage() {
                   </div>
                   <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
                     <span className="text-muted-foreground">Public Endpoint:</span>
-                    <span className="text-cyan-400 truncate max-w-[240px] select-all">{typeof window !== "undefined" ? `${getApiBaseUrl()}/api/paypal/webhook` : "https://paypal-y2jk.onrender.com/api/paypal/webhook"}</span>
+                    <span suppressHydrationWarning className="text-cyan-400 truncate max-w-[240px] select-all">{typeof window !== "undefined" ? `${getApiBaseUrl()}/api/paypal/webhook` : "https://paypal-y2jk.onrender.com/api/paypal/webhook"}</span>
                   </div>
                   <div className="flex items-center justify-between p-1.5 rounded bg-card border border-border/40">
                     <span className="text-muted-foreground">Events Subscribed:</span>
