@@ -97,9 +97,6 @@ export default function AppSidebar({ readiness }: { readiness: ReadinessResponse
       <SidebarContent>
         {/* PayPal AI Hackathon Flagship Group */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold text-[#0079C1] dark:text-cyan-400 uppercase tracking-wider font-mono">
-            PayPal AI Hackathon 2026
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {paypalHackathonItems.map((item) => {

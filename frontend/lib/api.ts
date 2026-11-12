@@ -12,17 +12,17 @@ export function getApiBaseUrl(): string {
   if (_activeApiUrl) {
     return _activeApiUrl;
   }
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    // On localhost, always use local backend on port 8000
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:8000`;
+    }
+    return RENDER_FALLBACK_URL;
+  }
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
   if (envUrl && !envUrl.includes("backend:8000")) {
     return envUrl.replace(/\/+$/, "");
-  }
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    // Route to live Render backend when deployed on Vercel or any non-localhost domain
-    if (hostname.includes("vercel.app") || hostname.includes("paypal-pink") || (hostname !== "localhost" && hostname !== "127.0.0.1")) {
-      return RENDER_FALLBACK_URL;
-    }
-    return `${protocol}//${hostname}:8000`;
   }
   return RENDER_FALLBACK_URL;
 }
@@ -48,14 +48,15 @@ export interface ReadinessResponse {
 }
 
 export async function getReadiness(): Promise<ReadinessResponse> {
-  const primary = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
+  const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const primary = (isLocal ? "http://localhost:8000" : (process.env.NEXT_PUBLIC_API_URL || "")).replace(/\/+$/, "");
   const fallback = RENDER_FALLBACK_URL;
 
-  // 1. If a primary URL is configured (e.g. Railway) and is different from Render fallback:
-  if (primary && primary !== fallback && !primary.includes("backend:8000")) {
+  // 1. If a primary URL is configured:
+  if (primary && (!primary.includes("backend:8000") || isLocal)) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout for primary dependencies
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
       const res = await fetch(`${primary}/api/health/ready`, {
         cache: "no-store",
         signal: controller.signal,
@@ -68,22 +69,22 @@ export async function getReadiness(): Promise<ReadinessResponse> {
           return body;
         }
       }
-      console.warn(`Primary backend (${primary}) not healthy. Failing over to Render...`);
+      if (!isLocal) console.warn(`Primary backend (${primary}) not healthy. Failing over to Render...`);
     } catch (e) {
-      console.warn(`Primary backend (${primary}) unreachable. Failing over to Render...`, e);
+      if (!isLocal) console.warn(`Primary backend (${primary}) unreachable. Failing over to Render...`, e);
     }
   }
 
-  // 2. Active or Fallback: Render Cloud Backend
-  try {
-    const res = await fetch(`${fallback}/api/health/ready`, { cache: "no-store" });
-    const body = await res.json().catch(() => null);
-    if (body && typeof body.ready === "boolean") {
-      setActiveApiUrl(fallback);
-      return body;
-    }
-  } catch (err) {
-    // Both failed or Render is cold waking
+  // 2. Active or Fallback: Render Cloud Backend (only when not on localhost)
+  if (!isLocal) {
+    try {
+      const res = await fetch(`${fallback}/api/health/ready`, { cache: "no-store" });
+      const body = await res.json().catch(() => null);
+      if (body && typeof body.ready === "boolean") {
+        setActiveApiUrl(fallback);
+        return body;
+      }
+    } catch (err) {}
   }
 
   throw new Error("Backend readiness is unavailable.");
@@ -126,11 +127,11 @@ export class ChatError extends Error {
   }
 }
 
-export async function postChat(query: string): Promise<ChatResponse> {
+export async function postChat(query: string, token?: string): Promise<ChatResponse> {
   const identity = getChatIdentity();
   const res = await fetch(`${API_URL}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ query, user_id: identity.userId, session_id: identity.sessionId }),
   });
   if (!res.ok) {
