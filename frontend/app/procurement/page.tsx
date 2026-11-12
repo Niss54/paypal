@@ -1636,7 +1636,7 @@ export default function ProcurementPage() {
                   <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[10px]">
                     <span className="text-muted-foreground">Live Public Audit:</span>
                     <a
-                      href="https://docs.google.com/spreadsheets/d/1CPZ5D3DbkFrBbJdoFPgSvKJyHhO9no2mWWq9EKvv_zI/edit"
+                      href="https://docs.google.com/spreadsheets/d/1CPZ5D3DbkFrBbJdoFPgSvKJyHhO9no2mWWq9EKvv_zI/edit?usp=sharing"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1"

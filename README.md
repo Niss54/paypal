@@ -76,6 +76,7 @@
 * 📡 **Live Vibration Sensor Cockpit**: [https://paypal-pink.vercel.app/predictive-watch](https://paypal-pink.vercel.app/predictive-watch)
 * 📲 **Live Mobile Sensor Transmitter**: [https://paypal-pink.vercel.app/sensor](https://paypal-pink.vercel.app/sensor)
 * 📚 **Interactive FastAPI Swagger Docs**: [https://paypal-y2jk.onrender.com/docs](https://paypal-y2jk.onrender.com/docs)
+* 📊 **Live Public ERP Accounting Ledger (Google Sheets)**: [https://docs.google.com/spreadsheets/d/1CPZ5D3DbkFrBbJdoFPgSvKJyHhO9no2mWWq9EKvv_zI/edit?usp=sharing](https://docs.google.com/spreadsheets/d/1CPZ5D3DbkFrBbJdoFPgSvKJyHhO9no2mWWq9EKvv_zI/edit?usp=sharing)
 * 🎬 **3-Minute Video Presentation Script**: [`docs/JUDGE_VIDEO_SCRIPT_3_MIN.md`](./docs/JUDGE_VIDEO_SCRIPT_3_MIN.md)
 
 ---
