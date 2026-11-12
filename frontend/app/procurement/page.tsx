@@ -1544,12 +1544,24 @@ export default function ProcurementPage() {
                     <span className="font-semibold text-foreground flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-blue-400"></span> SAP S/4HANA Cloud (OData)
                     </span>
-                    <Badge variant="outline" className="text-[10px] border-blue-400/40 text-blue-300">
-                      {sapSyncResult ? `ORDER: ${sapSyncResult.sap_order_id}` : "READY FOR SYNC"}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                      {sapSyncResult?.connector_mode === "LIVE_REST" && (
+                        <Badge variant="outline" className="text-[9px] border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono font-semibold">
+                          LIVE SAP CLOUD
+                        </Badge>
+                      )}
+                      <Badge variant="outline" className="text-[10px] border-blue-400/40 text-blue-300">
+                        {sapSyncResult ? `ORDER: ${sapSyncResult.sap_order_id}` : "READY FOR SYNC"}
+                      </Badge>
+                    </div>
                   </div>
                   <div className="text-[11px] text-muted-foreground space-y-1">
-                    <div>Status: <span className="text-foreground font-mono font-medium">{sapSyncResult?.status || "CRTD / REL"}</span></div>
+                    <div className="flex items-center justify-between">
+                      <span>Status: <span className="text-foreground font-mono font-medium">{sapSyncResult?.status || "CRTD / REL"}</span></span>
+                      {sapSyncResult?.connector_mode && (
+                        <span className="text-[10px] font-mono text-muted-foreground">Mode: <span className="text-emerald-400 font-semibold">{sapSyncResult.connector_mode}</span></span>
+                      )}
+                    </div>
                     <div>GL Liability Account: <span className="text-emerald-400 font-mono">2100-PAYPAL-CLEARING</span></div>
                     <div>Cost Center: <span className="text-foreground font-mono">CC-MUMBAI-01</span> • Plant: <span className="text-foreground font-mono">1000</span></div>
                   </div>
