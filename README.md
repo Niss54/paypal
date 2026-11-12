@@ -46,6 +46,9 @@
 8. [📋 Detailed Execution Sequence](#-detailed-execution-sequence)
 9. [📸 Live Platform Screenshots](#-live-platform-screenshots)
 10. [🧪 Comprehensive Test Suite & Terminal Verification](#-comprehensive-test-suite--terminal-verification)
+    * [💻 Live Terminal Test Execution Proof (16/16 Passed)](#-live-terminal-test-execution-proof-1616-passed)
+    * [📊 Observed Verification Metrics Table](#observed-verification-metrics-100-deterministic-pass-rate)
+    * [⚡ 60-Second Terminal Commands for Judges](#-60-second-terminal-verification-suite-for-judges)
 11. [🚀 Quickstart & Local Setup](#-quickstart--local-setup)
 12. [🛠️ Production Tech Stack](#-production-tech-stack)
 13. [📄 Truth in Engineering & Academic Disclosures](#-truth-in-engineering--academic-disclosures)
@@ -349,6 +352,28 @@ stateDiagram-v2
 
 ## 🧪 Comprehensive Test Suite & Terminal Verification
 
+### 💻 Live Terminal Test Execution Proof (16/16 Passed)
+
+<div align="center">
+  <img src="./docs/screenshots/terminal_verification.png" alt="Live Terminal Verification: 16 Tests Passed in 8.58s" width="900" style="border: 1px solid #38bdf8; border-radius: 8px; margin: 12px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4);" />
+  <p align="center">
+    <b>Live Terminal Proof:</b> <code>py -3.12 -m pytest tests/test_secret_scan.py tests/test_spending_mandate_v2.py -v</code><br/>
+    <i>Exhaustive verification of Pre-submission Secret Scanning (8/8) and Deterministic Spending Mandate Policy Gates (8/8) executing with 100% pass rate in 8.58 seconds.</i>
+  </p>
+</div>
+
+#### What This Terminal Proof Mathematically Verifies:
+1. **Zero Secret Leaks (`test_secret_scan.py` — 8 Passed)**:
+   - Scans all git-tracked repository files for private keys, high-entropy tokens, and passwords.
+   - Verifies `.env` and secret files are completely untracked and strictly git-ignored.
+   - Ensures no production PayPal credentials or secret keys can ever leak to public version control.
+2. **Deterministic Spending Mandates (`test_spending_mandate_v2.py` — 8 Passed)**:
+   - **Lane A ($500 Cap)**: Proves autonomous approval functions strictly under $500 with compliant 24h SLA.
+   - **Lane B Escalation**: Proves mission-critical assets automatically escalate to dual-control supervisor sign-off.
+   - **Security Invariants**: Verifies immediate programmatic rejection of nonpositive amounts, unapproved vendors, currency mismatches, and prompt injection attacks targeting procurement reasoning.
+
+---
+
 ### Observed Verification Metrics (100% Deterministic Pass Rate)
 
 | Test Layer | Test Runner | Files | Tests | Result | Verification Scope |
@@ -366,11 +391,6 @@ stateDiagram-v2
 ### ⚡ 60-Second Terminal Verification Suite for Judges
 
 Run these verified commands inside your terminal to test the core security, payment, and evidence boundaries in under 60 seconds:
-
-<div align="center">
-  <img src="./docs/screenshots/terminal_verification.png" alt="60-Second Judge Terminal Verification 16/16 Passed in 8.58s" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 12px 0;" />
-  <p align="center"><i>Deterministic verification: Pre-submission Secret Scanner (8 tests) and Spending Mandate v2 Engine (8 tests) passing 100% in 8.58s.</i></p>
-</div>
 
 ```bash
 # 1. Verify Zero Secret Leaks & Spending Mandates Policy Engine (16 Passing Tests in 8.5s)
