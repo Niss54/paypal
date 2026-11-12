@@ -74,7 +74,12 @@ The core product promise is **"No Evidence, No Capture"** (Funds are held in Pay
 ### Step 3: PayPal Order Creation & Two-Phase Authorization Hold
 1. Click **"Create PayPal Order (intent: AUTHORIZE)"**.
    - Note: In simulation mode (`is_simulation=True`) or live sandbox (`is_simulation=False`), order is created with `intent: AUTHORIZE`.
-2. Complete Buyer Approval (click Sandbox link or use "Confirm Buyer Approval").
+2. Complete Buyer Approval (click Sandbox link, use the PayPal checkout popup, or use "Confirm Buyer Approval"):
+   - When the PayPal Sandbox login modal opens, use the official test buyer account:
+     - **Buyer Email:** `sb-h9ysd53750459@personal.example.com`
+     - **Buyer Credentials:** Refer to local `.env` (`PAYPAL_BUYER_PASSWORD`) or Hackathon Devpost private note
+     - **Test Card:** VISA `4311193954877121` (Exp: `02/2031`, CVV: `123`)
+     - **Sandbox Balance:** USD 50,000 available
 3. Click **"Authorize Payment Hold"**.
    - Observe status transitions to `AUTHORIZED`.
    - Authorization ID is generated (e.g. `AUTH-SANDBOX-xxxxx`).
