@@ -31,6 +31,7 @@ import {
   CopyIcon,
   CheckIcon,
   RadioIcon,
+  SmartphoneIcon,
   TerminalIcon,
 } from "lucide-react";
 
@@ -940,6 +941,16 @@ export default function ProcurementPage() {
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-muted-foreground">Work Order Draft:</span>
                     <span className="text-foreground font-mono text-[11px]">WO-2026-IMS-001</span>
+                  </div>
+                  <div className="pt-2 border-t border-border/30 flex items-center justify-between text-[11px]">
+                    <span className="text-muted-foreground">Trigger with physical phone shake:</span>
+                    <Link
+                      href="/predictive-watch"
+                      className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1"
+                    >
+                      <SmartphoneIcon className="size-3" />
+                      <span>Live Sensor Cockpit →</span>
+                    </Link>
                   </div>
                 </div>
 

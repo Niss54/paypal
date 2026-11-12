@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRightIcon, Database } from "lucide-react";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import GraphRiskWidget from "@/components/predictive-watch/GraphRiskWidget";
+import LiveVibrationCockpit from "@/components/predictive-watch/LiveVibrationCockpit";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -64,6 +65,9 @@ export default function PredictiveWatchPage() {
 
         {/* GraphSAGE Risk Intelligence Advisory Component */}
         <GraphRiskWidget equipmentId="P-101A" deterministicRisk={0.42} currentVibration={5.42} />
+
+        {/* Live Multi-Source Vibration Cockpit (Phone MEMS + NASA IMS Replay + Industrial Synth) */}
+        <LiveVibrationCockpit />
 
         <Card className="min-h-[720px] gap-0 py-0">
           <CardHeader className="border-b py-4">
