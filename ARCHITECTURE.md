@@ -1,6 +1,6 @@
 # KinetixRAG Enterprise & Agentic Commerce Architecture
 
-**PayPal AI Hackathon 2026 — Primary Track: Best Use of Agentic Commerce**
+**PayPal AI Hackathon 2026**
 
 This document provides the complete, authoritative architectural specifications, Mermaid sequence diagrams, state machines, and data topologies for **KinetixRAG**.
 

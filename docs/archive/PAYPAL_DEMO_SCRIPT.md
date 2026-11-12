@@ -1,5 +1,5 @@
 # KinetixPay: 3-Minute Devpost Submission Video Script
-## PayPal AI Hackathon 2026 — Track: Best Use of Agentic Commerce
+## PayPal AI Hackathon 2026
 
 **Project Name**: KinetixPay (by KinetixRAG)  
 **Target Category**: Best Use of Agentic Commerce ($5,000 Special Prize) + Grand Prize  

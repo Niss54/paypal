@@ -4,14 +4,14 @@
 
 # KinetixRAG
 ### Evidence-Gated Autonomous Industrial Commerce & Deterministic Spending Mandates
-**PayPal AI Hackathon 2026 — Track: Best Use of Agentic Commerce**
+**PayPal AI Hackathon 2026**
 
 <p align="center">
   <b>Predictive IoT Telemetry • Hybrid GraphRAG Diagnostic Swarm • Deterministic Spending Mandates • "No Evidence, No Capture" PayPal Orders v2 Settlement</b>
 </p>
 
 <p align="center">
-  <a href="https://paypalaihackathon.devpost.com/"><img src="https://img.shields.io/badge/PayPal%20AI%20Hackathon-Agentic%20Commerce%20Track-003087?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Track"/></a>
+  <a href="https://paypalaihackathon.devpost.com/"><img src="https://img.shields.io/badge/PayPal%20AI%20Hackathon-2026-003087?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal AI Hackathon 2026"/></a>
   <a href="#-paypal-orders-v2-two-phase-settlement"><img src="https://img.shields.io/badge/PayPal%20Orders%20v2-2--Phase%20Auth%20%26%20Capture-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Orders v2"/></a>
   <a href="https://paypal-pink.vercel.app"><img src="https://img.shields.io/badge/Vercel-Live%20Frontend%20Console-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel Live"/></a>
   <a href="https://paypal-y2jk.onrender.com/docs"><img src="https://img.shields.io/badge/Render-Hosted%20FastAPI%20Backend-46E3B7?style=for-the-badge&logo=render&logoColor=black" alt="Render Backend"/></a>
@@ -83,25 +83,32 @@ Large language models are increasingly granted corporate card access and autonom
 
 <div align="center">
 
-### 1. The Cost of Industrial Downtime ($260,000 / Hour)
+### 1. Global Industrial Outage Benchmark: Siemens Senseye ($1.5 Trillion / Year)
 <img src="./docs/screenshots/evidence/siemens_downtime_cost.png" alt="Siemens Senseye Downtime Report" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 10px 0;" />
 <p align="center">
-  <b>Siemens Senseye Industrial Benchmark:</b> Unplanned downtime costs Fortune Global 500 facilities an average of <b>$260,000 per hour</b> — totaling <b>$1.4 Trillion annually</b> (11% of corporate turnover).<br/>
-  🔗 <a href="https://blog.siemens.com/2023/04/the-true-cost-of-downtime/" target="_blank"><b>Verify Official Report: Siemens True Cost of Downtime</b></a> | <a href="https://reliamag.com/topics/articles/cost-unplanned-downtime-manufacturing" target="_blank">Reliability Magazine Benchmark</a>
+  <b>Siemens Senseye Machine Health Benchmark:</b> Unplanned downtime costs Fortune Global 500 industrial leaders over <b>$1.5 Trillion annually</b> (11% of corporate turnover), with hourly failure costs scaling from $39,000 in FMCG to over <b>$2,000,000+ per hour</b> in automotive manufacturing.<br/>
+  🔗 <a href="https://blog.siemens.com/2023/04/the-true-cost-of-downtime/" target="_blank"><b>Verify Official Report: Siemens True Cost of Downtime ($1.5T Benchmark)</b></a>
 </p>
 
-### 2. The Unacceptable Risk of Unconstrained Autonomous AI Agents
+### 2. The Real Hourly Cost of Factory Downtime ($260,000 / Hour)
+<img src="./docs/screenshots/evidence/reliable_downtime_hourly.png" alt="Reliable Magazine Downtime Hourly Benchmark" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 10px 0;" />
+<p align="center">
+  <b>Aberdeen Research & Reliable Plant Analysis:</b> Downtime across manufacturing sectors averages <b>$260,000 per hour</b> and climbs past <b>$2.3 Million per hour</b> for automotive assembly lines—representing immediate lost production, idle crews, and emergency replacement premiums.<br/>
+  🔗 <a href="https://reliamag.com/topics/articles/cost-unplanned-downtime-manufacturing" target="_blank"><b>Verify Report: Reliable Magazine — The True Cost of Unplanned Downtime in Manufacturing</b></a>
+</p>
+
+### 3. Financial Liability & Risk of Autonomous AI Agents (JPMorgan Warning)
 <img src="./docs/screenshots/evidence/jamie_dimon_ai_agent_risk.png" alt="Jamie Dimon Banking Dive AI Agent Risk" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 10px 0;" />
 <p align="center">
-  <b>Banking Dive & Financial Leadership Warning:</b> Autonomous AI agents cannot be granted unconstrained disbursement authority. JPMorgan CEO Jamie Dimon warns of an immediate <i>'liability transfer'</i> when external AI agents handle money, mandating strict dual-control gates.<br/>
+  <b>Banking Dive & Financial Leadership Warning:</b> Autonomous AI agents cannot be granted unconstrained disbursement authority without human-in-the-loop boundaries and cryptographic lineage. JPMorgan CEO Jamie Dimon warns of an immediate <i>'liability transfer'</i> when external AI agents access banking and payment systems.<br/>
   🔗 <a href="https://www.bankingdive.com/news/jpmorgan-dimon-ai-agents-bank-customers-liability-transfer/832870/" target="_blank"><b>Verify Article: Banking Dive — Dimon Warns of 'Liability Transfer' With AI</b></a>
 </p>
 
-### 3. Critical Cold Chain Spoilage ($35 Billion / Year)
+### 4. Critical Supply Chain Spoilage & Vaccine Loss ($35 Billion / Year)
 <img src="./docs/screenshots/evidence/freightwaves_cold_chain_spoilage.png" alt="FreightWaves Cold Chain Breakdown Report" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 10px 0;" />
 <p align="center">
-  <b>FreightWaves Supply Chain Analytics:</b> Over <b>$35 Billion</b> in vaccines, biologics, and perishable food are destroyed each year due to unmonitored compressor and seal failures during transport.<br/>
-  🔗 <a href="https://www.freightwaves.com/news/temperature-incursions-into-cold-storage-containers-cause-massive-food-waste" target="_blank"><b>Verify Report: FreightWaves — Temperature Incursions & Cold Storage Spoilage</b></a> | <a href="https://www.freightwaves.com/news/35-billion-saved-the-digital-shift-in-pharma-logistics" target="_blank">Pharma Logistics Report</a>
+  <b>FreightWaves & WHO Supply Chain Report:</b> Over <b>$35 Billion</b> in pharmaceutical products and nearly <b>25% of all global vaccines</b> are degraded before reaching destination due to transit temperature excursions and delayed refrigeration repairs.<br/>
+  🔗 <a href="https://www.freightwaves.com/news/35-billion-saved-the-digital-shift-in-pharma-logistics" target="_blank"><b>Verify Report: FreightWaves — The Digital Shift in Pharma Cold Chain Logistics</b></a> | <a href="https://www.freightwaves.com/news/temperature-incursions-into-cold-storage-containers-cause-massive-food-waste" target="_blank">Cold Storage Temperature Incursions Study</a>
 </p>
 
 </div>
@@ -360,22 +367,28 @@ stateDiagram-v2
 
 Run these verified commands inside your terminal to test the core security, payment, and evidence boundaries in under 60 seconds:
 
+<div align="center">
+  <img src="./docs/screenshots/terminal_verification.png" alt="60-Second Judge Terminal Verification 16/16 Passed in 8.58s" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 12px 0;" />
+  <p align="center"><i>Deterministic verification: Pre-submission Secret Scanner (8 tests) and Spending Mandate v2 Engine (8 tests) passing 100% in 8.58s.</i></p>
+</div>
+
 ```bash
-# 1. Verify Secret Scanner (Zero leaked credentials in repo)
-python -m pytest tests/test_secret_scan.py -v
+# 1. Verify Zero Secret Leaks & Spending Mandates Policy Engine (16 Passing Tests in 8.5s)
+py -3.12 -m pytest tests/test_secret_scan.py tests/test_spending_mandate_v2.py -v
 
 # 2. Verify PayPal Provider Hardening (Rejects legacy fake settlement defect)
-python -m pytest tests/test_paypal_provider.py -v
+py -3.12 -m pytest tests/test_paypal_provider.py -v
 
 # 3. Verify Webhook Hardening & Technician Identity Binding
-python -m pytest tests/test_paypal_webhook_hardening.py -v
+py -3.12 -m pytest tests/test_paypal_webhook_hardening.py -v
 
 # 4. Verify RBAC, Separation of Duties & Ledger Export Safety
-python -m pytest tests/backend/test_auth.py tests/backend/test_auth_elevation_hardening.py tests/test_ledger_export_hardening.py -v
+py -3.12 -m pytest tests/backend/test_auth.py tests/backend/test_auth_elevation_hardening.py tests/test_ledger_export_hardening.py -v
 
-# 5. Verify Frontend Component & Evidence Gate Test Suite
+# 5. Verify Frontend Component & Evidence Gate Test Suite (82 Passing Vitest Specs)
 npm --prefix frontend test -- --run
 ```
+> *Note for Windows evaluators: If multiple Python versions are installed, run using `py -3.12` as shown above to target Python 3.12.*
 
 ---
 

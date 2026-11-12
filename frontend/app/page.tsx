@@ -115,9 +115,6 @@ export default function CommandCenterPage() {
                 <CreditCardIcon className="size-3.5" />
                 PayPal AI Hackathon 2026
               </Badge>
-              <Badge variant="outline" className="text-xs font-mono border-amber-500/40 text-amber-500 bg-amber-500/10">
-                Best Use of Agentic Commerce
-              </Badge>
               <Badge variant="outline" className="text-xs font-mono border-cyan-500/40 text-cyan-400 bg-cyan-950/20">
                 Industrial Repair Prototype
               </Badge>
