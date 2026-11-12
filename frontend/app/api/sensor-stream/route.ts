@@ -21,32 +21,45 @@ function getDb() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { ax = 0, ay = 0, az = 0, rms = 1.25, peak = 1.25, breached = false } = body;
+    const shouldReset = Boolean(body.reset);
+    const { ax = 0, ay = 0, az = 0, rms = 1.25 } = body;
+
+    const rawPeak = Number(body.peak || rms || 1.25);
+    const newPeak = shouldReset ? 1.25 : Math.max(inMemoryState.peak || 1.25, rawPeak);
+    const newBreached = shouldReset ? false : (inMemoryState.breached || Boolean(body.breached) || Number(rms) >= 4.5 || newPeak >= 4.5);
 
     inMemoryState = {
-      ax: Number(ax),
-      ay: Number(ay),
-      az: Number(az),
-      rms: Number(rms),
-      peak: Number(peak),
-      breached: Boolean(breached),
+      ax: shouldReset ? 0 : Number(ax),
+      ay: shouldReset ? 0 : Number(ay),
+      az: shouldReset ? 0 : Number(az),
+      rms: shouldReset ? 1.25 : Number(rms),
+      peak: newPeak,
+      breached: newBreached,
       updated_at: new Date().toISOString(),
     };
 
     const sql = getDb();
     if (sql) {
-      await sql`
-        INSERT INTO live_telemetry (id, ax, ay, az, rms, peak, breached, updated_at)
-        VALUES ('current', ${ax}, ${ay}, ${az}, ${rms}, ${peak}, ${breached}, NOW())
-        ON CONFLICT (id) DO UPDATE SET
-          ax = EXCLUDED.ax,
-          ay = EXCLUDED.ay,
-          az = EXCLUDED.az,
-          rms = EXCLUDED.rms,
-          peak = EXCLUDED.peak,
-          breached = EXCLUDED.breached,
-          updated_at = NOW();
-      `;
+      if (shouldReset) {
+        await sql`
+          UPDATE live_telemetry
+          SET ax = 0, ay = 0, az = 0, rms = 1.25, peak = 1.25, breached = FALSE, updated_at = NOW()
+          WHERE id = 'current';
+        `;
+      } else {
+        await sql`
+          INSERT INTO live_telemetry (id, ax, ay, az, rms, peak, breached, updated_at)
+          VALUES ('current', ${ax}, ${ay}, ${az}, ${rms}, ${newPeak}, ${newBreached}, NOW())
+          ON CONFLICT (id) DO UPDATE SET
+            ax = EXCLUDED.ax,
+            ay = EXCLUDED.ay,
+            az = EXCLUDED.az,
+            rms = EXCLUDED.rms,
+            peak = GREATEST(live_telemetry.peak, EXCLUDED.peak),
+            breached = live_telemetry.breached OR EXCLUDED.breached,
+            updated_at = NOW();
+        `;
+      }
     }
 
     return NextResponse.json({ success: true, data: inMemoryState });

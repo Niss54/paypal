@@ -129,6 +129,7 @@ export default function LiveVibrationCockpit() {
 
   // Anomaly & Incident Trigger State
   const [incidentTriggered, setIncidentTriggered] = useState<boolean>(false);
+  const [capturedPeak, setCapturedPeak] = useState<number>(1.25);
   const [qrModalOpen, setQrModalOpen] = useState<boolean>(false);
   const LIVE_VERCEL_SENSOR_URL = "https://paypal-pink.vercel.app/sensor";
   const [clientUrl, setClientUrl] = useState<string>(LIVE_VERCEL_SENSOR_URL);
@@ -254,19 +255,34 @@ export default function LiveVibrationCockpit() {
     let isMounted = true;
     const pollSensorStream = async () => {
       try {
-        // Try relative /api/sensor-stream first
-        let res = await fetch("/api/sensor-stream", { cache: "no-store" }).catch(() => null);
-        let json = res && res.ok ? await res.json().catch(() => null) : null;
-        let diff = json?.data?.updated_at ? Date.now() - new Date(json.data.updated_at).getTime() : 999999;
+        let json = null;
+        let diff = 999999;
 
-        // If stale or idle on localhost, poll production Vercel cloud bridge
-        if (diff > 15000 && typeof window !== "undefined" && !window.location.hostname.includes("vercel.app")) {
+        // If running on localhost, prioritize fetching from Vercel cloud bridge
+        // because the mobile phone scans the QR code pointing to Vercel and writes to Neon/Vercel
+        const isLocalhost =
+          typeof window !== "undefined" &&
+          (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+        if (isLocalhost) {
           const vRes = await fetch("https://paypal-pink.vercel.app/api/sensor-stream", { cache: "no-store" }).catch(() => null);
           if (vRes && vRes.ok) {
             const vJson = await vRes.json().catch(() => null);
             if (vJson?.data) {
               json = vJson;
-              diff = Date.now() - new Date(vJson.data.updated_at).getTime();
+              diff = vJson.data.updated_at ? Date.now() - new Date(vJson.data.updated_at).getTime() : 999999;
+            }
+          }
+        }
+
+        // Fallback to relative /api/sensor-stream (or primary when hosted on Vercel)
+        if (!json) {
+          const res = await fetch("/api/sensor-stream", { cache: "no-store" }).catch(() => null);
+          if (res && res.ok) {
+            const lJson = await res.json().catch(() => null);
+            if (lJson?.data) {
+              json = lJson;
+              diff = lJson.data.updated_at ? Date.now() - new Date(lJson.data.updated_at).getTime() : 999999;
             }
           }
         }
@@ -274,11 +290,13 @@ export default function LiveVibrationCockpit() {
         if (!json || !json.data) return;
 
         const { ax, ay, az, rms, peak, breached } = json.data;
+        const currentRms = Number(rms || 1.25);
+        const currentPeak = Number(peak || rms || 1.25);
+        const isBreached = Boolean(breached) || currentRms >= 4.50 || currentPeak >= 4.50;
 
-        // If packet arrived within 25 seconds, stream it live to the oscilloscope!
-        if (diff < 25000 && isMounted) {
+        // If packet arrived within 10 minutes, stream it live to the oscilloscope!
+        if (diff < 600000 && isMounted) {
           setCloudStreamActive(true);
-          const currentRms = Number(rms || 1.25);
           setReading({
             x: Number(ax || 0),
             y: Number(ay || 0),
@@ -287,8 +305,9 @@ export default function LiveVibrationCockpit() {
             equivalent_mm_s: currentRms,
           });
 
-          if (breached || currentRms >= 4.50) {
+          if (isBreached) {
             setIncidentTriggered(true);
+            setCapturedPeak((prev) => Math.max(prev, currentPeak, currentRms));
           }
         } else if (isMounted) {
           setCloudStreamActive(false);
@@ -304,6 +323,26 @@ export default function LiveVibrationCockpit() {
       clearInterval(interval);
     };
   }, [mode]);
+
+  // Reset entire telemetry trip to clean idle state across client and cloud
+  const handleResetIdle = async () => {
+    setIncidentTriggered(false);
+    setCapturedPeak(1.25);
+    setReading({ x: 0, y: 0, z: 0, magnitude: 0, equivalent_mm_s: 1.25 });
+    try {
+      const isLocalhost =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+      const targetUrl = isLocalhost
+        ? "https://paypal-pink.vercel.app/api/sensor-stream"
+        : "/api/sensor-stream";
+      await fetch(targetUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reset: true }),
+      });
+    } catch (_) {}
+  };
 
   // Toggle sensor on/off
   useEffect(() => {
@@ -641,6 +680,21 @@ export default function LiveVibrationCockpit() {
                   </div>
                 </div>
 
+                {/* Peak Shock Captured & Latch Status */}
+                <div className="flex items-center justify-between text-xs pt-0.5">
+                  <span className="text-muted-foreground text-[11px]">Peak Recorded:</span>
+                  <div className="flex items-center gap-1.5 font-mono">
+                    <span className={`font-bold ${capturedPeak >= 4.5 ? "text-red-400 animate-pulse" : "text-cyan-400"}`}>
+                      {capturedPeak.toFixed(2)} mm/s RMS
+                    </span>
+                    {capturedPeak >= 4.5 && (
+                      <Badge variant="destructive" className="text-[9px] py-0 px-1 font-mono">
+                        TRIP LATCHED
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
                 {/* 3 Circular Axis Gauges (X, Y, Z) - matching VSENSE dashboard */}
                 <div className="grid grid-cols-3 gap-2 pt-1 text-center">
                   {/* Axis X */}
@@ -735,7 +789,7 @@ export default function LiveVibrationCockpit() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => injectShockPulse(0.8)}
+                      onClick={handleResetIdle}
                       className="h-7 text-xs border-border/60 text-muted-foreground hover:text-foreground"
                     >
                       <RotateCcw className="size-3.5 mr-1" />
@@ -878,34 +932,45 @@ export default function LiveVibrationCockpit() {
           </div>
 
           {/* Cross-Workflow Trigger Card: Direct Link to Autonomous PayPal Procurement */}
-          {reading.equivalent_mm_s >= 4.5 && (
-            <div className="p-4 rounded-xl border border-red-500/50 bg-red-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-300">
+          {(incidentTriggered || reading.equivalent_mm_s >= 4.5 || capturedPeak >= 4.5) && (
+            <div className="p-4 rounded-xl border border-red-500/50 bg-red-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-300 shadow-lg">
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 shrink-0 mt-0.5">
+                <div className="p-2 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 shrink-0 mt-0.5 animate-pulse">
                   <ShieldAlert className="size-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-red-300">
-                      Vibration Breach Threshold Exceeded ({reading.equivalent_mm_s} mm/s RMS)
+                      🚨 Physical Sensor Vibration Breach Latched ({Math.max(reading.equivalent_mm_s, capturedPeak).toFixed(2)} mm/s RMS)
                     </span>
                     <Badge variant="destructive" className="text-[10px] font-mono">
                       WO-2026-IMS-001 TRIGGERED
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    ISO 10816 Zone C/D violation detected on CM Pump P-101A. Autonomous agentic pipeline has drafted emergency procurement quote ($450.00 SKF Bearings) ready for supervisor authorization.
+                    ISO 10816 Zone C/D violation detected on CM Pump P-101A (Limit: 4.50 mm/s). Autonomous agentic pipeline has drafted emergency procurement quote ($450.00 SKF Bearings) ready for supervisor authorization.
                   </p>
                 </div>
               </div>
 
-              <Link
-                href="/procurement"
-                className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-500 px-4 py-2.5 rounded-lg shrink-0 transition-colors shadow-xs"
-              >
-                <span>Authorize PayPal Procurement</span>
-                <ArrowRight className="size-3.5" />
-              </Link>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleResetIdle}
+                  className="h-9 px-3 text-xs border-border/60 text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="size-3.5 mr-1" />
+                  Clear Trip
+                </Button>
+                <Link
+                  href="/procurement"
+                  className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg transition-colors shadow-xs"
+                >
+                  <span>Authorize PayPal Procurement ($450.00)</span>
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </div>
             </div>
           )}
         </CardContent>
