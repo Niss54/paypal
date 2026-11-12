@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isEvidenceGateRejection } from "./procurement-safety";
+import { isEvidenceGateRejection, requireCompletedCapture } from "./procurement-safety";
 
 describe("capture demonstration evidence", () => {
   it("recognizes only a server evidence-gate rejection", () => {
@@ -14,5 +14,14 @@ describe("capture demonstration evidence", () => {
     null,
   ])("does not present an unrelated failure as a successful gate test", (error) => {
     expect(isEvidenceGateRejection(error)).toBe(false);
+  });
+});
+
+describe("capture confirmation", () => {
+  it.each([null, {}, { capture: { status: "COMPLETED" } }, { capture: { capture_id: "CAP-1", status: "PENDING" } }])("rejects an unconfirmed result", result => {
+    expect(() => requireCompletedCapture(result)).toThrow("not confirmed complete");
+  });
+  it("retains the returned capture identifier", () => {
+    expect(requireCompletedCapture({ capture: { capture_id: "CAP-1", status: "COMPLETED" } }).capture_id).toBe("CAP-1");
   });
 });

@@ -383,99 +383,13 @@ class PayPalProvider(LightningProvider):
     # =========================================================================
 
     async def create_invoice(self, request: InvoiceRequest) -> BOLT11Invoice:
-        """Create a settlement request token compatible with the Machine Money interface."""
-        now = utcnow()
-        payment_hash = f"paypal-{uuid.uuid4().hex}"
-        invoice_id = f"inv-paypal-{payment_hash[7:19]}"
-
-        # Map satoshis to USD estimate at nominal rate (1 sat = $0.00065 or nominal $450)
-        usd_amount = max(round(request.amount_sats * 0.00065, 2), 10.00)
-
-        payment_request = (
-            f"paypal:payout?amount={usd_amount}&currency=USD"
-            f"&memo={request.memo}&equipment_id={request.equipment_id or ''}"
-        )
-
-        return BOLT11Invoice(
-            invoice_id=invoice_id,
-            payment_hash=payment_hash,
-            payment_request=payment_request,
-            amount_sats=request.amount_sats,
-            memo=request.memo,
-            created_at=now,
-            expires_at=now + timedelta(seconds=request.expiry_seconds),
-            status=PaymentStatus.PENDING,
-        )
+        """A Lightning invoice cannot safely represent a USD procurement order."""
+        raise ProviderError("PayPal does not support Lightning invoices. Use evidence-gated PayPal Orders v2 procurement.")
 
     async def pay_invoice(self, bolt11: str, max_fee_sats: int = 20) -> PaymentReceipt:
-        """Execute settlement. If PayPal credentials are live, invokes real Payout.
-        Fixes SEC-P0-01 (no fake SETTLED fallback) and SEC-P0-02 (respects PENDING state).
-        """
-        now = utcnow()
-        if not self.is_configured:
-            # SEC-P0-01: Never report fake SETTLED when unconfigured
-            raise ProviderError(
-                "PayPal credentials not configured: PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET are required. "
-                "Unconfigured providers cannot settle payments."
-            )
-
-        recipient = os.environ.get("PAYPAL_DEMO_RECIPIENT", "depot-pilot@kinetixpay-sandbox.com")
-        result = await self.execute_payout(
-            recipient=recipient,
-            amount_usd=450.00,
-            note=f"Autonomous Industrial Maintenance Settlement ({bolt11[:30]}...)",
-        )
-        payout_id = result.get("payout_batch_id", uuid.uuid4().hex[:12])
-        batch_status = result.get("batch_status", "PENDING").upper()
-
-        # SEC-P0-02: Only mark SETTLED if PayPal actually confirms SUCCESS; PENDING stays PENDING
-        if batch_status in ("SUCCESS", "SUCCESSFUL"):
-            status = PaymentStatus.SETTLED
-            settled_at = now
-        else:
-            status = PaymentStatus.PENDING
-            settled_at = None
-
-        return PaymentReceipt(
-            receipt_id=f"rec-paypal-{uuid.uuid4().hex[:12]}",
-            payment_hash=f"paypal-payout-{payout_id}",
-            preimage=uuid.uuid4().hex,
-            amount_sats=250,
-            fee_sats=0,
-            provider="paypal",
-            status=status,
-            settled_at=now,
-        )
+        """Reject the legacy adapter rather than invent an amount or bypass evidence."""
+        raise ProviderError("PayPal invoice payouts are disabled. Use evidence-gated PayPal Orders v2 procurement.")
 
     async def check_payment(self, payment_hash: str) -> PaymentReceipt:
-        """Query settlement status of a previously created or paid invoice."""
-        now = utcnow()
-        if payment_hash.startswith("paypal-payout-") and self.is_configured:
-            batch_id = payment_hash.replace("paypal-payout-", "")
-            try:
-                batch_data = await self.get_payout_batch_status(batch_id)
-                status = batch_data.get("batch_header", {}).get("batch_status", "SUCCESS")
-                mapped_status = PaymentStatus.SETTLED if status in ("SUCCESS", "COMPLETED") else PaymentStatus.PENDING
-                return PaymentReceipt(
-                    receipt_id=f"rec-paypal-{batch_id[:12]}",
-                    payment_hash=payment_hash,
-                    preimage=uuid.uuid4().hex,
-                    amount_sats=250,
-                    fee_sats=0,
-                    provider="paypal",
-                    status=mapped_status,
-                    settled_at=now,
-                )
-            except Exception as exc:
-                logger.warning(f"Error checking PayPal batch {batch_id}: {exc}")
-
-        return PaymentReceipt(
-            receipt_id=f"rec-paypal-{uuid.uuid4().hex[:12]}",
-            payment_hash=payment_hash,
-            preimage=uuid.uuid4().hex,
-            amount_sats=250,
-            fee_sats=0,
-            provider="paypal",
-            status=PaymentStatus.SETTLED,
-            settled_at=now,
-        )
+        """Never fabricate a Lightning receipt, preimage or settlement for PayPal."""
+        raise ProviderError("PayPal Lightning receipt lookup is unsupported. Query the PayPal order or payout batch explicitly.")

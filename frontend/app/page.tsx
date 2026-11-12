@@ -35,14 +35,14 @@ const coverage = [
   },
   {
     label: "Evidence-Gated Capture",
-    value: "100% Gated",
-    detail: "Strict HTTP 403 blocks capture until physical repair verified",
+    value: "Report + Approval",
+    detail: "Server checks submitted evidence and separate approval before requesting capture",
     icon: ShieldCheckIcon,
   },
   {
-    label: "Empirical Telemetry",
-    value: "20 kHz RMS",
-    detail: "Real NASA IMS Run-to-Failure vibration dataset (ISO 10816)",
+    label: "Repair Scenario",
+    value: "Pump P-101A",
+    detail: "Seeded pump incident and clearly labelled demonstration measurements",
     icon: GaugeIcon,
   },
   {
@@ -56,14 +56,14 @@ const coverage = [
 const workflow = [
   {
     step: "01",
-    title: "SENSE (Empirical IoT)",
-    detail: "Accelerometers detect bearing degradation (NASA IMS 4.82 mm/s RMS Zone C/D breach).",
+    title: "REVIEW (Incident)",
+    detail: "Review a seeded pump incident with a 4.82 mm/s measurement and a scenario-specific threshold.",
     icon: GaugeIcon,
   },
   {
     step: "02",
     title: "DIAGNOSE (GraphRAG)",
-    detail: "Deterministic hybrid retrieval isolates inner race wear & drafts Work Order WO-2026-IMS-001.",
+    detail: "Ask the investigation assistant a fresh question and inspect its retrieved sources before reviewing the repair.",
     icon: BrainCircuitIcon,
   },
   {
@@ -75,29 +75,29 @@ const workflow = [
   {
     step: "04",
     title: "SETTLE (PayPal Orders v2)",
-    detail: "Two-phase settlement: 29-day authorization hold + evidence-gated capture upon physical verification.",
+    detail: "Authorize after buyer approval; request capture after report validation and separate supervisor approval.",
     icon: CreditCardIcon,
   },
 ];
 
 const enterprisePillars = [
   {
-    title: "29-Day Authorized Hold",
-    badge: "Zero Upfront Loss",
-    detail: "Blockchains force immediate irrevocable settlement. PayPal Orders v2 holds buyer funds safely in authorized status for up to 29 days without capital lockup.",
-    invariant: "Intent: AUTHORIZE · 29-Day Protection",
+    title: "Authorize, Then Capture",
+    badge: "Two-Phase Payment",
+    detail: "PayPal authorization can last up to 29 days. Capture is recommended within the first 3-day honor period; later success depends on risk checks and funding.",
+    invariant: "Intent: AUTHORIZE · Buyer Approval Required",
   },
   {
-    title: "Physical Evidence Gate",
+    title: "Submitted Evidence Gate",
     badge: "HTTP 403 Block",
-    detail: "Non-negotiable server invariant (NO_EVIDENCE_NO_CAPTURE) strictly rejects capture requests until post-repair vibration drops below ISO 4.5 mm/s limit.",
-    invariant: "ISO 10816 Zone C/D Gated Barrier",
+    detail: "The application validates report identifiers, a scenario measurement threshold and file integrity. It does not independently authenticate physical sensors.",
+    invariant: "Report Integrity · Scope · Measurement",
   },
   {
-    title: "Enterprise GAAP & Dispute Protection",
-    badge: "Enterprise Ready",
-    detail: "Enterprises cannot hold volatile crypto on balance sheets. PayPal guarantees USD fiat stability, SAP ERP GL reconciliation, and commercial dispute arbitration.",
-    invariant: "SAP GL-6410 Automated Matching",
+    title: "Separate Supervisor Approval",
+    badge: "Dual Control",
+    detail: "A critical repair needs an authenticated supervisor distinct from the requester. An audit snapshot links the report, approval and payment identifiers.",
+    invariant: "Requester Cannot Approve Its Own Order",
   },
 ];
 
@@ -119,7 +119,7 @@ export default function CommandCenterPage() {
                 Best Use of Agentic Commerce
               </Badge>
               <Badge variant="outline" className="text-xs font-mono border-cyan-500/40 text-cyan-400 bg-cyan-950/20">
-                NASA IMS Bearing Telemetry
+                Industrial Repair Prototype
               </Badge>
               <Badge variant="outline" className="text-xs font-mono border-emerald-500/40 text-emerald-400 bg-emerald-950/20">
                 PayPal Orders v2
@@ -128,17 +128,17 @@ export default function CommandCenterPage() {
             </div>
 
             <h1 className="mt-4 max-w-3xl font-heading text-3xl font-bold tracking-tight sm:text-4xl text-foreground">
-              Industrial machines holding autonomous PayPal spending mandates.
+              AI-assisted repair procurement with controlled payment release.
               <span className="block mt-1 text-transparent bg-clip-text bg-gradient-to-r from-[#0079C1] via-[#00457C] to-amber-400 dark:from-cyan-400 dark:via-blue-400 dark:to-amber-400">
-                &ldquo;No Evidence, No Capture&rdquo; — Two-Phase Settlement Prevents Spend Leakage.
+                &ldquo;No Evidence, No Capture&rdquo;
               </span>
             </h1>
 
             <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-              When industrial IoT sensors detect imminent equipment failure, autonomous AI agents cannot make blind upfront payments.
-              <strong> KinetixRAG</strong> combines empirical NASA IMS vibration telemetry, GraphRAG root-cause diagnosis,
+              When a critical machine fails, a maintenance team needs to review the repair before releasing payment.
+              <strong> KinetixRAG</strong> combines AI investigation with retrieved sources, a seeded repair scenario,
               deterministic spending mandates, and <strong>PayPal Orders v2 Two-Phase Settlement (<code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded text-foreground">intent: AUTHORIZE</code>)</strong>.
-              Contractor payment is placed on a 29-day authorization hold and capture is blocked (HTTP 403) until submitted repair evidence passes validation and a separate supervisor approves.
+              After buyer approval and authorization, the application blocks capture until submitted repair evidence passes validation and a separate supervisor approves. Sandbox and simulation modes are labelled.
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -149,7 +149,7 @@ export default function CommandCenterPage() {
                 render={<Link href="/procurement" />}
               >
                 <CreditCardIcon className="size-4 text-[#0079C1]" />
-                Launch 1-Click PayPal Procurement Console
+                Open PayPal Procurement Console
                 <ArrowRightIcon className="size-4" />
               </Button>
 
@@ -172,7 +172,7 @@ export default function CommandCenterPage() {
                 render={<Link href="/predictive-watch" />}
               >
                 <GaugeIcon className="size-4" />
-                NASA Telemetry Triggers
+                Telemetry Replay
               </Button>
 
               <Button
@@ -195,10 +195,10 @@ export default function CommandCenterPage() {
                 The Agentic Commerce Thesis
               </div>
               <h3 className="font-heading text-lg font-bold leading-snug text-foreground">
-                Why Enterprise AI Requires PayPal Orders v2 Rather Than Crypto Smart Contracts
+                Why Repair Procurement Needs a Capture Gate
               </h3>
               <p className="text-xs text-muted-foreground leading-relaxed font-sans">
-                Industrial machinery requires legally binding dispute protection, fiat balance sheet stability, and physical sensor evidence before irrevocable fund capture.
+                An AI recommendation is only the start. The application checks purchase policy, submitted completion evidence and approval before requesting PayPal capture.
               </p>
             </div>
 
@@ -237,7 +237,7 @@ export default function CommandCenterPage() {
                 <ShieldCheckIcon className="size-3.5 text-emerald-400" />
                 <span>Dual-Phase Settlement Protocol</span>
               </span>
-              <span className="text-emerald-400 font-bold text-[11px]">100% Invariant</span>
+              <span className="text-emerald-400 font-bold text-[11px]">Evidence + Approval</span>
             </div>
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function CommandCenterPage() {
               <CardTitle>How KinetixRAG Safely Executes PayPal Agentic Commerce</CardTitle>
             </div>
             <CardDescription>
-              From high-frequency NASA IMS accelerometry spikes to evidence-gated settlement under non-negotiable enterprise mandates.
+              From a reviewed repair scenario to authorization, evidence validation, supervisor approval and capture.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
@@ -309,18 +309,18 @@ export default function CommandCenterPage() {
               <CardTitle>7-Stage Causal Audit Lineage</CardTitle>
             </div>
             <CardDescription>
-              Every dollar captured in PayPal is cryptographically bound to physical sensor evidence in Neo4j.
+              The audit snapshot links scenario inputs, submitted reports, approvals and returned payment identifiers. Hashes do not establish physical truth.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 font-mono text-xs">
             {[
               { step: "1", name: "Sensor Anomaly", desc: "4.82 mm/s RMS on Primary Slurry Pump P-101A" },
-              { step: "2", name: "GraphRAG Diagnosis", desc: "Inner Race Bearing Wear (ISO 10816 Zone C/D)" },
+              { step: "2", name: "GraphRAG Diagnosis", desc: "Illustrative bearing repair context" },
               { step: "3", name: "Work Order", desc: "WO-2026-IMS-001 with scope SCOPE-BRG-REPLACE-01" },
-              { step: "4", name: "Vendor RFQ", desc: "Apex Rotating Equipment bid: $450.00 USD" },
+              { step: "4", name: "Vendor RFQ", desc: "Synthetic supplier quote: $450.00 USD" },
               { step: "5", name: "Spending Mandate", desc: "Cap Check, USD Check, Lane B Dual-Control" },
               { step: "6", name: "PayPal Orders v2 Auth", desc: "29-Day Authorization Hold (intent: AUTHORIZE)" },
-              { step: "7", name: "Evidence-Gated Capture", desc: "Post-repair 2.15 mm/s + Supervisor sign-off" },
+              { step: "7", name: "Evidence-Gated Capture", desc: "Submitted report + separate supervisor approval" },
             ].map((s) => (
               <div key={s.step} className="flex items-center gap-2.5 p-1.5 rounded-lg bg-muted/30 border border-border/40">
                 <span className="grid size-5 shrink-0 place-items-center rounded bg-[#003087]/20 text-[#0079C1] dark:text-cyan-400 font-bold text-[10px]">
@@ -341,13 +341,13 @@ export default function CommandCenterPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <Badge className="bg-[#003087] text-white text-[10px] font-mono border-0">
-                Flagship Track Demo
+                Core Procurement Demo
               </Badge>
               <CreditCardIcon className="size-5 text-[#0079C1]" />
             </div>
             <CardTitle className="mt-2 text-base font-bold text-foreground">PayPal Procurement Cockpit</CardTitle>
             <CardDescription className="text-xs">
-              Execute 1-click autonomous procurement: NASA sensor anomaly, spending mandate check, PayPal authorization, HTTP 403 early capture block, and gated settlement.
+              Review the repair scenario, evaluate spending policy, authorize in Sandbox, test the capture rejection and complete evidence review and approval.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
@@ -361,12 +361,12 @@ export default function CommandCenterPage() {
         <Card className="border-cyan-500/30 bg-cyan-500/5 hover:border-cyan-500 transition-colors flex flex-col justify-between">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/40 text-cyan-400">NASA IMS Rig</Badge>
+              <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/40 text-cyan-400">Telemetry Replay</Badge>
               <GaugeIcon className="size-5 text-cyan-400" />
             </div>
             <CardTitle className="mt-2 text-base">Predictive Telemetry</CardTitle>
             <CardDescription className="text-xs">
-              Simulate sensor drift and evaluate the NASA IMS bearing benchmark against ISO 10816 failure thresholds.
+              Explore telemetry replay and scenario thresholds. This does not certify an operating industrial asset.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
@@ -420,7 +420,7 @@ export default function CommandCenterPage() {
         <div className="flex items-center gap-2.5">
           <CreditCardIcon className="size-5 text-[#0079C1] dark:text-cyan-400 shrink-0" />
           <span>
-            <strong className="text-[#003087] dark:text-cyan-300">PayPal AI Hackathon 2026 Core Integration:</strong> KinetixRAG enforces &quot;No Evidence, No Capture&quot; via PayPal Orders v2 two-phase authorization holds, physical diagnostic sensor evidence gating, and deterministic spending mandates.
+            <strong className="text-[#003087] dark:text-cyan-300">PayPal AI Hackathon 2026 Core Integration:</strong> KinetixRAG combines AI investigation with PayPal Orders v2 authorization, submitted-report checks, separate supervisor approval and deterministic spending mandates.
           </span>
         </div>
         <Button size="sm" className="text-xs shrink-0 bg-[#003087] hover:bg-[#00246B] text-white font-semibold" nativeButton={false} render={<Link href="/procurement" />}>

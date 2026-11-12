@@ -4,15 +4,16 @@ Synchronizes PayPal Two-Phase settlements and GL 2100-PAYPAL-CLEARING ledger
 commitments directly to a live Google Sheet via Google Apps Script Web App.
 """
 import logging
+import math
 import os
 from typing import Any, Dict, Optional
 import httpx
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzSEkVMzOXBSEGCkeynOsI0vVQl87Ak-1K4DaS2iv5mxWXlakMgqbntsjaClZWCd9OT/exec"
-DEFAULT_SECRET = "ERP_SYNC_SECRET=Kinetixrag-nish-54-0904_nsgi"
-DEFAULT_SPREADSHEET_ID = "1CPZ5D3DbkFrBbJdoFPgSvKJyHhO9no2mWWq9EKvv_zI"
+DEFAULT_WEBAPP_URL = ""
+DEFAULT_SECRET = ""
+DEFAULT_SPREADSHEET_ID = ""
 
 
 class GoogleSheetsERPLedger:
@@ -57,13 +58,15 @@ class GoogleSheetsERPLedger:
         status: str = "COMPLETED",
     ) -> Dict[str, Any]:
         """POST a verified settlement row to the live Google Sheets ERP Ledger."""
-        if not self.webapp_url:
+        if not self.is_configured:
             return {"success": False, "message": "Google Sheets Web App URL not configured."}
 
         try:
             numeric_amount = float(amount)
         except (ValueError, TypeError):
-            numeric_amount = 450.0
+            return {"success": False, "message": "Invalid amount; no ledger entry sent."}
+        if not math.isfinite(numeric_amount) or numeric_amount <= 0 or not paypal_order_id or not capture_id or status != "COMPLETED":
+            return {"success": False, "message": "A completed capture and positive finite amount are required."}
 
         # Primary payload
         payload = {
@@ -96,7 +99,7 @@ class GoogleSheetsERPLedger:
                     try:
                         data = res.json()
                         return {
-                            "success": data.get("success", True),
+                            "success": data.get("success") is True,
                             "message": data.get("message", "Synced to Google Sheets ERP Ledger"),
                             "duplicate": data.get("duplicate", False),
                             "spreadsheet_url": self.spreadsheet_url,
@@ -121,8 +124,8 @@ class GoogleSheetsERPLedger:
                                 "requires_permission_update": True,
                             }
                         return {
-                            "success": True,
-                            "message": "Synced to Google Sheets ERP Ledger",
+                            "success": False,
+                            "message": "Ledger did not return a valid acknowledgement; export unverified.",
                             "spreadsheet_url": self.spreadsheet_url,
                         }
 

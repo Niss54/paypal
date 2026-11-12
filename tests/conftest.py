@@ -6,6 +6,7 @@ from backend.app.services.machine_money.providers.factory import get_payment_pro
 def configure_test_environment(monkeypatch):
     """Ensure test environment defaults to mock provider and consistent regression settings."""
     monkeypatch.setenv("MACHINE_MONEY_ENABLED", "true")
+    monkeypatch.setenv("JWT_SECRET", "isolated-regression-signing-key-at-least-32-bytes")
     monkeypatch.setenv("MACHINE_MONEY_PROVIDER", "mock")
     monkeypatch.setenv("MACHINE_MONEY_NETWORK", "regtest")
     monkeypatch.setenv("MACHINE_MONEY_AUTO_PAY_ENABLED", "true")

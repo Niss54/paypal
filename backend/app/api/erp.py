@@ -6,7 +6,10 @@ and GL liability clearing accounts (2100-PAYPAL-CLEARING).
 import logging
 from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
-from backend.app.core.auth import get_current_user
+from backend.app.core.auth import get_current_user, require_roles, AppRole
+from backend.app.db.database import get_db
+from backend.app.db.models import PayPalOrderRecord
+from sqlalchemy.orm import Session
 from backend.app.services.erp.google_sheets_ledger import sheets_ledger
 from backend.app.services.erp.ibm_maximo import IBMMaximoConnector
 from backend.app.services.erp.models import (
@@ -29,49 +32,53 @@ _maximo_connector = IBMMaximoConnector()
 @router.post("/sap/sync", response_model=SAPMaintenanceOrderResponse)
 async def sync_sap_maintenance_order(
     req: SAPMaintenanceOrderRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user=Depends(require_roles(AppRole.Supervisor, AppRole.FinanceAdmin, AppRole.AutomationAdmin)),
 ):
     """Synchronize an industrial maintenance order to SAP S/4HANA Cloud (OData PM01).
 
-    Enforces role-based governance: operator, engineer, supervisor, or automated agent.
-    Posts pre-authorized liability to GL Account 2100-PAYPAL-CLEARING.
-    Also dual-posts to Google Sheets ERP Ledger if configured.
+    Requires an authorized reviewer. Adapter mode distinguishes simulated payloads
+    from configured external requests; this endpoint does not export settlement.
     """
     try:
         response = await _sap_connector.sync_maintenance_order(req)
-        # Asynchronously dual-post to Google Sheets ERP Ledger
-        if req.paypal_order_id or req.paypal_capture_id:
-            try:
-                cap_id = req.paypal_capture_id or f"AUTH-{req.paypal_auth_id or 'PRE-SETTLE'}"
-                await sheets_ledger.sync_ledger_entry(
-                    paypal_order_id=req.paypal_order_id or "ORD-SAP-SYNC",
-                    capture_id=cap_id,
-                    amount=req.estimated_amount,
-                    currency=req.currency,
-                    status="COMPLETED" if req.paypal_capture_id else "COMPLETED",
-                )
-            except Exception as sheet_err:
-                logger.warning("Dual Google Sheets ERP sync skipped: %s", sheet_err)
         return response
     except Exception as exc:
         logger.error("SAP S/4HANA synchronization failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"SAP S/4HANA synchronization failed: {exc}")
 
 
+@router.post("/maximo/sync", response_model=IBMMaximoWorkOrderResponse)
+async def sync_maximo_work_order(
+    req: IBMMaximoWorkOrderRequest,
+    current_user=Depends(require_roles(AppRole.Supervisor, AppRole.FinanceAdmin, AppRole.AutomationAdmin)),
+):
+    """Submit a Maximo adapter request, retaining the returned connector mode."""
+    try:
+        return await _maximo_connector.sync_work_order(req)
+    except Exception as exc:
+        logger.error("Maximo synchronization failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Maximo synchronization failed") from exc
+
+
 @router.post("/sheets/sync")
 async def sync_google_sheets_ledger(
     payload: Dict[str, Any],
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user=Depends(require_roles(AppRole.Supervisor, AppRole.FinanceAdmin)),
+    db: Session = Depends(get_db),
 ):
-    """Directly synchronizes an order/capture to the live Google Sheets ERP Ledger."""
-    res = await sheets_ledger.sync_ledger_entry(
-        paypal_order_id=payload.get("paypal_order_id", "ORD-DEMO-001"),
-        capture_id=payload.get("capture_id", "CAP-DEMO-001"),
-        amount=payload.get("amount", 450.0),
-        currency=payload.get("currency", "USD"),
-        status=payload.get("status", "COMPLETED"),
+    """Export only a persisted, completed Sandbox capture using server-owned values."""
+    order_id = payload.get("paypal_order_id")
+    if not isinstance(order_id, str) or not order_id:
+        raise HTTPException(status_code=422, detail="paypal_order_id is required")
+    order = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.is_simulated or order.status != "CAPTURED" or not order.capture_id:
+        raise HTTPException(status_code=409, detail="Only confirmed non-simulated captures can be exported")
+    return await sheets_ledger.sync_ledger_entry(
+        paypal_order_id=order.paypal_order_id, capture_id=order.capture_id,
+        amount=order.amount_value, currency=order.currency_code, status="COMPLETED",
     )
-    return res
 
 
 @router.get("/status", response_model=ERPStatusResponse)

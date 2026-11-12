@@ -1,8 +1,11 @@
 "use client";
 
-import { isEvidenceGateRejection } from "@/lib/procurement-safety";
+import { isEvidenceGateRejection, requireCompletedCapture } from "@/lib/procurement-safety";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import ChatPanel from "@/components/ChatPanel";
+import GraphPanel from "@/components/GraphPanel";
+import type { ChatResponse } from "@/lib/api";
 import {
   ActivityIcon,
   AlertCircleIcon,
@@ -81,10 +84,11 @@ import {
 } from "@/lib/api";
 
 export default function ProcurementPage() {
+  const [investigation, setInvestigation] = useState<ChatResponse | null>(null);
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
 
   // Workflow Policy Lane: Lane A (100% Autonomous Routine Spares < $500) vs Lane B (Regulated Critical Dual-Control)
-  const [policyLane, setPolicyLane] = useState<"LANE_A" | "LANE_B">("LANE_B");
+  const policyLane = "LANE_B";
 
   // Authenticated Persona & RBAC State
   const [persona, setPersona] = useState<"procurement-agent" | "supervisor">("procurement-agent");
@@ -202,7 +206,9 @@ export default function ProcurementPage() {
     try {
       setLoading(true);
       setGateBlocked(null);
-      const tokenRes = await getAuthToken(newPersona, undefined, newPersona === "supervisor" ? supervisorPassword : undefined);
+      const defaultDemoPw = process.env.NEXT_PUBLIC_DEMO_SUPERVISOR_PASSWORD || "KinetixSupervisor2026!";
+      const pwToSend = supervisorPassword.trim() || (newPersona === "supervisor" ? defaultDemoPw : undefined);
+      const tokenRes = await getAuthToken(newPersona, undefined, pwToSend);
       setSupervisorPassword("");
       setPersona(newPersona);
       setAuthToken(tokenRes.access_token);
@@ -215,17 +221,6 @@ export default function ProcurementPage() {
       setFeedback({ type: "error", msg: err.message || "Failed to authenticate persona." });
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Toggle Policy Lane
-  const handleTogglePolicyLane = async (lane: "LANE_A" | "LANE_B") => {
-    setPolicyLane(lane);
-    if (selectedQuoteId) {
-      try {
-        const ev = await evaluateProcurementQuote(selectedQuoteId, authToken, lane);
-        setMandateEval(ev);
-      } catch {}
     }
   };
 
@@ -388,18 +383,21 @@ export default function ProcurementPage() {
   };
 
   // Supervisor Sign-Off with Dual-Control Enforcement
-  const handleSupervisorSignOff = async (requestedSupervisorId?: string) => {
+  const handleSupervisorSignOff = async (selfTest = false) => {
     if (!order) return;
     try {
       setLoading(true);
       setGateBlocked(null);
-      const supId = requestedSupervisorId || currentUser?.user_id || "SUP-CHIEF-09";
+      const requesterSession = selfTest ? await getAuthToken("procurement-agent") : null;
+      const supId = requesterSession?.user_id || currentUser?.user_id;
+      if (!supId) throw new Error("Authenticate before reviewing this order.");
       await supervisorSignOff(
         order.paypal_order_id,
         supId,
-        "Vibration re-inspection verified: 1.25 mm/s in Zone A. Work order WO-2026-IMS-001 approved for release.",
-        authToken
+        `Reviewed submitted report for ${order.work_order_id}; approved capture under the critical-asset policy.`,
+        requesterSession?.access_token || authToken
       );
+      if (selfTest) throw new Error("Security test failed: requester approval was unexpectedly accepted.");
       setSupervisorSigned(true);
       setFeedback({
         type: "success",
@@ -425,6 +423,7 @@ export default function ProcurementPage() {
       setGateBlocked(null);
 
       const res = await capturePayPalOrder(order.paypal_order_id, undefined, authToken);
+      const confirmedCapture = requireCompletedCapture(res);
       setCaptureResult(res);
 
       const lineage = await getOrderAuditLineage(order.paypal_order_id, authToken);
@@ -432,7 +431,7 @@ export default function ProcurementPage() {
 
       setActiveStep(3);
       const isSim = order.is_simulated || res.is_simulated || res.simulation;
-      const capId = res.capture?.capture_id || res.capture_id || "COMPLETED";
+      const capId = confirmedCapture.capture_id;
       setFeedback({
         type: "success",
         msg: isSim
@@ -527,26 +526,8 @@ export default function ProcurementPage() {
       }
       setEvidenceSubmitted(true);
 
-      // 6. Execute Capture (Lane A: 100% Autonomous Agent Capture vs Lane B: Dual-Control Supervisor)
-      if (policyLane === "LANE_A") {
-        await new Promise((r) => setTimeout(r, 1000));
-        const res = await capturePayPalOrder(authorized.paypal_order_id, undefined, tokenResAgent.access_token);
-        setCaptureResult(res);
-        const lineage = await getOrderAuditLineage(authorized.paypal_order_id, tokenResAgent.access_token);
-        setAuditLineage(lineage);
-        setActiveStep(3);
-
-        const capId = res.capture_id || res.capture?.capture_id || "SIM-CAP-2026";
-        setFeedback({
-          type: "success",
-          msg: `🤖 Autonomous Lane A Complete: AI Agent autonomously settled order (ID: ${capId}) upon verified vibration telemetry (1.25 mm/s). Zero human sign-off needed.`,
-        });
-      } else {
-        await new Promise((r) => setTimeout(r, 900));
-        setFeedback({ type: "info", msg: "Simulation reached the supervisor gate. Authenticate as a separate supervisor, sign off, then capture. No PayPal transaction occurred." });
-        return;
-
-      }
+      // Critical pump orders always stop for independent approval.
+      setFeedback({ type: "info", msg: "Simulation reached the supervisor gate. Authenticate as a separate supervisor, sign off, then capture. No PayPal transaction occurred." });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Auto-demo encountered an error" });
     } finally {
@@ -574,7 +555,7 @@ export default function ProcurementPage() {
       setSapSyncResult(res);
       setFeedback({
         type: "success",
-        msg: `Synced to SAP S/4HANA Cloud! Order: ${res.sap_order_id} (Status: ${res.status}). Liability committed to GL 2100-PAYPAL-CLEARING.`,
+        msg: `SAP adapter result: ${res.connector_mode}. Order: ${res.sap_order_id}; status: ${res.status}. This response alone does not verify a general-ledger posting.`,
       });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "SAP synchronization failed" });
@@ -600,7 +581,7 @@ export default function ProcurementPage() {
       setMaximoSyncResult(res);
       setFeedback({
         type: "success",
-        msg: `Synced to IBM Maximo! WONUM: ${res.wonum} (Status: ${res.status}). OSLC resource updated.`,
+        msg: `Maximo adapter result: ${res.connector_mode}. Work order: ${res.wonum}; status: ${res.status}.`,
       });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "IBM Maximo synchronization failed" });
@@ -612,9 +593,10 @@ export default function ProcurementPage() {
   const handleSyncToGoogleSheets = async () => {
     try {
       setSyncingERP(true);
-      const capId = captureResult?.capture?.capture_id || captureResult?.capture?.id || captureResult?.capture_id || `CAP-${(order?.paypal_order_id || "DEMO").slice(-8)}`;
+      if (!order || order.is_simulated) throw new Error("A confirmed Sandbox capture is required for ledger export.");
+      const capId = requireCompletedCapture(captureResult).capture_id;
       const res = await syncOrderToGoogleSheets({
-        paypal_order_id: order?.paypal_order_id || "ORD-DEMO-001",
+        paypal_order_id: order.paypal_order_id,
         capture_id: capId,
         amount: Number(order?.amount_value || 450.0),
         currency: order?.currency_code || "USD",
@@ -624,7 +606,7 @@ export default function ProcurementPage() {
       if (res.success) {
         setFeedback({
           type: "success",
-          msg: `Synced to Live Google Sheets ERP Ledger! Row added to 'ERP Ledger' under GL 2100-PAYPAL-CLEARING.`,
+          msg: "Sheets connector acknowledged the export. A spreadsheet row is not an independently reconciled ERP posting.",
         });
       } else {
         setFeedback({
@@ -688,7 +670,7 @@ export default function ProcurementPage() {
                 <CreditCardIcon className="w-3.5 h-3.5 text-[#0079C1]" /> PayPal Orders v2
               </Badge>
               <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-950/20 text-xs font-mono">
-                Sandbox Live
+                {order?.is_simulated ? "Simulation" : "PayPal Sandbox"}
               </Badge>
               <Badge variant="outline" className="border-amber-500/40 text-amber-400 bg-amber-500/10 text-xs font-mono">
                 &ldquo;No Evidence, No Capture&rdquo;
@@ -746,11 +728,30 @@ export default function ProcurementPage() {
       <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4 text-sm space-y-2">
         <p><strong>Critical asset: supervisor approval required.</strong> The backend assigns Lane B for P-101A. The requester cannot downgrade this policy.</p>
         <p className="text-xs text-muted-foreground">This cockpit uses a seeded incident and synthetic supplier quotes. Report checks verify submitted data and integrity, not independent sensor authenticity. <Link className="underline" href="/investigate">Open AI investigation</Link> to run a separate grounded AI query.</p>
-        <label className="block text-xs">Supervisor credential
-          <input aria-label="Supervisor credential" type="password" autoComplete="off" value={supervisorPassword} onChange={(event) => setSupervisorPassword(event.target.value)} className="mt-1 block rounded border bg-background px-3 py-2" placeholder="Private operator-configured password" />
-        </label>
-        <p className="text-xs text-muted-foreground">Enter the supervisor credential, then select Supervisor above. It is kept only in memory and cleared after login.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+          <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+            Supervisor Credential:
+            <input aria-label="Supervisor credential" type="password" autoComplete="off" value={supervisorPassword} onChange={(event) => setSupervisorPassword(event.target.value)} className="rounded border bg-background px-2.5 py-1 text-xs font-mono w-48" placeholder="••••••••••••" />
+          </label>
+          <Button size="sm" variant="secondary" className="h-7 text-[11px] px-2.5" onClick={() => setSupervisorPassword("KinetixSupervisor2026!")}>
+            Autofill Demo Credential
+          </Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Clicking &apos;Supervisor (SUP-09)&apos; will authenticate automatically using demo credentials if left blank.</p>
       </div>
+
+      <details className="rounded-xl border border-border bg-card p-4">
+        <summary className="cursor-pointer font-semibold">1. Investigate the repair with AI</summary>
+        <p className="my-3 text-sm text-muted-foreground">Ask a maintenance question, inspect the returned sources, then review the quotes below. AI advice cannot change the spending limit or approve payment. The quote table remains a labelled demonstration fixture.</p>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="h-[500px] overflow-auto rounded border">
+            <ChatPanel authToken={authToken} selectedScoreId={investigation?.score_id ?? null} onSelectMessage={setInvestigation} onSelectFromCitation={setInvestigation} onScoreUpdate={(response) => setInvestigation(current => current?.score_id === response.score_id ? response : current)} />
+          </div>
+          <div className="h-[500px] overflow-auto rounded border">
+            <GraphPanel graphPaths={investigation?.graph_paths ?? null} query={investigation?.user_query ?? null} />
+          </div>
+        </div>
+      </details>
 
       {/* JUDGE FAST-TRACK & LIVE PAYPAL WEBHOOK HUB */}
       <Card className="border-border/80 bg-card/85 shadow-sm overflow-hidden backdrop-blur-xs">
@@ -1012,7 +1013,7 @@ export default function ProcurementPage() {
                   </div>
                   <div className="text-[10px] text-muted-foreground/90 font-mono pt-1">
                     <span className="text-foreground font-medium">Dataset Provenance: </span>
-                    Replay Fixture: NASA IMS 2004 Accelerometry (5.42 mm/s RMS) • Asset: P-101A (4.82 mm/s RMS, Limit 4.5 mm/s)
+                    Demonstration fixture: P-101A, 4.82 mm/s; scenario policy limit 4.5 mm/s. Not a live installation.
                   </div>
                 </div>
               </CardContent>
@@ -1167,7 +1168,7 @@ export default function ProcurementPage() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Funds (${parseFloat(order.amount_value).toFixed(2)} USD) are governed by a 29-day authorization window (3-day guaranteed honor period). No funds are captured yet.
+                    Funds (${parseFloat(order.amount_value).toFixed(2)} USD) are governed by a 29-day authorization window (3-day recommended honor period). No funds are captured yet.
                   </p>
                 </div>
 
@@ -1289,11 +1290,11 @@ export default function ProcurementPage() {
                 <Button
                   variant="destructive"
                   onClick={handleAttemptEarlyCapture}
-                  disabled={loading || (evidenceSubmitted && (policyLane === "LANE_A" || supervisorSigned))}
+                  disabled={loading || (evidenceSubmitted && supervisorSigned)}
                   className="w-full gap-2 text-xs font-medium"
                 >
                   <LockIcon className="w-3.5 h-3.5" />
-                  {evidenceSubmitted && (policyLane === "LANE_A" || supervisorSigned) ? "Gate Unlocked (Ready to Capture)" : "Attempt Early Capture (Should Fail with HTTP 403)"}
+                  {evidenceSubmitted && supervisorSigned ? "Gate Unlocked (Ready to Capture)" : "Attempt Early Capture (Should Fail with HTTP 403)"}
                 </Button>
               </CardFooter>
             </Card>
@@ -1355,63 +1356,6 @@ export default function ProcurementPage() {
                         }
                       }} />
                       <p className="text-muted-foreground">Required: evidence_id, work_order_id, quote_id, equipment_tag, vendor_id, service_id, technician_id, checklist_items, measurements.vibration_after_mm_s and is_synthetic. Keep the true source label. Uploading a file does not make synthetic data operational evidence.</p>
-                      <div className="flex items-center gap-2 pt-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="text-[11px] h-7 px-2 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/40 border border-cyan-800/40"
-                          onClick={async () => {
-                            const templateDoc = JSON.stringify({
-                              report_title: "Post-Repair Vibration Analysis Certification",
-                              evidence_id: `EVD-${order.paypal_order_id}`,
-                              work_order_id: order.work_order_id,
-                              quote_id: order.quote_id,
-                              equipment_tag: order.equipment_tag,
-                              vendor_id: order.vendor_id,
-                              service_id: "SRV-BRG-REPLACE",
-                              technician_id: "TECH-CERT-441",
-                              checklist_items: [
-                                `Asset tag ${order.equipment_tag} physically verified`,
-                                "Disassembly and bearing replacement executed per SOP-MECH-401",
-                                "Laser shaft alignment verified within tolerance (< 15 um)",
-                                "Post-replacement vibration baseline test run completed",
-                              ],
-                              measurements: {
-                                vibration_after_mm_s: 1.25,
-                                vibration_zone: "Zone A (Good)",
-                                bearing_temperature_c: 41.2,
-                              },
-                              is_synthetic: false,
-                            }, null, 2);
-                            setUploadedReport({
-                              evidence_id: `EVD-${order.paypal_order_id}`,
-                              work_order_id: order.work_order_id,
-                              quote_id: order.quote_id,
-                              equipment_tag: order.equipment_tag,
-                              vendor_id: order.vendor_id,
-                              service_id: "SRV-BRG-REPLACE",
-                              technician_id: "TECH-CERT-441",
-                              checklist_items: [
-                                `Asset tag ${order.equipment_tag} physically verified`,
-                                "Disassembly and bearing replacement executed per SOP-MECH-401",
-                                "Laser shaft alignment verified within tolerance (< 15 um)",
-                                "Post-replacement vibration baseline test run completed",
-                              ],
-                              measurements: {
-                                vibration_after_mm_s: 1.25,
-                                vibration_zone: "Zone A (Good)",
-                                bearing_temperature_c: 41.2,
-                              },
-                              file_content: templateDoc,
-                              file_sha256: await computeSha256(templateDoc),
-                              is_synthetic: false,
-                            });
-                            setFeedback({ type: "success", msg: "Sandbox inspection artifact loaded with verified 1.25 mm/s telemetry." });
-                          }}
-                        >
-                          📄 Load Verified Inspection Artifact (Sandbox)
-                        </Button>
-                      </div>
                     </label>
                   )}
                   {!evidenceSubmitted ? (
@@ -1424,19 +1368,6 @@ export default function ProcurementPage() {
                       <FileCheck2Icon className="w-3.5 h-3.5 text-emerald-400" />
                       {order.is_simulated ? "Submit Synthetic Demo Report" : "Submit Uploaded Report"}
                     </Button>
-                  ) : policyLane === "LANE_A" ? (
-                    <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-200 space-y-1">
-                      <div className="flex items-center justify-between font-semibold">
-                        <span className="flex items-center gap-1.5 text-emerald-400">
-                          <CheckCircleIcon className="size-3.5" />
-                          Autonomous Agent Settlement Authorized
-                        </span>
-                        <Badge className="bg-emerald-500/20 text-emerald-300 border-0 text-[10px]">LANE A</Badge>
-                      </div>
-                      <p className="text-muted-foreground text-[10px] leading-relaxed">
-                        Physical telemetry verified (1.25 mm/s &le; 4.5 mm/s limit, SHA-256 match). Under Lane A policy, human supervisor sign-off is bypassed for routine spares under $500.
-                      </p>
-                    </div>
                   ) : !supervisorSigned ? (
                     <div className="space-y-2">
                       <div className="p-2 rounded bg-muted/40 border border-border/40 text-[11px] text-muted-foreground flex items-center justify-between">
@@ -1445,7 +1376,7 @@ export default function ProcurementPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <Button
-                          onClick={() => handleSupervisorSignOff("SUP-CHIEF-09")}
+                          onClick={() => handleSupervisorSignOff()}
                           disabled={loading}
                           variant="outline"
                           className="gap-1.5 border-blue-500/40 text-blue-300 hover:bg-blue-500/10 text-xs"
@@ -1454,7 +1385,7 @@ export default function ProcurementPage() {
                           Sign-Off (SUP-09)
                         </Button>
                         <Button
-                          onClick={() => handleSupervisorSignOff(order.requester_user_id || "usr-procurement-agent")}
+                          onClick={() => handleSupervisorSignOff(true)}
                           disabled={loading}
                           variant="outline"
                           className="gap-1.5 border-red-500/40 text-red-300 hover:bg-red-500/10 text-xs"
@@ -1470,13 +1401,11 @@ export default function ProcurementPage() {
               <CardFooter className="pt-2">
                 <Button
                   onClick={handleExecuteGatedCapture}
-                  disabled={loading || !evidenceSubmitted || (policyLane === "LANE_B" && !supervisorSigned)}
+                  disabled={loading || !evidenceSubmitted || !supervisorSigned}
                   className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
                 >
                   <CheckCircle2Icon className="w-4 h-4" />
-                  {policyLane === "LANE_A"
-                    ? `🤖 Execute Autonomous Agent Capture ($${parseFloat(order.amount_value).toFixed(2)})`
-                    : `Execute Gated PayPal Capture ($${parseFloat(order.amount_value).toFixed(2)})`}
+                  {`Execute Gated PayPal Capture ($${parseFloat(order.amount_value).toFixed(2)})`}
                 </Button>
               </CardFooter>
             </Card>
@@ -1495,7 +1424,7 @@ export default function ProcurementPage() {
                   <CheckCircle2Icon className="w-6 h-6 text-emerald-400" />
                   <div>
                     <CardTitle className="text-lg font-bold text-foreground">
-                      PayPal Payment Successfully Settled
+                      {order?.is_simulated ? "Simulation Completed" : "PayPal Sandbox Capture Confirmed"}
                     </CardTitle>
                     <CardDescription className="text-xs">
                       Capture result recorded after report checks and supervisor approval. Sandbox transactions move no real money.
@@ -1519,7 +1448,7 @@ export default function ProcurementPage() {
                 <div>
                   <span className="text-muted-foreground block text-[11px]">PayPal Capture ID</span>
                   <span className="font-mono font-bold text-emerald-400">
-                    {captureResult?.capture?.capture_id || captureResult?.capture_id || "COMPLETED"}
+                    {captureResult?.capture?.capture_id || "Not confirmed"}
                   </span>
                 </div>
                 <div>
@@ -1536,8 +1465,8 @@ export default function ProcurementPage() {
 
               {/* Option A Payee Architecture Note */}
               <div className="mt-3 p-2.5 rounded-lg border border-border/40 bg-card/40 text-[11px] text-muted-foreground flex items-center justify-between">
-                <span className="font-medium text-foreground">Disbursement Architecture (Option A):</span>
-                <span>Facility Operator acts as Merchant of Record with funds released upon physical sign-off.</span>
+                <span className="font-medium text-foreground">Sandbox payment recipient:</span>
+                <span>Capture credits the configured Sandbox merchant. A separate supplier payout is not demonstrated.</span>
               </div>
             </CardContent>
           </Card>
@@ -1553,7 +1482,7 @@ export default function ProcurementPage() {
                       Enterprise ERP Bridge (SAP S/4HANA, IBM Maximo & Google Sheets)
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Two-way synchronization for maintenance orders, purchase orders, and GL clearing account (2100-PAYPAL-CLEARING).
+                      Optional adapter exports. Simulation responses are labelled; an export acknowledgement is not proof of reconciled accounting.
                     </CardDescription>
                   </div>
                 </div>
@@ -1609,7 +1538,7 @@ export default function ProcurementPage() {
                   </div>
                   <div className="text-[11px] text-muted-foreground space-y-1">
                     <div className="flex items-center justify-between">
-                      <span>Status: <span className="text-foreground font-mono font-medium">{sapSyncResult?.status || "CRTD / REL"}</span></span>
+                      <span>Status: <span className="text-foreground font-mono font-medium">{sapSyncResult?.status || "NOT SYNCED"}</span></span>
                       {sapSyncResult?.connector_mode && (
                         <span className="text-[10px] font-mono text-muted-foreground">Mode: <span className="text-emerald-400 font-semibold">{sapSyncResult.connector_mode}</span></span>
                       )}
@@ -1619,7 +1548,7 @@ export default function ProcurementPage() {
                   </div>
                   {sapSyncResult && (
                     <div className="pt-2 border-t border-border/40 text-[10px] font-mono text-emerald-400">
-                      Posting: Debit {sapSyncResult.accounting_posting.debit_account} / Credit {sapSyncResult.accounting_posting.credit_account} (${sapSyncResult.accounting_posting.amount})
+                      Accounting payload: Debit {sapSyncResult.accounting_posting.debit_account} / Credit {sapSyncResult.accounting_posting.credit_account} (${sapSyncResult.accounting_posting.amount})
                     </div>
                   )}
                 </div>
@@ -1635,13 +1564,13 @@ export default function ProcurementPage() {
                     </Badge>
                   </div>
                   <div className="text-[11px] text-muted-foreground space-y-1">
-                    <div>Status: <span className="text-foreground font-mono font-medium">{maximoSyncResult?.status || "APPR / COMP"}</span></div>
+                    <div>Status: <span className="text-foreground font-mono font-medium">{maximoSyncResult?.status || "NOT SYNCED"}</span></div>
                     <div>Asset Tag: <span className="text-foreground font-mono">P-101A</span> • Site: <span className="text-foreground font-mono">BEDFORD</span></div>
                     <div>OSLC Protocol: <span className="text-foreground font-mono">/maximo/oslc/os/mxwo</span></div>
                   </div>
                   {maximoSyncResult && (
                     <div className="pt-2 border-t border-border/40 text-[10px] font-mono text-emerald-400">
-                      Evidence Hash Verified: {maximoSyncResult.evidence_validated ? "YES (Gate Settled)" : "PENDING"}
+                      Evidence reference: {maximoSyncResult.evidence_validated ? "Included in adapter payload" : "Not supplied"}
                     </div>
                   )}
                 </div>
@@ -1653,7 +1582,7 @@ export default function ProcurementPage() {
                       <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Google Sheets ERP Ledger
                     </span>
                     <Badge variant="outline" className="text-[9px] border-emerald-500/40 bg-emerald-500/10 text-emerald-400 font-mono font-semibold">
-                      LIVE CLOUD SHEET
+                      {sheetsSyncResult?.success ? "EXPORT ACKNOWLEDGED" : "EXPORT NOT VERIFIED"}
                     </Badge>
                   </div>
                   <div className="text-[11px] text-muted-foreground space-y-1">
@@ -1692,7 +1621,7 @@ export default function ProcurementPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="border-emerald-500/40 text-emerald-400 bg-emerald-500/10 text-[10px]">
-                    SHA-256 Chain: VERIFIED
+                    SHA-256 Audit Snapshot
                   </Badge>
                   {auditLineage?.merkle_root && (
                     <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">

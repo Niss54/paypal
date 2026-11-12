@@ -1,6 +1,6 @@
 # KinetixRAG: under-three-minute submission cut
 
-Target final runtime: **2:40–2:50**, including title cards. The official challenge page asks for a public YouTube video under three minutes. The existing five-minute narration needs a shorter cut and factual corrections, even if its delivery is polished.
+Target final runtime: **2:40–2:50**, including title cards, within the planned 2–3 minute video. The supplied voiceover draft needs the factual corrections below. This document does not assume a five-minute video will be submitted.
 
 Record the behavior available in the deployed build. Use the narration below only when the corresponding action is visible and succeeds. Do not call Auto Demo, a fixed quote rationale, or a stored screenshot a live AI or PayPal result. Never expose passwords, client secrets or bearer tokens.
 
@@ -12,7 +12,7 @@ Record the behavior available in the deployed build. Use the narration below onl
 
 ## 0:15–0:35 | Show the actual AI contribution
 
-**Screen:** `/investigate`. Ask a fresh maintenance question, show its answer and open a returned citation. Verify the configured model responds before recording.
+**Screen:** open “Investigate the repair with AI” inside `/procurement` (or use `/investigate`). Ask a fresh maintenance question, show its answer and open a returned citation. Verify the configured model responds before recording.
 
 “Here, the AI investigation assistant answers a maintenance question using retrieved evidence. I can inspect its citations. The operator reviews that recommendation. For this payment demonstration, we use a clearly labelled pump incident and synthetic supplier quotes.”
 

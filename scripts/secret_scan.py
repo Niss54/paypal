@@ -12,6 +12,7 @@ import sys
 import subprocess
 
 PATTERNS = {
+    "Hardcoded Ledger Secret": re.compile(r"(?:ERP_SYNC_SECRET\s*=\s*[^\s\"']{8,}|DEFAULT_SECRET\s*=\s*[\"'][^\"']{8,}[\"'])"),
     "Google API Key": re.compile(r"AIza[0-9A-Za-z\-_]{35}"),
     "GitHub Token": re.compile(r"(?:ghp_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{82})"),
     "Groq API Key": re.compile(r"gsk_[0-9A-Za-z]{48}"),

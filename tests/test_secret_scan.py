@@ -73,3 +73,12 @@ def test_env_files_are_untracked_and_gitignored():
     except (subprocess.CalledProcessError, FileNotFoundError):
         pytest.skip("Git index unavailable in source archive")
     assert ".env" not in git_tracked, "CRITICAL: .env is tracked in git index!"
+
+
+def test_ledger_default_secret_is_detected_and_redacted(tmp_path, monkeypatch):
+    secret = "unsafe-" + "ledger-credential"
+    (tmp_path / "ledger.py").write_text('DEFAULT_' + 'SECRET = "' + secret + '"', encoding="utf-8")
+    monkeypatch.setattr(subprocess, "check_output", lambda *args, **kwargs: "ledger.py\0")
+    findings = scan_repository(tmp_path)
+    assert any(item["type"] == "Hardcoded Ledger Secret" for item in findings)
+    assert secret not in repr(findings)

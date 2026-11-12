@@ -69,11 +69,13 @@ function QualityMetric({ label, score }: { label: string; score: number }) {
 }
 
 export default function ChatPanel({
+  authToken,
   selectedScoreId,
   onSelectMessage,
   onSelectFromCitation,
   onScoreUpdate,
 }: {
+  authToken?: string;
   selectedScoreId: string | null;
   onSelectMessage: (response: ChatResponse) => void;
   onSelectFromCitation: (response: ChatResponse) => void;
@@ -140,7 +142,7 @@ export default function ChatPanel({
     setMessages((items) => [...items, { role: "user", text: query }]);
     setPending(true);
     try {
-      const response = await postChat(query);
+      const response = authToken ? await postChat(query, authToken) : await postChat(query);
       setMessages((items) => [...items, { role: "assistant", text: response.agent_response, response }]);
       onSelectMessage(response);
       void pollScore(response);

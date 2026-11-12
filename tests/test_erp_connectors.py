@@ -20,6 +20,14 @@ from backend.app.services.erp.sap_s4hana import SAPS4HANAConnector
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def isolate_erp_credentials(monkeypatch):
+    """Unit tests must never write to an operator's configured ERP tenants."""
+    monkeypatch.setenv("JWT_SECRET", "isolated-erp-test-signing-key-32-bytes-minimum")
+    for name in ("SAP_S4HANA_URL", "SAP_API_KEY", "SAP_USERNAME", "SAP_PASSWORD", "MAXIMO_URL", "MAXIMO_API_KEY"):
+        monkeypatch.setenv(name, "")
+
+
 @pytest.mark.asyncio
 async def test_sap_s4hana_connector_lifecycle():
     connector = SAPS4HANAConnector()
@@ -139,10 +147,14 @@ def test_erp_api_endpoints_governed():
     )
     assert bad_token_res.status_code == 401
 
-    # 2. Authenticated operator request
+    # 2. A basic operator cannot mutate an external ERP tenant.
     token = create_access_token("operator-1", ["operator"])
     headers = {"Authorization": f"Bearer {token}"}
 
+    sap_res = client.post("/api/erp/sap/sync", json=payload, headers=headers)
+    assert sap_res.status_code == 403
+    token = create_access_token("supervisor-1", ["Supervisor"])
+    headers = {"Authorization": f"Bearer {token}"}
     sap_res = client.post("/api/erp/sap/sync", json=payload, headers=headers)
     assert sap_res.status_code == 200
     sap_data = sap_res.json()

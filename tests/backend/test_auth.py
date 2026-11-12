@@ -19,6 +19,12 @@ from backend.app.core.auth import (
 from backend.app.core.tenant import ClearanceLevel, SiteContext, get_site_context
 
 
+@pytest.fixture(autouse=True)
+def isolate_test_signing_secret(monkeypatch):
+    # Explicit TEST_JWT_SECRET fixtures must not be shadowed by a local .env JWT.
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+
+
 def test_site_context_clearance_hierarchy():
     ctx = SiteContext(clearance_level=ClearanceLevel.RESTRICTED)
     assert ctx.can_access_classification(ClearanceLevel.PUBLIC) is True

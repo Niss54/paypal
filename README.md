@@ -91,11 +91,13 @@ The [official challenge page](https://paypalaihackathon.devpost.com/) lists no p
 
 The submission needs a functional demo or complete run instructions, a public open-source repository with a visible license, identification of the AI tools used, and a publicly visible YouTube demo **under three minutes**. Repository source alone does not prove that the Devpost submission or video has been published.
 
-Use the [under-three-minute recording script](docs/JUDGE_VIDEO_SCRIPT_3_MIN.md). Keep the pump incident, real AI evidence, authorization, rejected early capture, evidence, supervisor approval and final result in that cut. Do not use the older five-minute narration as the primary submission video.
+Use the [under-three-minute recording script](docs/JUDGE_VIDEO_SCRIPT_3_MIN.md) for the planned 2–3 minute video. Keep the pump incident, fresh AI answer with sources, authorization, rejected early capture, evidence, supervisor approval and final result in that cut. AI investigation is also available inside the procurement screen.
 
 ## Security and limitations
 
 If a Sandbox password was previously published, remove it from the current files and rotate it in the PayPal account. A clean scan cannot revoke a leaked password or remove it from Git history. Do not distribute privileged demo passwords in the README.
+
+The legacy Lightning-to-PayPal invoice adapter is disabled: satoshi invoices do not define a safe USD repair payment. Use the Orders v2 procurement path. Optional ledger exports use stored completed capture values, require reviewer privileges, and never automatically turn a simulation into a financial posting. Configure the Sheets connector privately and rotate its previously exposed sync secret before enabling it.
 
 This prototype has not demonstrated independent sensor attestation, real industrial deployment, externally anchored immutable logs, calibrated failure prediction, live SAP/Maximo settlement, or measured savings for customers. Direct use of merchant credentials outside this application is outside its capture gate. These are deployment and product-development boundaries, not features proven by the demo.
 

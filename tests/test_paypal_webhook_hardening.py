@@ -122,3 +122,24 @@ def test_requester_cannot_override_identity_when_auth_disabled(webhook_client, m
     assert response.status_code == 201
     saved = db.query(PayPalOrderRecord).filter_by(paypal_order_id=response.json()["paypal_order_id"]).one()
     assert saved.requester_user_id == "bound-requester"
+
+
+def test_report_audit_submitter_is_authenticated_caller(webhook_client):
+    from backend.app.db.models import CompletionEvidenceRecord
+    client, db, order = webhook_client
+    order.is_simulated = True
+    db.commit()
+    client.app.dependency_overrides[get_current_user] = lambda: UserProfile(
+        user_id="actual-uploader", roles=[AppRole.ProcurementAgent.value],
+    )
+    response = client.post(f"/api/paypal/orders/{order.paypal_order_id}/evidence", json={
+        "evidence_id": "EVIDENCE-BOUND", "work_order_id": order.work_order_id,
+        "quote_id": order.quote_id, "equipment_tag": order.equipment_tag,
+        "vendor_id": order.vendor_id, "service_id": "bearing-inspection",
+        "technician_id": "forged-certified-technician", "is_synthetic": True,
+        "checklist_items": ["Bearing replacement completed", "Laser alignment checked"],
+        "measurements": {"vibration_after_mm_s": 1.25}, "file_content": "Synthetic repair report",
+    })
+    assert response.status_code == 200
+    saved = db.query(CompletionEvidenceRecord).filter_by(order_id=order.paypal_order_id).one()
+    assert saved.submitted_by == "actual-uploader"
