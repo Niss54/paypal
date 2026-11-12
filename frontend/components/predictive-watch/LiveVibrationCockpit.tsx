@@ -242,6 +242,60 @@ export default function LiveVibrationCockpit() {
     setSensorActive(false);
   };
 
+  const [cloudStreamActive, setCloudStreamActive] = useState<boolean>(false);
+
+  // Poll cloud sensor stream from phone (via Neon Cloud Ledger)
+  useEffect(() => {
+    if (mode !== "live_mems") {
+      setCloudStreamActive(false);
+      return;
+    }
+
+    let isMounted = true;
+    const pollSensorStream = async () => {
+      try {
+        const streamUrl = typeof window !== "undefined" && window.location.hostname.includes("vercel.app")
+          ? "/api/sensor-stream"
+          : "https://paypal-pink.vercel.app/api/sensor-stream";
+
+        const res = await fetch(streamUrl, { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json.success || !json.data) return;
+
+        const { ax, ay, az, rms, peak, breached, updated_at } = json.data;
+        const timeDiff = Date.now() - new Date(updated_at).getTime();
+
+        // If updated within the last 20 seconds, treat as live phone transmission!
+        if (timeDiff < 20000 && isMounted) {
+          setCloudStreamActive(true);
+          const currentRms = Number(rms || 1.25);
+          setReading({
+            x: Number(ax || 0),
+            y: Number(ay || 0),
+            z: Number(az || 0),
+            magnitude: Math.sqrt((ax || 0) ** 2 + (ay || 0) ** 2 + (az || 0) ** 2),
+            equivalent_mm_s: currentRms,
+          });
+
+          if (breached || currentRms >= 4.50) {
+            setIncidentTriggered(true);
+          }
+        } else if (isMounted) {
+          setCloudStreamActive(false);
+        }
+      } catch (_) {}
+    };
+
+    const interval = setInterval(pollSensorStream, 250);
+    pollSensorStream();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [mode]);
+
   // Toggle sensor on/off
   useEffect(() => {
     if (mode === "live_mems") {
@@ -638,6 +692,11 @@ export default function LiveVibrationCockpit() {
                     <span className="text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
                       <Smartphone className="size-3.5 text-emerald-400" />
                       Live Smartphone Accelerometer
+                      {cloudStreamActive && (
+                        <Badge variant="outline" className="text-[9px] border-emerald-400/50 bg-emerald-500/10 text-emerald-300 font-mono py-0 px-1.5 animate-pulse">
+                          STREAMING 🟢
+                        </Badge>
+                      )}
                     </span>
                     <Button
                       size="sm"

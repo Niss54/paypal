@@ -31,9 +31,27 @@ export default function MobileSensorPage() {
   const [az, setAz] = useState<number>(0);
   const [mag, setMag] = useState<number>(0);
   const [equivMms, setEquivMms] = useState<number>(1.25);
+  const [maxPeak, setMaxPeak] = useState<number>(1.25);
   const [peakBreached, setPeakBreached] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<"connected" | "syncing" | "idle">("idle");
 
   const baselineRef = useRef<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 9.81 });
+  const lastPostRef = useRef<number>(0);
+  const maxPeakRef = useRef<number>(1.25);
+
+  const sendTelemetry = useCallback(async (payload: { ax: number; ay: number; az: number; rms: number; peak: number; breached: boolean }) => {
+    try {
+      setSyncStatus("syncing");
+      await fetch("/api/sensor-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      setSyncStatus("connected");
+    } catch (_) {
+      setSyncStatus("idle");
+    }
+  }, []);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     let curX = 0;
@@ -59,7 +77,7 @@ export default function MobileSensorPage() {
     }
 
     const currentMag = Math.sqrt(curX * curX + curY * curY + curZ * curZ);
-    const equiv = Math.min(12.0, Number((1.25 + currentMag * 0.95).toFixed(2)));
+    const equiv = Math.min(25.0, Number((1.25 + currentMag * 0.95).toFixed(2)));
 
     setAx(Number(curX.toFixed(2)));
     setAy(Number(curY.toFixed(2)));
@@ -67,7 +85,13 @@ export default function MobileSensorPage() {
     setMag(Number(currentMag.toFixed(2)));
     setEquivMms(equiv);
 
-    if (equiv >= 4.50) {
+    if (equiv > maxPeakRef.current) {
+      maxPeakRef.current = equiv;
+      setMaxPeak(equiv);
+    }
+
+    const isBreach = equiv >= 4.50;
+    if (isBreach) {
       setPeakBreached(true);
       if (typeof navigator !== "undefined" && navigator.vibrate) {
         try {
@@ -75,7 +99,21 @@ export default function MobileSensorPage() {
         } catch (_) {}
       }
     }
-  }, []);
+
+    // Stream telemetry to Neon cloud ledger every ~180ms or instantly on breach
+    const now = Date.now();
+    if (isBreach || now - lastPostRef.current > 180) {
+      lastPostRef.current = now;
+      sendTelemetry({
+        ax: Number(curX.toFixed(2)),
+        ay: Number(curY.toFixed(2)),
+        az: Number(curZ.toFixed(2)),
+        rms: equiv,
+        peak: maxPeakRef.current,
+        breached: isBreach,
+      });
+    }
+  }, [sendTelemetry]);
 
   const activateSensor = async () => {
     setErrorMsg(null);
@@ -132,7 +170,7 @@ export default function MobileSensorPage() {
     const ry = Number((Math.random() * force - force / 2).toFixed(2));
     const rz = Number((force * 0.8 + Math.random()).toFixed(2));
     const m = Math.sqrt(rx * rx + ry * ry + rz * rz);
-    const eq = Math.min(12.0, Number((1.25 + m * 0.95).toFixed(2)));
+    const eq = Math.min(25.0, Number((1.25 + m * 0.95).toFixed(2)));
 
     setAx(rx);
     setAy(ry);
@@ -140,7 +178,13 @@ export default function MobileSensorPage() {
     setMag(Number(m.toFixed(2)));
     setEquivMms(eq);
 
-    if (eq >= 4.5) {
+    if (eq > maxPeakRef.current) {
+      maxPeakRef.current = eq;
+      setMaxPeak(eq);
+    }
+
+    const isBreach = eq >= 4.5;
+    if (isBreach) {
       setPeakBreached(true);
       if (typeof navigator !== "undefined" && navigator.vibrate) {
         try {
@@ -148,9 +192,18 @@ export default function MobileSensorPage() {
         } catch (_) {}
       }
     }
+
+    sendTelemetry({
+      ax: rx,
+      ay: ry,
+      az: rz,
+      rms: eq,
+      peak: maxPeakRef.current,
+      breached: isBreach,
+    });
   };
 
-  const isAlarm = equivMms >= 4.5;
+  const isAlarm = equivMms >= 4.5 || maxPeak >= 4.5;
 
   return (
     <div className={`min-h-screen p-4 sm:p-6 flex flex-col justify-between transition-colors duration-300 ${isAlarm ? "bg-red-950/40 text-red-100" : "bg-background text-foreground"}`}>
@@ -160,9 +213,9 @@ export default function MobileSensorPage() {
           <Badge className="bg-[#003087] text-white border-0 text-[10px] font-mono">
             PAYPAL AI 2026 SENSOR
           </Badge>
-          <Badge variant="outline" className={active ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 text-[10px] font-mono flex items-center gap-1.5 animate-pulse" : "text-[10px] font-mono"}>
-            <span className={`size-1.5 rounded-full ${active ? "bg-emerald-400" : "bg-muted-foreground"}`}></span>
-            {active ? "LIVE MEMS CONNECTED" : "OFFLINE / TAP TO ACTIVATE"}
+          <Badge variant="outline" className="border-emerald-500/50 bg-emerald-500/10 text-emerald-300 text-[10px] font-mono flex items-center gap-1.5 animate-pulse">
+            <span className="size-1.5 rounded-full bg-emerald-400"></span>
+            {syncStatus === "syncing" || syncStatus === "connected" ? "LIVE STREAM ACTIVE ➔ LAPTOP" : active ? "MEMS ACTIVE" : "TAP TO ACTIVATE"}
           </Badge>
         </div>
         <div className="flex items-center justify-between">
@@ -175,7 +228,7 @@ export default function MobileSensorPage() {
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground">
-          Hold this phone and shake it to generate authentic physical vibration telemetry and trigger the ISO 10816 Zone C failure threshold.
+          Hold this phone and shake it. Vibration telemetry streams live into the laptop oscilloscope via Neon Cloud and trips the ISO 10816 Zone C failure threshold.
         </p>
       </div>
 
@@ -198,10 +251,13 @@ export default function MobileSensorPage() {
           </div>
           <span className="text-xs font-mono text-muted-foreground">mm/s RMS</span>
 
-          <div className="mt-2">
+          <div className="mt-2 flex flex-col items-center gap-1">
             <Badge variant="outline" className={`text-[10px] font-mono ${isAlarm ? "bg-red-500/20 text-red-300 border-red-500/40" : "bg-muted text-muted-foreground"}`}>
               {isAlarm ? "🚨 ZONE C / D EXCURSION" : "ZONE A: NOMINAL"}
             </Badge>
+            <span className="text-[10px] font-mono text-cyan-400 font-semibold">
+              Peak: {maxPeak.toFixed(2)} mm/s
+            </span>
           </div>
         </div>
 
