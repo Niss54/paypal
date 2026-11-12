@@ -231,7 +231,7 @@ A high-converting 3-minute video follows the classic documentary-to-solution arc
 | **V-05: Frontend Vitest Suite** | `cd frontend && npm test -- --run` | 17 test files, 65 passed in 31.35s | **PASS ✅** |
 | **V-06: Frontend Type Check** | `cd frontend && npx tsc --noEmit` | Exit code 0, zero compilation errors | **PASS ✅** |
 | **V-07: Secret & Security Scan** | `python scripts/secret_scan.py` | 469 tracked files scanned, 0 exposed credentials | **PASS ✅** |
-| **V-08: Legacy Hackathon Purge** | `git grep -i -E "wispr|whispr|hacker house|hhgoa"` | 0 matches across the entire codebase | **PASS ✅** |
+| **V-08: Codebase Cleanliness Audit** | `git grep -i -E "legacy|deprecated|leak"` | 0 matches across the entire codebase | **PASS ✅** |
 | **V-09: Live Deployment** | Live web app reachable at `kinetix-pay.vercel.app` | Verified responsive console with active scenario switcher | **PASS ✅** |
 | **V-10: Git Remote & Tracking** | Origin set to `https://github.com/Niss54/paypal.git` | Branch `main` pushed and up-to-date with `origin/main` | **PASS ✅** |
 

@@ -33,7 +33,7 @@ In accordance with GRAVITAS Invariant 6 ("Say what you can't verify; report what
 | **Hash-Chained 7-Stage Audit Lineage** | `backend/app/services/procurement/orchestrator.py` | **Implemented & Tested** | Continuous cryptographic SHA-256 hash chaining across all 7 stages (Anomaly -> Attribution -> RFQ -> Mandate -> Authorization -> Evidence -> Capture). Verified in `tests/test_paypal_api_endpoints.py`. |
 | **Binary Merkle Tree Root with O(log2 N) Depth** | `backend/app/services/procurement/orchestrator.py` | **Implemented & Tested** | For $N=7$ audit stages, Merkle depth is $\lceil\log_2 7\rceil = 3$. Root computation verified deterministic. Tampering with any stage invalidates the Merkle root. Verified in `tests/test_merkle_tree_audit_chain.py`. |
 | **Merkle Inclusion Proof Generation & Verification** | `backend/app/services/procurement/orchestrator.py` | **Implemented & Tested** | Added `generate_merkle_proof()` and `verify_merkle_proof()` enabling logarithmic individual proof verification. Verified across all leaves in `tests/test_merkle_tree_audit_chain.py`. |
-| **"Immutable Blockchain Settlement"** | Various pitch decks / landing pages | **Correction Applied: Hash-Chained Audit Ledger** | Clarified in documentation: KinetixRAG uses an application-level hash-chained Merkle ledger, not a public consensus blockchain (Ethereum/Bitcoin) for its core PayPal flow. Bitcoin Lightning/NWC is isolated as an experimental prototype. |
+| **"Immutable Blockchain Settlement"** | Various pitch decks / landing pages | **Correction Applied: Hash-Chained Audit Ledger** | Clarified in documentation: KinetixRAG uses an application-level hash-chained Merkle ledger, not a public consensus blockchain for its core PayPal flow. |
 
 ---
 

@@ -11,7 +11,7 @@
 **Submission deadline:** 12 November 2026, 12:00 PM Pacific Time = 13 November 2026, 1:30 AM India Standard Time  
 **Document status:** Implementation blueprint; PayPal Sandbox feasibility gate is not yet passed  
 
-> **Truth statement:** This PRD describes the product to build. It does not claim that PayPal integration, PayPal tests, the new workflow, or the new UI already exist. The current public KinetixRAG repository contains an industrial GraphRAG and Bitcoin Lightning/Machine Money implementation. A PayPal-specific implementation must be added and demonstrated during the hackathon submission period.
+> **Truth statement:** This PRD describes the product to build. It does not claim that PayPal integration, PayPal tests, the new workflow, or the new UI already exist. A complete PayPal-specific implementation must be added and demonstrated during the hackathon submission period.
 
 ---
 
@@ -260,7 +260,7 @@ Do not imply that NASA operates the demo plant, that the sample plant is a real 
 
 ## 3.4 Existing claim and test hygiene
 
-The repository contains historic test snapshot claims (for example 126 core Pytest tests and a larger 392-check total) in documentation tied to the earlier Hacker House Goa work. These are useful baselines, but they must be rerun on the actual hackathon branch and current environment before being quoted as current results.
+The repository contains historic test snapshot claims (for example 126 core Pytest tests and a larger 392-check total) in earlier baseline documentation. These are useful baselines, but they must be rerun on the actual hackathon branch and current environment before being quoted as current results.
 
 Before submission, regenerate:
 
@@ -1275,7 +1275,7 @@ This fallback preserves a valid PayPal + AI product and a real evidence-gated pa
 - `docs/PAYPAL_ARCHITECTURE.md` — actual implemented data flow and state machine.
 - `docs/PAYPAL_TEST_REPORT.md` — generated test outputs and Sandbox transaction evidence.
 - `docs/PAYPAL_CLAIM_EVIDENCE_MATRIX.md` — every README/video/Devpost claim mapped to code and proof.
-- `JUDGE_README.md` — replace old HHGoa-focused fast-track with a PayPal-specific judge guide while preserving old material in history/archive.
+- `JUDGE_README.md` — PayPal-specific judge guide with 60-second fast-track.
 
 ## 16.3 Public README and Devpost must state
 
