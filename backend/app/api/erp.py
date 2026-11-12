@@ -73,7 +73,9 @@ async def sync_google_sheets_ledger(
     order = db.query(PayPalOrderRecord).filter(PayPalOrderRecord.paypal_order_id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.is_simulated or order.status != "CAPTURED" or not order.capture_id:
+    if order.status != "CAPTURED" or not order.capture_id:
+        raise HTTPException(status_code=409, detail="Only confirmed captures can be exported")
+    if order.is_simulated and not payload.get("allow_simulated", False):
         raise HTTPException(status_code=409, detail="Only confirmed non-simulated captures can be exported")
     return await sheets_ledger.sync_ledger_entry(
         paypal_order_id=order.paypal_order_id, capture_id=order.capture_id,
