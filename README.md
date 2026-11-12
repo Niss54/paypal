@@ -85,15 +85,24 @@ Large language models are increasingly granted corporate card access and autonom
 
 ### 1. The Cost of Industrial Downtime ($260,000 / Hour)
 <img src="./docs/screenshots/evidence/siemens_downtime_cost.png" alt="Siemens Senseye Downtime Report" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 10px 0;" />
-<p align="center"><i>Siemens Senseye Predictive Maintenance Benchmark: Fortune Global 500 industrial facilities lose an average of $260,000 per hour of unplanned downtime — totaling $1.4 Trillion annually.</i></p>
+<p align="center">
+  <b>Siemens Senseye Industrial Benchmark:</b> Unplanned downtime costs Fortune Global 500 facilities an average of <b>$260,000 per hour</b> — totaling <b>$1.4 Trillion annually</b> (11% of corporate turnover).<br/>
+  🔗 <a href="https://blog.siemens.com/2023/04/the-true-cost-of-downtime/" target="_blank"><b>Verify Official Report: Siemens True Cost of Downtime</b></a> | <a href="https://reliamag.com/topics/articles/cost-unplanned-downtime-manufacturing" target="_blank">Reliability Magazine Benchmark</a>
+</p>
 
 ### 2. The Unacceptable Risk of Unconstrained Autonomous AI Agents
 <img src="./docs/screenshots/evidence/jamie_dimon_ai_agent_risk.png" alt="Jamie Dimon Banking Dive AI Agent Risk" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 10px 0;" />
-<p align="center"><i>Banking Dive & Financial Leadership Report: Autonomous AI agents cannot be given direct disbursement power without strict dual-control human-in-the-loop boundaries and cryptographic audit lineage.</i></p>
+<p align="center">
+  <b>Banking Dive & Financial Leadership Warning:</b> Autonomous AI agents cannot be granted unconstrained disbursement authority. JPMorgan CEO Jamie Dimon warns of an immediate <i>'liability transfer'</i> when external AI agents handle money, mandating strict dual-control gates.<br/>
+  🔗 <a href="https://www.bankingdive.com/news/jpmorgan-dimon-ai-agents-bank-customers-liability-transfer/832870/" target="_blank"><b>Verify Article: Banking Dive — Dimon Warns of 'Liability Transfer' With AI</b></a>
+</p>
 
-### 3. Supply Chain Vulnerability & Spoilage ($35 Billion / Year)
+### 3. Critical Cold Chain Spoilage ($35 Billion / Year)
 <img src="./docs/screenshots/evidence/freightwaves_cold_chain_spoilage.png" alt="FreightWaves Cold Chain Breakdown Report" width="850" style="border: 1px solid #334155; border-radius: 8px; margin: 10px 0;" />
-<p align="center"><i>FreightWaves Supply Chain Analytics: Over $35 Billion in biologics, vaccines, and perishables are discarded annually due to minor transport refrigeration compressor seal degradation during transit.</i></p>
+<p align="center">
+  <b>FreightWaves Supply Chain Analytics:</b> Over <b>$35 Billion</b> in vaccines, biologics, and perishable food are destroyed each year due to unmonitored compressor and seal failures during transport.<br/>
+  🔗 <a href="https://www.freightwaves.com/news/temperature-incursions-into-cold-storage-containers-cause-massive-food-waste" target="_blank"><b>Verify Report: FreightWaves — Temperature Incursions & Cold Storage Spoilage</b></a> | <a href="https://www.freightwaves.com/news/35-billion-saved-the-digital-shift-in-pharma-logistics" target="_blank">Pharma Logistics Report</a>
+</p>
 
 </div>
 
