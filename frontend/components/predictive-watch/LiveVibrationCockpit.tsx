@@ -705,7 +705,10 @@ export default function LiveVibrationCockpit() {
                       min={0}
                       max={NASA_STAGES.length - 1}
                       step={1}
-                      onValueChange={(val) => setNasaIndex(val[0])}
+                      onValueChange={(val) => {
+                        const n = Array.isArray(val) ? val[0] : (typeof val === "number" ? val : 0);
+                        setNasaIndex(n);
+                      }}
                       className="w-full"
                     />
                     <div className="text-[10px] text-muted-foreground leading-tight pt-1">
@@ -731,7 +734,10 @@ export default function LiveVibrationCockpit() {
                       min={10}
                       max={100}
                       step={5}
-                      onValueChange={(val) => setSynthUnbalance(val[0])}
+                      onValueChange={(val) => {
+                        const n = Array.isArray(val) ? val[0] : (typeof val === "number" ? val : 50);
+                        setSynthUnbalance(n);
+                      }}
                     />
                   </div>
                 </div>
