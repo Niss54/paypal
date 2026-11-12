@@ -130,7 +130,8 @@ export default function LiveVibrationCockpit() {
   // Anomaly & Incident Trigger State
   const [incidentTriggered, setIncidentTriggered] = useState<boolean>(false);
   const [qrModalOpen, setQrModalOpen] = useState<boolean>(false);
-  const [clientUrl, setClientUrl] = useState<string>("https://paypal-pink.vercel.app/sensor");
+  const LIVE_VERCEL_SENSOR_URL = "https://paypal-pink.vercel.app/sensor";
+  const [clientUrl, setClientUrl] = useState<string>(LIVE_VERCEL_SENSOR_URL);
 
   // History buffer for rolling canvas oscilloscope
   const historyRef = useRef<Array<{ x: number; y: number; z: number; mag: number }>>([]);
@@ -140,10 +141,14 @@ export default function LiveVibrationCockpit() {
   // Gravity baseline compensation tracking
   const gravityBaselineRef = useRef<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 9.81 });
 
-  // Initialize client URL for QR Code
+  // Initialize client URL for QR Code (Always use Vercel URL on localhost so phones can scan and reach it)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setClientUrl(`${window.location.origin}/sensor`);
+      if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        setClientUrl(`${window.location.origin}/sensor`);
+      } else {
+        setClientUrl(LIVE_VERCEL_SENSOR_URL);
+      }
     }
   }, []);
 

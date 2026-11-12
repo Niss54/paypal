@@ -160,16 +160,22 @@ export default function MobileSensorPage() {
           <Badge className="bg-[#003087] text-white border-0 text-[10px] font-mono">
             PAYPAL AI 2026 SENSOR
           </Badge>
-          <Badge variant="outline" className={active ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 text-[10px] font-mono" : "text-[10px] font-mono"}>
-            {active ? "LIVE MEMS CONNECTED" : "OFFLINE"}
+          <Badge variant="outline" className={active ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 text-[10px] font-mono flex items-center gap-1.5 animate-pulse" : "text-[10px] font-mono"}>
+            <span className={`size-1.5 rounded-full ${active ? "bg-emerald-400" : "bg-muted-foreground"}`}></span>
+            {active ? "LIVE MEMS CONNECTED" : "OFFLINE / TAP TO ACTIVATE"}
           </Badge>
         </div>
-        <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight flex items-center gap-2">
-          <Smartphone className="size-5 text-emerald-400" />
-          <span>Mobile Accelerometer Cockpit</span>
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight flex items-center gap-2">
+            <Smartphone className="size-5 text-cyan-400" />
+            <span>Industrial Sensor Transmitter</span>
+          </h1>
+          <Badge variant="outline" className="text-[10px] font-mono border-cyan-500/30 text-cyan-400 bg-cyan-950/20">
+            P-101A CM PUMP
+          </Badge>
+        </div>
         <p className="text-xs text-muted-foreground">
-          Hold your phone and shake it to trigger authentic physical vibration telemetry in the ISO 10816 anomaly pipeline.
+          Hold this phone and shake it to generate authentic physical vibration telemetry and trigger the ISO 10816 Zone C failure threshold.
         </p>
       </div>
 
