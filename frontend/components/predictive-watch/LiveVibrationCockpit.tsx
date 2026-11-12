@@ -254,20 +254,29 @@ export default function LiveVibrationCockpit() {
     let isMounted = true;
     const pollSensorStream = async () => {
       try {
-        const streamUrl = typeof window !== "undefined" && window.location.hostname.includes("vercel.app")
-          ? "/api/sensor-stream"
-          : "https://paypal-pink.vercel.app/api/sensor-stream";
+        // Try relative /api/sensor-stream first
+        let res = await fetch("/api/sensor-stream", { cache: "no-store" }).catch(() => null);
+        let json = res && res.ok ? await res.json().catch(() => null) : null;
+        let diff = json?.data?.updated_at ? Date.now() - new Date(json.data.updated_at).getTime() : 999999;
 
-        const res = await fetch(streamUrl, { cache: "no-store" });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!json.success || !json.data) return;
+        // If stale or idle on localhost, poll production Vercel cloud bridge
+        if (diff > 15000 && typeof window !== "undefined" && !window.location.hostname.includes("vercel.app")) {
+          const vRes = await fetch("https://paypal-pink.vercel.app/api/sensor-stream", { cache: "no-store" }).catch(() => null);
+          if (vRes && vRes.ok) {
+            const vJson = await vRes.json().catch(() => null);
+            if (vJson?.data) {
+              json = vJson;
+              diff = Date.now() - new Date(vJson.data.updated_at).getTime();
+            }
+          }
+        }
 
-        const { ax, ay, az, rms, peak, breached, updated_at } = json.data;
-        const timeDiff = Date.now() - new Date(updated_at).getTime();
+        if (!json || !json.data) return;
 
-        // If updated within the last 20 seconds, treat as live phone transmission!
-        if (timeDiff < 20000 && isMounted) {
+        const { ax, ay, az, rms, peak, breached } = json.data;
+
+        // If packet arrived within 25 seconds, stream it live to the oscilloscope!
+        if (diff < 25000 && isMounted) {
           setCloudStreamActive(true);
           const currentRms = Number(rms || 1.25);
           setReading({
